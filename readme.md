@@ -85,12 +85,12 @@ DayPilot is not a single agent. It is a **coordinated multi-agent system** where
 | Coordinator Agent | — | gemini-3.1-pro-preview | Orchestrates all agents, handles user chat |
 | Ingestion Agent | — | gemini-3.1-flash-lite | Cold start + ongoing data ingestion |
 | Memory Agent | — | — | Reads/writes Knowledge Graph (MongoDB) |
-| Health & Energy Agent | Vatsal | gemini-3.5-flash | Analyzes energy, sleep, cognitive readiness |
-| Goal Tracking Agent | Astrid | gemini-3.5-flash | Tracks weekly goals, deadlines, progress |
+| Health & Energy Agent | Vatsal | gemini-3.1-pro-preview | Analyzes energy, sleep, cognitive readiness |
+| Goal Tracking Agent | Astrid | gemini-2.5-flash | Tracks weekly goals, deadlines, progress |
 | Relationship & Context Agent | — | gemini-3.1-pro-preview | People, anniversaries, social context |
 | Schedule Planning Agent | Jingyuan | gemini-3.1-pro-preview | Generates optimized daily schedule options |
 | Geo Agent | — | gemini-3.5-flash | Commute time, route planning, location awareness |
-| Real-time Adjustment Agent | Yuqing | gemini-3.5-flash | Monitors disruptions, dynamically replans |
+| Real-time Adjustment Agent | Yuqing | gemini-2.5-flash | Monitors disruptions, dynamically replans |
 
 ### Agent interaction flow
 
@@ -387,7 +387,7 @@ No agent writes directly to MongoDB. All database access is mediated by Memory A
 ### Core
 | Layer | Technology |
 |---|---|
-| LLM | gemini-3.1-pro-preview / gemini-3.5-flash / gemini-3.1-flash-lite |
+| LLM | gemini-3.1-pro-preview / gemini-2.5-flash / gemini-3.1-flash-lite |
 | Agent framework | Google Cloud Agent Builder |
 | Backend | Python + FastAPI |
 | Database | MongoDB Atlas (Knowledge Graph) |
