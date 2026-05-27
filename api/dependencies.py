@@ -25,3 +25,7 @@ def get_coordinator() -> CoordinatorAgent:
 
 def get_realtime() -> RealtimeAgent:
     return RealtimeAgent()
+
+
+def get_schedule() -> ScheduleAgent:
+    return ScheduleAgent()
