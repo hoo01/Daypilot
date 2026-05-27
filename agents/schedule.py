@@ -222,6 +222,32 @@ def _enforce_constraints(output: ScheduleOutput, inp: ScheduleInput) -> Schedule
     locked = inp.locked_blocks
     recurring = inp.recurring_tasks
 
+    # ── Normalize: locked_blocks take precedence — drop calendar_events that overlap them ──
+    if locked:
+        locked_intervals = []
+        for lb in locked:
+            try:
+                locked_intervals.append((_naive_dt(lb.start_time), _naive_dt(lb.end_time)))
+            except Exception:
+                pass
+
+        def _overlaps_any_locked(event) -> bool:
+            try:
+                e_start = _naive_dt(event.start_time)
+                e_end = _naive_dt(event.end_time)
+            except Exception:
+                return False
+            for lb_start, lb_end in locked_intervals:
+                if e_start < lb_end and lb_start < e_end:  # strict overlap; touching is fine
+                    return True
+            return False
+
+        filtered_calendar_events = [
+            e for e in inp.calendar_events if not _overlaps_any_locked(e)
+        ]
+    else:
+        filtered_calendar_events = list(inp.calendar_events)
+
     # ── Pre-build lookup sets for replan + location enforcement ──────────────
 
     # For Task 1: sets to identify "allowed" tasks before replan_from_time
@@ -237,13 +263,13 @@ def _enforce_constraints(output: ScheduleOutput, inp: ScheduleInput) -> Schedule
 
     # calendar events: match by (title, start_time datetime)
     cal_title_time: set[tuple[str, datetime]] = {
-        (e.title, _naive_dt(e.start_time)) for e in inp.calendar_events
+        (e.title, _naive_dt(e.start_time)) for e in filtered_calendar_events
     }
 
     # For Task 2: map (title, start_time datetime) → original location
     cal_location_map: dict[tuple[str, datetime], str | None] = {
         (e.title, _naive_dt(e.start_time)): e.location
-        for e in inp.calendar_events
+        for e in filtered_calendar_events
     }
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -286,9 +312,9 @@ def _enforce_constraints(output: ScheduleOutput, inp: ScheduleInput) -> Schedule
         # ── Task 1.5: inject / restore frozen calendar events before replan ──
         # Gemini sometimes omits calendar events that are before replan_from_time.
         # Guarantee their presence with original data (title, start/end, location).
-        if replan_dt is not None and inp.calendar_events:
+        if replan_dt is not None and filtered_calendar_events:
             frozen_events = [
-                e for e in inp.calendar_events
+                e for e in filtered_calendar_events
                 if _naive_dt(e.start_time) < replan_dt
             ]
             for event in frozen_events:
