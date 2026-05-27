@@ -14,7 +14,7 @@
 | **Vatsal** | Health & Energy Agent | `agents/health.py` | 🟡 Stub ready |
 | **Astrid** | Goal Tracking Agent | `agents/goals.py` | 🟡 Stub ready |
 | **Jingyuan** | Schedule Planning Agent | `agents/schedule.py` | 🟡 Stub ready |
-| **Jingyuan** | Coordinator Agent | `agents/coordinator.py` | 🟡 Stub ready |
+| **Unassigned** | Coordinator Agent | `agents/coordinator.py` | 🟡 Stub ready |
 | **Shared** | Memory Agent (implemented) | `agents/memory.py` | 🟢 Ready |
 | **Unassigned** | Geo Agent | `agents/geo.py` | 🟡 Stub ready |
 
