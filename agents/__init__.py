@@ -1,21 +1,5 @@
-from .coordinator import CoordinatorAgent
-from .ingestion import IngestionAgent
+from .coordinator import coordinator
 from .memory import MemoryAgent
-from .health import HealthAgent
-from .goals import GoalsAgent
-from .relationship import RelationshipAgent
-from .schedule import ScheduleAgent
-from .geo import GeoAgent
-from .realtime import RealtimeAgent
+from .ingestion import IngestionAgent
 
-__all__ = [
-    "CoordinatorAgent",
-    "IngestionAgent",
-    "MemoryAgent",
-    "HealthAgent",
-    "GoalsAgent",
-    "RelationshipAgent",
-    "ScheduleAgent",
-    "GeoAgent",
-    "RealtimeAgent",
-]
+__all__ = ["coordinator", "MemoryAgent", "IngestionAgent"]

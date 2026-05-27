@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db import close_db
-from api.routes import chat, schedule
+from api.routes import chat, schedule, auth
 
 app = FastAPI(title="DayPilot", version="0.1.0")
 
@@ -14,6 +14,7 @@ app.add_middleware(
 
 app.include_router(chat.router)
 app.include_router(schedule.router)
+app.include_router(auth.router)
 
 
 @app.on_event("shutdown")

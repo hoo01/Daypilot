@@ -1,12 +1,13 @@
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-motor==3.5.1              # async MongoDB driver
-pymongo==4.8.0
-pydantic==2.8.2
-pydantic-settings==2.4.0
+fastapi>=0.124.1
+uvicorn[standard]
+motor
+pymongo
+pydantic>=2.0
+pydantic-settings>=2.0
+google-adk>=2.0.0
 google-genai>=1.0.0
-google-auth==2.34.0
-google-auth-oauthlib==1.2.1
-google-api-python-client==2.143.0
-python-dotenv==1.0.1
-httpx==0.27.2
+google-auth
+google-auth-oauthlib
+google-api-python-client
+python-dotenv
+httpx
