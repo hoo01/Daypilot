@@ -5,18 +5,18 @@ class Settings(BaseSettings):
     gemini_api_key: str
 
     # 重推理 agents
-    coordinator_model: str = "gemini-3.1-pro-preview"
-    planning_model: str = "gemini-3.1-pro-preview"
-    relationship_model: str = "gemini-3.1-pro-preview"
+    coordinator_model: str = "gemini-2.5-flash"
+    planning_model: str = "gemini-2.5-flash"
+    relationship_model: str = "gemini-2.5-flash"
 
     # 高速 worker agents
-    health_model: str = "gemini-3.5-flash"
-    goal_model: str = "gemini-3.5-flash"
-    realtime_model: str = "gemini-3.5-flash"
-    geo_model: str = "gemini-3.5-flash"
+    health_model: str = "gemini-2.5-flash"
+    goal_model: str = "gemini-2.5-flash"
+    realtime_model: str = "gemini-2.5-flash"
+    geo_model: str = "gemini-2.5-flash"
 
     # 数据摄入
-    ingestion_model: str = "gemini-3.1-flash-lite"
+    ingestion_model: str = "gemini-2.5-flash-lite"
 
     mongodb_uri: str
     mongodb_db_name: str = "daypilot"
