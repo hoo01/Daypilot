@@ -8,34 +8,47 @@
 
 | Member | Agent | File | Status |
 |---|---|---|---|
-| **Yuqing** | Ingestion Agent (cold start) | `agents/ingestion.py` | 🔴 Not started |
-| **Yuqing** | Relationship & Context Agent | `agents/relationship.py` | 🟡 Stub ready |
-| **Yuqing** | Real-time Adjustment Agent | `agents/realtime.py` | 🟡 Stub ready |
-| **Vatsal** | Health & Energy Agent | `agents/health.py` | 🟡 Stub ready |
-| **Astrid** | Goal Tracking Agent | `agents/goals.py` | 🟡 Stub ready |
-| **Jingyuan** | Schedule Planning Agent | `agents/schedule.py` | 🟡 Stub ready |
-| **Unassigned** | Coordinator Agent | `agents/coordinator.py` | 🟡 Stub ready |
-| **Shared** | Memory Agent (implemented) | `agents/memory.py` | 🟢 Ready |
-| **Unassigned** | Geo Agent | `agents/geo.py` | 🟡 Stub ready |
+| **Yuqing** | Ingestion Agent (cold start) | `agents/ingestion.py` | 🟢 Ready |
+| **Yuqing** | Relationship & Context Agent | `agents/tools/relationship_tools.py` | 🟢 Ready |
+| **Yuqing** | Real-time Adjustment Agent | `agents/tools/realtime_tools.py` | 🟢 Ready |
+| **Vatsal** | Health & Energy Agent | `agents/tools/health_tools.py` | 🟡 Stub ready |
+| **Astrid** | Goal Tracking Agent | `agents/tools/goal_tools.py` | 🟡 Stub ready |
+| **Jingyuan** | Schedule Planning Agent | `agents/tools/schedule_tools.py` | 🟡 Stub ready |
+| **Shared** | Coordinator Agent | `agents/coordinator.py` | 🟢 Ready |
+| **Shared** | Memory Agent | `agents/memory.py` | 🟢 Ready |
+| **Unassigned** | Geo Agent | `agents/tools/geo_tools.py` | 🟡 Stub ready |
 
 ### How to implement your agent
 
-1. Open your agent file and find the `# TODO` comments
-2. Input/output schemas are defined in `schemas/` — do not modify them
-3. Uncomment the `await self._generate(prompt)` call and refine the prompt
-4. Parse the Gemini JSON response and return the corresponding Output schema object
-5. A working stub return value is already in place — replace it once your implementation is ready
+All agents are now **ADK tool functions** — plain async Python functions registered on the coordinator.
+
+1. Open your file in `agents/tools/` (e.g. `health_tools.py`)
+2. Find the `# TODO` comments inside the async function
+3. Call Gemini directly using `genai.Client` (see `relationship_tools.py` as a working example)
+4. Parse the JSON response and return a plain `dict`
+5. Input/output schemas are in `schemas/` — your return dict should match the Output schema fields
+6. The stub already returns a valid dict — replace it once your implementation is ready
+
+Reference implementation: [agents/tools/relationship_tools.py](agents/tools/relationship_tools.py)
 
 ### Quick start
 
 ```bash
-# 1. Copy env file and fill in your keys
-cp .env.example .env
+# 1. Create your .env file with the following keys:
+#    GEMINI_API_KEY=...        # get from aistudio.google.com
+#    MONGODB_URI=...           # ask Yuqing for the shared Atlas URI
+#    MONGODB_DB_NAME=daypilot
+#    GOOGLE_CLIENT_ID=
+#    GOOGLE_CLIENT_SECRET=
+#    APP_SECRET_KEY=change_me_in_production
 
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Start the server
+# 3. (Optional) Seed demo data into MongoDB
+python scripts/seed_demo.py
+
+# 4. Start the server
 python main.py
 # → http://localhost:8000/docs  to explore all API endpoints
 ```
