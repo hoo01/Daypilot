@@ -12,7 +12,7 @@
 | **Yuqing** | Relationship & Context Agent | `agents/relationship.py` | 🟡 Stub ready |
 | **Yuqing** | Real-time Adjustment Agent | `agents/realtime.py` | 🟡 Stub ready |
 | **Vatsal** | Health & Energy Agent | `agents/health.py` | 🟡 Stub ready |
-| **Astrid** | Goal Tracking Agent | `agents/goals.py` | 🟡 Stub ready |
+| **Astrid** | Goal Tracking Agent | `agents/goals.py` | 🟢 Ready |
 | **Jingyuan** | Schedule Planning Agent | `agents/schedule.py` | 🟡 Stub ready |
 | **Jingyuan** | Coordinator Agent | `agents/coordinator.py` | 🟡 Stub ready |
 | **Shared** | Memory Agent (implemented) | `agents/memory.py` | 🟢 Ready |
