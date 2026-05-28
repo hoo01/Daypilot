@@ -1,0 +1,73 @@
+[
+  {
+    "name": "feasibility_infeasible_three_options_proposal",
+    "description": "Goal intake reaches feasibility stage; Calendar and Memory data make the goal infeasible. Agent must present exactly 3 concrete options.",
+    "initial_session_state": {
+      "input": {
+        "user_id": "u003",
+        "intent": "add_goal",
+        "raw_user_message": "I want to solve 20 Leetcode hard problems in 2 days.",
+        "health": {
+          "energy_score": 0.4,
+          "focus_windows": [],
+          "cognitive_load": 0.7
+        },
+        "memory_context": "User typically completes Leetcode goals 40% slower than estimated. Short-deadline goals (<3 days) have 70% abandonment rate.",
+        "calendar_free_slots": [
+          {
+            "start": "2026-05-28T09:00:00Z",
+            "end": "2026-05-28T11:00:00Z",
+            "duration_minutes": 120
+          }
+        ]
+      }
+    },
+    "turns": [
+      {
+        "user_content": {
+          "role": "user",
+          "parts": [
+            {
+              "text": "I want to solve 20 Leetcode hard problems in 2 days."
+            }
+          ]
+        },
+        "expected_tool_use": [
+          {
+            "tool_name": "list_active_goals",
+            "tool_input": {
+              "user_id": "u003"
+            }
+          }
+        ],
+        "reference": "Based on your history, similar goals typically take ~40% longer than planned. Suggested adjustments: A. Extend deadline to 4 days, B. Reduce target to 9 problems, C. Keep original goal \u2014 I will send daily reminders to help you stay on track."
+      }
+    ],
+    "pass_criteria": {
+      "final_state_checks": [
+        {
+          "key": "feasibility.proposal.option_count",
+          "expected": 3
+        },
+        {
+          "key": "feasibility.time.feasible",
+          "expected": false
+        }
+      ],
+      "response_checks": [
+        {
+          "turn": 0,
+          "assert_response_contains": [
+            "A.",
+            "B.",
+            "C."
+          ]
+        },
+        {
+          "turn": 0,
+          "assert_options_count": 3
+        }
+      ]
+    }
+  }
+]

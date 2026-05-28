@@ -1,0 +1,91 @@
+[
+  {
+    "name": "daily_output_goalsub_task_schema_compliance",
+    "description": "Schema-level eval: GoalSubTask in daily output payload must not contain planned_date. Fails if planned_date appears anywhere in the output.",
+    "initial_db_state": {
+      "goals": [
+        {
+          "goal_id": "g020",
+          "user_id": "u010",
+          "title": "Complete project proposal",
+          "status": "IN_PROGRESS",
+          "deadline": "2026-05-30",
+          "feasibility_score": 0.8,
+          "feasibility_note": "",
+          "total_effort_minutes": 240,
+          "suggested_blocks_count": 3,
+          "suggested_split_ratio": [
+            0.4,
+            0.4,
+            0.2
+          ],
+          "urgency": "high",
+          "sub_tasks": [
+            {
+              "sub_task_id": "st1",
+              "goal_id": "g020",
+              "title": "Write executive summary",
+              "estimated_minutes": 60,
+              "priority": "high",
+              "deadline": "2026-05-29",
+              "preferred_time_of_day": "morning",
+              "can_split": false,
+              "is_completed": false,
+              "completed_at": null,
+              "planned_date": "2026-05-28"
+            }
+          ]
+        }
+      ]
+    },
+    "turns": [
+      {
+        "user_content": {
+          "role": "user",
+          "parts": [
+            {
+              "text": "EVENT:daily_output_push",
+              "event_payload": {
+                "user_id": "u010"
+              }
+            }
+          ]
+        },
+        "expected_tool_use": [
+          {
+            "tool_name": "list_active_goals",
+            "tool_input": {
+              "user_id": "u010"
+            }
+          }
+        ],
+        "reference": ""
+      }
+    ],
+    "pass_criteria": {
+      "response_checks": [
+        {
+          "assert_status_code": 200
+        }
+      ],
+      "schema_checks": [
+        {
+          "model": "GoalSubTask",
+          "assert_field_absent": "planned_date",
+          "description": "GoalSubTask in daily output must not expose planned_date even though SubTask in DB has it"
+        },
+        {
+          "assert_output_fields_exact": [
+            "title",
+            "estimated_minutes",
+            "priority",
+            "deadline",
+            "preferred_time_of_day",
+            "can_split"
+          ],
+          "model": "GoalSubTask"
+        }
+      ]
+    }
+  }
+]

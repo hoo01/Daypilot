@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# Environment variables — keep the example, never the real one
+.env
+.env.*
+!.env.example
+
+# Distribution / build
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+
+# uv
+.uv/
+
+# Test & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+.pyright/
+
+# Google service account keys
+*-sa.json
+*-service-account.json
+service_account*.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
