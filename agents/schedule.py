@@ -74,7 +74,17 @@ def _build_prompt(inp: ScheduleInput) -> str:
     goal_status = goals.goal_status if goals else "on_track"
     goal_progress = goals.progress_percent if goals else 0.0
     goal_urgency = goals.urgency if goals else "medium"
-    goal_blocks = ", ".join(goals.suggested_blocks) if goals and goals.suggested_blocks else "(none)"
+    if goals and goals.daily_sub_tasks:
+        _lines = "\n".join(
+            f'- "{t.title}" ({t.estimated_minutes} min, priority: {t.priority})'
+            for t in goals.daily_sub_tasks
+        )
+        goal_sub_tasks_section = f"Goal sub-tasks for today:\n{_lines}"
+    elif goals and goals.suggested_blocks:
+        _lines = "\n".join(f"- {b}" for b in goals.suggested_blocks)
+        goal_sub_tasks_section = f"Goal focus blocks for today:\n{_lines}"
+    else:
+        goal_sub_tasks_section = "(no goal sub-tasks for today)"
 
     if inp.recurring_tasks:
         lines = []
@@ -150,7 +160,7 @@ Avoid: {health_avoid}
 Status: {goal_status}
 Progress: {goal_progress}%
 Urgency: {goal_urgency}
-Suggested focus: {goal_blocks}
+{goal_sub_tasks_section}
 
 ## Recurring Tasks (MUST be scheduled today)
 {recurring_section}
