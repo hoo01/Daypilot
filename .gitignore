@@ -1,10 +1,42 @@
+# Python
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+*.pyw
+*.pyz
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
 .venv/
 venv/
-*.egg-info/
-.history/
+env/
+
+# Environment / secrets
 .env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Local / scratch
 _local/
+.history/
