@@ -1,6 +1,6 @@
 from .entities import Entity, EntityType, Relation, UpcomingEvent
 from .health import HealthInput, HealthOutput
-from .goals import GoalsInput, GoalsOutput, GoalItem
+from .goals import GoalsInput, GoalsOutput, GoalSubTask
 from .relationship import RelationshipInput, RelationshipOutput, UpcomingDate
 from .schedule import ScheduleInput, ScheduleOutput, ScheduleStrategy, ScheduleTask
 from .geo import GeoInput, GeoOutput
