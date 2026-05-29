@@ -4,7 +4,6 @@ from .memory import MemoryAgent
 from .health import HealthAgent
 from .goals import GoalsAgent
 from .relationship import RelationshipAgent
-from .schedule import ScheduleAgent
 from .geo import GeoAgent
 from .realtime import RealtimeAgent
 
@@ -15,7 +14,6 @@ __all__ = [
     "HealthAgent",
     "GoalsAgent",
     "RelationshipAgent",
-    "ScheduleAgent",
     "GeoAgent",
     "RealtimeAgent",
 ]

@@ -5,12 +5,12 @@ Orchestrator. The only agent that talks directly to the user.
 Uses ReAct (Reason + Act) pattern: evaluates context, selects agents, merges results.
 """
 import json
+from typing import Any
 from agents.base import BaseAgent
 from agents.memory import MemoryAgent
 from agents.health import HealthAgent
 from agents.goals import GoalsAgent
 from agents.relationship import RelationshipAgent
-from agents.schedule import ScheduleAgent
 from agents.geo import GeoAgent
 from agents.realtime import RealtimeAgent
 from schemas import (
@@ -31,7 +31,7 @@ class CoordinatorAgent(BaseAgent):
         health: HealthAgent,
         goals: GoalsAgent,
         relationship: RelationshipAgent,
-        schedule: ScheduleAgent,
+        schedule: Any,  # Schedule_Planning_Agent — call via HTTP POST /schedule/generate
         geo: GeoAgent,
         realtime: RealtimeAgent,
     ):
