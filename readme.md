@@ -13,8 +13,8 @@
 | **Yuqing** | Real-time Adjustment Agent | `agents/realtime.py` | 🟡 Stub ready |
 | **Vatsal** | Health & Energy Agent | `agents/health.py` | 🟡 Stub ready |
 | **Astrid** | Goal Tracking Agent | `agents/goals.py` | 🟢 Ready |
-| **Jingyuan** | Schedule Planning Agent | `agents/schedule.py` | 🟡 Stub ready |
-| **Jingyuan** | Coordinator Agent | `agents/coordinator.py` | 🟡 Stub ready |
+| **Jingyuan** | Schedule Planning Agent | `agents/schedule.py` | 🟢 Ready |
+| **Unassigned** | Coordinator Agent | `agents/coordinator.py` | 🟡 Stub ready |
 | **Shared** | Memory Agent (implemented) | `agents/memory.py` | 🟢 Ready |
 | **Unassigned** | Geo Agent | `agents/geo.py` | 🟡 Stub ready |
 
