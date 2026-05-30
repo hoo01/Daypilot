@@ -1,0 +1,18 @@
+# Secrets — never commit live credentials
+.env
+
+# Longitudinal memory store (user data, not source code)
+memory/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# macOS
+.DS_Store

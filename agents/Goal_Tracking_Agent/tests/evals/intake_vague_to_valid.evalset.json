@@ -1,0 +1,102 @@
+[
+  {
+    "name": "intake_vague_goal_requires_clarification",
+    "description": "Multi-turn intake: vague goal triggers validation loop, agent asks clarifying questions over 2 turns until all 3 dimensions are satisfied.",
+    "initial_session_state": {
+      "input": {
+        "user_id": "u002",
+        "intent": "add_goal",
+        "raw_user_message": "I want to study more.",
+        "health": {
+          "energy_score": 0.6,
+          "focus_windows": [],
+          "cognitive_load": 0.4
+        },
+        "memory_context": "",
+        "calendar_free_slots": [
+          {
+            "start": "2026-05-28T14:00:00Z",
+            "end": "2026-05-28T17:00:00Z",
+            "duration_minutes": 180
+          }
+        ]
+      }
+    },
+    "turns": [
+      {
+        "user_content": {
+          "role": "user",
+          "parts": [
+            {
+              "text": "I want to study more."
+            }
+          ]
+        },
+        "expected_tool_use": [
+          {
+            "tool_name": "start_intake_session",
+            "tool_input": {
+              "user_id": "u002"
+            }
+          },
+          {
+            "tool_name": "save_intake_draft",
+            "tool_input": {
+              "stage": "validating"
+            }
+          }
+        ],
+        "reference": "What would count as completing this goal \u2014 is there a number, a deliverable, or a specific outcome you're aiming for?"
+      },
+      {
+        "user_content": {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Finish 3 chapters of my OS textbook by next Friday."
+            }
+          ]
+        },
+        "expected_tool_use": [
+          {
+            "tool_name": "append_intake_turn",
+            "tool_input": {}
+          },
+          {
+            "tool_name": "save_intake_draft",
+            "tool_input": {
+              "stage": "decomposing"
+            }
+          }
+        ],
+        "reference": "Got it. I'll break that down into sub-tasks for each chapter."
+      }
+    ],
+    "pass_criteria": {
+      "final_state_checks": [
+        {
+          "key": "validation.passed",
+          "expected": true
+        },
+        {
+          "key": "intake.draft.title",
+          "expected_contains": "3 chapters"
+        },
+        {
+          "key": "intake.stage",
+          "expected": "decomposing"
+        }
+      ],
+      "response_checks": [
+        {
+          "turn": 0,
+          "assert_response_does_not_contain": [
+            "invalid",
+            "rejected",
+            "fail"
+          ]
+        }
+      ]
+    }
+  }
+]

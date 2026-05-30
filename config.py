@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     mongodb_uri: str
     mongodb_db_name: str = "daypilot"
 
-    google_client_id: str
-    google_client_secret: str
+    google_client_id: str = ""
+    google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/auth/callback"
 
     app_env: str = "development"

@@ -11,9 +11,9 @@
 | **Yuqing** | Ingestion Agent (cold start) | `agents/ingestion.py` | 🟢 Ready |
 | **Yuqing** | Relationship & Context Agent | `agents/tools/relationship_tools.py` | 🟢 Ready |
 | **Yuqing** | Real-time Adjustment Agent | `agents/tools/realtime_tools.py` | 🟢 Ready |
-| **Vatsal** | Health & Energy Agent | `agents/tools/health_tools.py` | 🟡 Stub ready |
-| **Astrid** | Goal Tracking Agent | `agents/tools/goal_tools.py` | 🟡 Stub ready |
-| **Jingyuan** | Schedule Planning Agent | `agents/tools/schedule_tools.py` | 🟡 Stub ready |
+| **Vatsal** | Health & Energy Agent | `agents/health-agent/` | 🟢 Ready |
+| **Astrid** | Goal Tracking Agent | `agents/Goal_Tracking_Agent/` | 🟢 Ready |
+| **Jingyuan** | Schedule Planning Agent | `agents/Schedule_Planning_Agent/` | 🟢 Ready |
 | **Shared** | Coordinator Agent | `agents/coordinator.py` | 🟢 Ready |
 | **Shared** | Memory Agent | `agents/memory.py` | 🟢 Ready |
 | **Unassigned** | Geo Agent | `agents/tools/geo_tools.py` | 🟡 Stub ready |

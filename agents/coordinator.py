@@ -1,4 +1,7 @@
+import os
 from google.adk.agents import Agent
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioConnectionParams
+from mcp import StdioServerParameters
 from config import settings
 from agents.tools import (
     read_user_context,
@@ -28,9 +31,23 @@ call write_entity_to_memory to persist it to the Knowledge Graph immediately.
 When something in the user's day changes (new meeting, running late, energy drop),
 call adjust_schedule to dynamically replan.
 
+You also have direct access to the MongoDB Knowledge Graph via MCP tools.
+Use these when you need to answer specific questions about stored user data that the
+specialist tools don't cover.
+
 Always be proactive — surface insights the user hasn't asked for yet.
 Keep responses concise and action-oriented.
 """
+
+mongo_mcp = MCPToolset(
+    connection_params=StdioConnectionParams(
+        server_params=StdioServerParameters(
+            command="npx",
+            args=["-y", "mongodb-mcp-server"],
+            env={**os.environ, "MDB_MCP_CONNECTION_STRING": settings.mongodb_uri},
+        ),
+    )
+)
 
 coordinator = Agent(
     name="daypilot_coordinator",
@@ -46,5 +63,6 @@ coordinator = Agent(
         plan_schedule,
         get_geo_info,
         adjust_schedule,
+        mongo_mcp,
     ],
 )
