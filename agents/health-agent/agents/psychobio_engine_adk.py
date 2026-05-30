@@ -6,8 +6,9 @@ Usage:
     python -m agents.psychobio_engine_adk --scenario progressive_work_burnout --date 2026-06-20
     python -m agents.psychobio_engine_adk --scenario training_overreach --model gemini-2.5-flash
 
-This file is the ADK equivalent of the LangGraph psychobio_engine.py CLI.
-Same diagnostic output format. Same scenario paths. Different graph backend.
+Config is loaded via config.py (pydantic_settings.BaseSettings / .env),
+aligning with the root monolith's configuration pattern.
+The --model flag overrides NODE4_MODEL at runtime without touching the .env.
 """
 
 from __future__ import annotations
@@ -29,19 +30,6 @@ SCENARIO_DATA_DIRS = {
     "healthy_baseline":         "datasets/healthy_baseline",
     "emotional_volatility":     "datasets/emotional_volatility",
 }
-
-
-def _load_env(env_path: Path) -> None:
-    """Load .env file without requiring python-dotenv."""
-    if not env_path.exists():
-        return
-    for line in env_path.read_text().splitlines():
-        line = line.strip()
-        if line and not line.startswith("#") and "=" in line:
-            k, _, v = line.partition("=")
-            v = v.strip()
-            if v and k.strip() not in os.environ:
-                os.environ[k.strip()] = v
 
 
 def print_diagnostic(state: dict, repo: Any) -> None:
@@ -133,8 +121,9 @@ def print_diagnostic(state: dict, repo: Any) -> None:
 
 
 async def main() -> None:
-    # Load .env from repo root
-    _load_env(REPO_ROOT / ".env")
+    # config.py (pydantic_settings) handles .env loading automatically.
+    # No manual env-file parsing needed.
+    from config import settings
 
     parser = argparse.ArgumentParser(description="PsychoBio Engine — ADK")
     parser.add_argument(
@@ -145,21 +134,24 @@ async def main() -> None:
     parser.add_argument(
         "--date",
         default=None,
-        help="YYYY-MM-DD target date. Defaults to last day in data.",
+        help="YYYY-MM-DD target date. Defaults to last day in HealthKit data.",
     )
     parser.add_argument(
         "--model",
         default=None,
-        help="Gemini model for Node 4 (e.g. gemini-2.5-pro). Overrides NODE4_MODEL env var.",
+        help=(
+            f"Gemini model for Node 4 (e.g. gemini-2.5-pro). "
+            f"Overrides NODE4_MODEL env var and config default ({settings.node4_model})."
+        ),
     )
     args = parser.parse_args()
 
+    # Runtime model override: set env var so _insights_engine_fn picks it up
     if args.model:
         os.environ["NODE4_MODEL"] = args.model
 
     run_dir = str(REPO_ROOT / SCENARIO_DATA_DIRS[args.scenario])
 
-    # Import here so env vars are set before module-level constants are read
     from agents.tools.data_tools import DataRepository
     from agents.graph_orchestrator import run_pipeline
 
@@ -168,12 +160,12 @@ async def main() -> None:
     if args.date:
         target_date = args.date
     else:
-        dates = [r["summary_date"] for r in repo._hk]
-        target_date = sorted(dates)[-1]
+        hk_dates = [r["summary_date"] for r in repo._hk]
+        target_date = sorted(hk_dates)[-1]
 
     print(f"Running scenario '{args.scenario}' for date {target_date} [ADK]")
     print(f"Run dir: {run_dir}")
-    print(f"Node 4 model: {os.environ.get('NODE4_MODEL', 'gemini-2.5-flash')}")
+    print(f"Node 4 model: {os.environ.get('NODE4_MODEL', settings.node4_model)}")
 
     final_state = await run_pipeline(
         user_id="user_001",

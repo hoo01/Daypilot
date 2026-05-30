@@ -278,6 +278,10 @@ class DataRepository:
     def get_manifest_entry(self, target_date: str) -> dict:
         return self._manifest_by_date.get(target_date, {})
 
+    def get_strava_summary(self) -> list[dict]:
+        """Return the full list of Strava summary activity records."""
+        return self._strava_summary
+
 
 # ── Optional ADK-callable tool wrappers ──────────────────────────────────────
 # These allow a future LlmAgent node to call them as tools.

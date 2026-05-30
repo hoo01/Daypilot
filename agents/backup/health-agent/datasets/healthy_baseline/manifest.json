@@ -1,0 +1,302 @@
+[
+  {
+    "day_index": 0,
+    "date": "2026-05-28",
+    "psychological_load": 0.1644,
+    "physical_load": 0.3264,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 1,
+    "date": "2026-05-29",
+    "psychological_load": 0.1941,
+    "physical_load": 0.3358,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 2,
+    "date": "2026-05-30",
+    "psychological_load": 0.1605,
+    "physical_load": 0.279,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 3,
+    "date": "2026-05-31",
+    "psychological_load": 0.1753,
+    "physical_load": 0.3227,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 4,
+    "date": "2026-06-01",
+    "psychological_load": 0.1672,
+    "physical_load": 0.3196,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 5,
+    "date": "2026-06-02",
+    "psychological_load": 0.1917,
+    "physical_load": 0.2425,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 6,
+    "date": "2026-06-03",
+    "psychological_load": 0.1969,
+    "physical_load": 0.0814,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": true,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 7,
+    "date": "2026-06-04",
+    "psychological_load": 0.1671,
+    "physical_load": 0.3298,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 8,
+    "date": "2026-06-05",
+    "psychological_load": 0.1656,
+    "physical_load": 0.3277,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 9,
+    "date": "2026-06-06",
+    "psychological_load": 0.1793,
+    "physical_load": 0.3384,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 10,
+    "date": "2026-06-07",
+    "psychological_load": 0.1698,
+    "physical_load": 0.3161,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 11,
+    "date": "2026-06-08",
+    "psychological_load": 0.1777,
+    "physical_load": 0.3457,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 12,
+    "date": "2026-06-09",
+    "psychological_load": 0.1747,
+    "physical_load": 0.215,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 13,
+    "date": "2026-06-10",
+    "psychological_load": 0.1855,
+    "physical_load": 0.0912,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": true,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 14,
+    "date": "2026-06-11",
+    "psychological_load": 0.1865,
+    "physical_load": 0.3287,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 15,
+    "date": "2026-06-12",
+    "psychological_load": 0.1739,
+    "physical_load": 0.365,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 16,
+    "date": "2026-06-13",
+    "psychological_load": 0.1678,
+    "physical_load": 0.3092,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 17,
+    "date": "2026-06-14",
+    "psychological_load": 0.1969,
+    "physical_load": 0.3329,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 18,
+    "date": "2026-06-15",
+    "psychological_load": 0.1674,
+    "physical_load": 0.3176,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 19,
+    "date": "2026-06-16",
+    "psychological_load": 0.1898,
+    "physical_load": 0.2067,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 20,
+    "date": "2026-06-17",
+    "psychological_load": 0.1881,
+    "physical_load": 0.0956,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": true,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 21,
+    "date": "2026-06-18",
+    "psychological_load": 0.1835,
+    "physical_load": 0.306,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 22,
+    "date": "2026-06-19",
+    "psychological_load": 0.1833,
+    "physical_load": 0.3225,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 23,
+    "date": "2026-06-20",
+    "psychological_load": 0.1834,
+    "physical_load": 0.3383,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 24,
+    "date": "2026-06-21",
+    "psychological_load": 0.181,
+    "physical_load": 0.3343,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 25,
+    "date": "2026-06-22",
+    "psychological_load": 0.1895,
+    "physical_load": 0.3261,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 26,
+    "date": "2026-06-23",
+    "psychological_load": 0.1752,
+    "physical_load": 0.1934,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 27,
+    "date": "2026-06-24",
+    "psychological_load": 0.1704,
+    "physical_load": 0.0701,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": true,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 28,
+    "date": "2026-06-25",
+    "psychological_load": 0.2024,
+    "physical_load": 0.3142,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 29,
+    "date": "2026-06-26",
+    "psychological_load": 0.1945,
+    "physical_load": 0.3018,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  }
+]

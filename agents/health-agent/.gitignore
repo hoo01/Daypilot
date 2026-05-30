@@ -1,5 +1,8 @@
-# Secrets
+# Secrets — never commit live credentials
 .env
+
+# Longitudinal memory store (user data, not source code)
+memory/
 
 # Python
 __pycache__/

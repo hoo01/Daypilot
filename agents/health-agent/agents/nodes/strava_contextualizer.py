@@ -94,7 +94,7 @@ async def _strava_contextualizer_fn(ctx) -> None:
 
     week_effort_current = 0.0
     week_effort_prior   = 0.0
-    for act in repo._strava_summary:
+    for act in repo.get_strava_summary():
         act_date = act["start_date"][:10]
         effort   = act.get("relative_effort") or 0
         if week_start_current <= act_date <= target_date:

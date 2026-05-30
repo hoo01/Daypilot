@@ -7,11 +7,13 @@ This gives full control over JSON schema validation and retry-on-parse-failure.
 Always runs — every execution produces AI insights and a psychobiological
 assessment regardless of Node 3 verdict (NONE, PHYSICAL, PSYCHOLOGICAL, AMBIGUOUS).
 
-Uses GEMINI_API_KEY env var for local/free-tier access.
-Switch to google.auth.default() ADC for production Google Cloud.
+Config is loaded from config.py (pydantic_settings), aligning with the root
+monolith's config pattern. NODE4_MODEL env var is still supported as a
+runtime override (e.g. from the CLI --model flag).
 
 Reads:  ctx.state (all node 1/2/3 outputs)
 Writes: ctx.state["node4_classification"], ctx.state["final_insight"]
+Also:   writes a longitudinal record to MemoryRepository after a successful run.
 """
 
 from __future__ import annotations
@@ -22,8 +24,6 @@ from typing import Any
 
 from google.adk.workflow import FunctionNode
 
-
-NODE4_MODEL = os.environ.get("NODE4_MODEL", "gemini-2.5-flash")
 
 SYSTEM_PROMPT = """You are a precision psychobiological analyst. You always produce a full assessment — every run gets AI insights and a classification, regardless of whether strain signals are elevated or nominal.
 
@@ -110,7 +110,7 @@ BIOMETRICS vs 14-day baseline:
 - Awake hours: today={awake_today} h, 14d mean={_fmt(awake_mean, ".2f")} h
 
 SLEEP ARCHITECTURE (latency flags):
-- Late-night awake windows (02:00–06:00): {late_night_count} (flag={late_night_awake_flag})
+- Late-night awake windows (02:00\u201306:00): {late_night_count} (flag={late_night_awake_flag})
 - Deep sleep latency: {deep_latency_min} min (flag={deep_sleep_latency_flag})
 - REM sleep latency: {rem_latency_min} min (flag={rem_latency_flag})
 
@@ -120,7 +120,7 @@ TRAINING LOAD:
 - Week effort current: {metrics.get("week_effort_current", 0):.0f}, prior week: {metrics.get("week_effort_prior", 0):.0f}
 
 PSYCHOLOGICAL LOAD SIGNALS:
-- RPE–output discrepancy flag: {discrepancy_flag}
+- RPE\u2013output discrepancy flag: {discrepancy_flag}
 - Affective fatigue score (keyword NLP): {metrics.get("affective_fatigue_score", 0.0):.2f}
 {athlete_words_section}
 SCORES:
@@ -131,17 +131,75 @@ SCORES:
 """
 
 
+def _write_memory(ctx, classification: str) -> None:
+    """
+    Write today's record to MemoryRepository after a successful Node 4 run.
+    Errors are caught and printed — memory write failure never aborts the pipeline.
+    """
+    from agents.memory_repository import MemoryRepository
+    from config import settings
+
+    flags   = ctx.state.get("node1_flags", {})
+    metrics = ctx.state.get("node2_metrics", {})
+    bs      = flags.get("baseline_stats", {})
+    tv      = flags.get("today_values", {})
+
+    hrv_mean  = bs.get("hrv_sdnn_ms", {}).get("mean")
+    hrv_today = tv.get("hrv_sdnn_ms")
+    hrv_pct   = round((hrv_today - hrv_mean) / hrv_mean * 100, 1) if hrv_mean and hrv_today else None
+
+    deep_mean  = bs.get("sleep_deep_hours", {}).get("mean")
+    deep_today = tv.get("sleep_deep_hours")
+    deep_pct   = round((deep_today - deep_mean) / deep_mean * 100, 1) if deep_mean and deep_today else None
+
+    psi = ctx.state.get("psychological_strain_index", 0.0)
+    pli = ctx.state.get("physical_load_index", 0.0)
+
+    record = {
+        "user_id":          ctx.state.get("user_id"),
+        "date":             ctx.state.get("target_date"),
+        "readiness_score":  round(100 - psi, 1),
+        "mental_fatigue":   round(psi, 1),
+        "physical_fatigue": round(pli, 1),
+        "node3_verdict":    ctx.state.get("node3_verdict", "NONE"),
+        "classification":   classification,
+        "key_signals": {
+            "hrv_pct_vs_baseline":        hrv_pct,
+            "deep_sleep_pct_vs_baseline": deep_pct,
+            "sleep_fragmented":           flags.get("sleep_fragmented", False),
+            "hrv_suppressed":             flags.get("hrv_suppressed", False),
+            "discrepancy_flag":           metrics.get("discrepancy_flag", False),
+            "consecutive_psych_days":     0,  # computed by write_today()
+        },
+    }
+
+    try:
+        mem = MemoryRepository(backend=settings.memory_backend)
+        mem.write_today(
+            ctx.state.get("user_id", "unknown"),
+            ctx.state.get("target_date", ""),
+            record,
+        )
+        print(f"[Node 4] Memory write OK for {ctx.state.get('user_id')} on {ctx.state.get('target_date')}")
+    except Exception as e:
+        print(f"[Node 4] WARN: memory write failed: {e}")
+
+
 async def _insights_engine_fn(ctx) -> None:
     """
     Node 4: Insights Engine.
 
     Calls Gemini to produce a classification and insight text.
-    Uses GEMINI_API_KEY env var (free-tier / local testing).
+    Uses settings.gemini_api_key (from config.py / .env).
+    NODE4_MODEL env var is still honoured as a runtime override (e.g. CLI --model flag).
     Switch to ADC (google.auth.default()) for production.
 
-    Only runs when Node 3 verdict is PSYCHOLOGICAL or AMBIGUOUS.
+    Always runs after Node 3 — every execution produces AI insights.
+    After a successful Gemini response, writes a record to MemoryRepository.
     """
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    from config import settings
+
+    api_key = settings.gemini_api_key
     if not api_key:
         print("[Node 4] WARN: GEMINI_API_KEY not set — skipping Gemini analysis.")
         return
@@ -154,7 +212,8 @@ async def _insights_engine_fn(ctx) -> None:
         return
 
     user_prompt = _build_user_prompt(ctx.state)
-    model = os.environ.get("NODE4_MODEL", NODE4_MODEL)
+    # Runtime override (e.g. from CLI --model flag) takes precedence over settings
+    model = os.environ.get("NODE4_MODEL") or settings.node4_model
 
     max_retries = 2
     for attempt in range(1, max_retries + 1):
@@ -185,6 +244,9 @@ async def _insights_engine_fn(ctx) -> None:
 
             ctx.state["node4_classification"] = classification
             ctx.state["final_insight"]         = insight_text
+
+            # Wire MemoryRepository: persist longitudinal record
+            _write_memory(ctx, classification)
             return
 
         except json.JSONDecodeError as e:
