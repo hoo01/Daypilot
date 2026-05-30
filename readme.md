@@ -11,7 +11,7 @@
 | **Yuqing** | Ingestion Agent (cold start) | `agents/ingestion.py` | 🔴 Not started |
 | **Yuqing** | Relationship & Context Agent | `agents/relationship.py` | 🟡 Stub ready |
 | **Yuqing** | Real-time Adjustment Agent | `agents/realtime.py` | 🟡 Stub ready |
-| **Vatsal** | Health & Energy Agent | `agents/health.py` | 🟡 Stub ready |
+| **Vatsal** | Health & Energy Agent | `agents/health.py` | 🟢 Ready |
 | **Astrid** | Goal Tracking Agent | `agents/goals.py` | 🟢 Ready |
 | **Jingyuan** | Schedule Planning Agent | `agents/schedule.py` | 🟢 Ready |
 | **Unassigned** | Coordinator Agent | `agents/coordinator.py` | 🟡 Stub ready |
