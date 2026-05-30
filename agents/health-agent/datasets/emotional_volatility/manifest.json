@@ -1,0 +1,302 @@
+[
+  {
+    "day_index": 0,
+    "date": "2026-05-28",
+    "psychological_load": 0.1644,
+    "physical_load": 0.3273,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 1,
+    "date": "2026-05-29",
+    "psychological_load": 0.1941,
+    "physical_load": 0.338,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 2,
+    "date": "2026-05-30",
+    "psychological_load": 0.1605,
+    "physical_load": 0.2732,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 3,
+    "date": "2026-05-31",
+    "psychological_load": 0.1753,
+    "physical_load": 0.3231,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 4,
+    "date": "2026-06-01",
+    "psychological_load": 0.1672,
+    "physical_load": 0.3196,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 5,
+    "date": "2026-06-02",
+    "psychological_load": 0.1917,
+    "physical_load": 0.2451,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 6,
+    "date": "2026-06-03",
+    "psychological_load": 0.1969,
+    "physical_load": 0.0816,
+    "phase_label": "healthy_baseline",
+    "is_rest_day": true,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 7,
+    "date": "2026-06-04",
+    "psychological_load": 0.5694,
+    "physical_load": 0.2292,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": false,
+    "expected_node3_verdict": "PSYCHOLOGICAL",
+    "expected_node4_classification": "EMOTIONAL_VOLATILITY"
+  },
+  {
+    "day_index": 8,
+    "date": "2026-06-05",
+    "psychological_load": 0.1745,
+    "physical_load": 0.5205,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 9,
+    "date": "2026-06-06",
+    "psychological_load": 0.6321,
+    "physical_load": 0.2464,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": false,
+    "expected_node3_verdict": "PSYCHOLOGICAL",
+    "expected_node4_classification": "EMOTIONAL_VOLATILITY"
+  },
+  {
+    "day_index": 10,
+    "date": "2026-06-07",
+    "psychological_load": 0.1712,
+    "physical_load": 0.4728,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 11,
+    "date": "2026-06-08",
+    "psychological_load": 0.5493,
+    "physical_load": 0.0598,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": true,
+    "expected_node3_verdict": "PSYCHOLOGICAL",
+    "expected_node4_classification": "EMOTIONAL_VOLATILITY"
+  },
+  {
+    "day_index": 12,
+    "date": "2026-06-09",
+    "psychological_load": 0.1899,
+    "physical_load": 0.2146,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 13,
+    "date": "2026-06-10",
+    "psychological_load": 0.6502,
+    "physical_load": 0.1333,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": true,
+    "expected_node3_verdict": "PSYCHOLOGICAL",
+    "expected_node4_classification": "EMOTIONAL_VOLATILITY"
+  },
+  {
+    "day_index": 14,
+    "date": "2026-06-11",
+    "psychological_load": 0.1234,
+    "physical_load": 0.0869,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": true,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 15,
+    "date": "2026-06-12",
+    "psychological_load": 0.6065,
+    "physical_load": 0.486,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": false,
+    "expected_node3_verdict": "PSYCHOLOGICAL",
+    "expected_node4_classification": "EMOTIONAL_VOLATILITY"
+  },
+  {
+    "day_index": 16,
+    "date": "2026-06-13",
+    "psychological_load": 0.1056,
+    "physical_load": 0.4104,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 17,
+    "date": "2026-06-14",
+    "psychological_load": 0.5908,
+    "physical_load": 0.4182,
+    "phase_label": "emotional_volatility",
+    "is_rest_day": false,
+    "expected_node3_verdict": "PSYCHOLOGICAL",
+    "expected_node4_classification": "EMOTIONAL_VOLATILITY"
+  },
+  {
+    "day_index": 18,
+    "date": "2026-06-15",
+    "psychological_load": 0.3929,
+    "physical_load": 0.3089,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 19,
+    "date": "2026-06-16",
+    "psychological_load": 0.2709,
+    "physical_load": 0.2194,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 20,
+    "date": "2026-06-17",
+    "psychological_load": 0.1862,
+    "physical_load": 0.0528,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": true,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 21,
+    "date": "2026-06-18",
+    "psychological_load": 0.2021,
+    "physical_load": 0.3319,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 22,
+    "date": "2026-06-19",
+    "psychological_load": 0.1936,
+    "physical_load": 0.3366,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 23,
+    "date": "2026-06-20",
+    "psychological_load": 0.2094,
+    "physical_load": 0.3238,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 24,
+    "date": "2026-06-21",
+    "psychological_load": 0.2069,
+    "physical_load": 0.3126,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 25,
+    "date": "2026-06-22",
+    "psychological_load": 0.1946,
+    "physical_load": 0.3041,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 26,
+    "date": "2026-06-23",
+    "psychological_load": 0.1821,
+    "physical_load": 0.2148,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 27,
+    "date": "2026-06-24",
+    "psychological_load": 0.193,
+    "physical_load": 0.0917,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": true,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 28,
+    "date": "2026-06-25",
+    "psychological_load": 0.2072,
+    "physical_load": 0.3203,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  },
+  {
+    "day_index": 29,
+    "date": "2026-06-26",
+    "psychological_load": 0.21,
+    "physical_load": 0.3307,
+    "phase_label": "return_to_baseline",
+    "is_rest_day": false,
+    "expected_node3_verdict": "NONE",
+    "expected_node4_classification": null
+  }
+]
