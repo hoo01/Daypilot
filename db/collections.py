@@ -3,3 +3,4 @@ class Collections:
     USER_PREFERENCES = "user_preferences"
     GOAL_STATE = "goal_state"
     USER_CREDENTIALS = "user_credentials"
+    CONVERSATION_MEMORY = "conversation_memory"

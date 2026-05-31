@@ -6,6 +6,8 @@ from config import settings
 from agents.tools import (
     read_user_context,
     write_entity_to_memory,
+    store_conversation_memory,
+    retrieve_relevant_memories,
     analyze_health,
     track_goals,
     get_relationship_context,
@@ -27,6 +29,10 @@ When the user opens the app or asks about their day, follow this sequence:
 
 When the user tells you something personal (e.g. "Mia and I have been together for 3 months"),
 call write_entity_to_memory to persist it to the Knowledge Graph immediately.
+Also call store_conversation_memory with a compressed summary of the insight.
+
+At the start of each conversation, call retrieve_relevant_memories with the user's
+current context or question to surface past insights that are relevant today.
 
 When something in the user's day changes (new meeting, running late, energy drop),
 call adjust_schedule to dynamically replan.
@@ -39,30 +45,43 @@ Always be proactive — surface insights the user hasn't asked for yet.
 Keep responses concise and action-oriented.
 """
 
-mongo_mcp = MCPToolset(
-    connection_params=StdioConnectionParams(
-        server_params=StdioServerParameters(
-            command="npx",
-            args=["-y", "mongodb-mcp-server"],
-            env={**os.environ, "MDB_MCP_CONNECTION_STRING": settings.mongodb_uri},
-        ),
-    )
-)
 
-coordinator = Agent(
-    name="daypilot_coordinator",
-    model=settings.coordinator_model,
-    description="DayPilot's root coordinator. Orchestrates all specialist tools.",
-    instruction=INSTRUCTION,
-    tools=[
+def get_mongo_mcp() -> MCPToolset:
+    """Create a new MCPToolset for MongoDB. Used at startup via lifespan."""
+    return MCPToolset(
+        connection_params=StdioConnectionParams(
+            server_params=StdioServerParameters(
+                command="npx",
+                args=["-y", "mongodb-mcp-server"],
+                env={**os.environ, "MDB_MCP_CONNECTION_STRING": settings.mongodb_uri},
+            ),
+        )
+    )
+
+
+def build_coordinator(mcp_tools=None) -> Agent:
+    tools = [
         read_user_context,
         write_entity_to_memory,
+        store_conversation_memory,
+        retrieve_relevant_memories,
         analyze_health,
         track_goals,
         get_relationship_context,
         plan_schedule,
         get_geo_info,
         adjust_schedule,
-        mongo_mcp,
-    ],
-)
+    ]
+    if mcp_tools:
+        tools.append(mcp_tools)
+    return Agent(
+        name="daypilot_coordinator",
+        model=settings.coordinator_model,
+        description="DayPilot's root coordinator. Orchestrates all specialist tools.",
+        instruction=INSTRUCTION,
+        tools=tools,
+    )
+
+
+# Default coordinator without MCP (used if lifespan not set up)
+coordinator = build_coordinator()

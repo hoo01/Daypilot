@@ -40,16 +40,15 @@ Current schedule:
 Trigger: {input_data.trigger}
 Detail: {input_data.trigger_detail}
 """
-        # TODO (Yuqing): uncomment when ready
-        # raw = await self._generate(prompt)
-        # data = json.loads(raw)
-        # return RealtimeOutput(**data)
-
-        # Stub response — replace with real implementation
-        return RealtimeOutput(
-            what_changed=[input_data.trigger_detail],
-            dropped_tasks=[],
-            added_tasks=[],
-            updated_schedule=input_data.current_schedule,
-            message=f"Schedule updated due to: {input_data.trigger_detail}",
-        )
+        raw = await self._generate(prompt)
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            return RealtimeOutput(
+                what_changed=[input_data.trigger_detail],
+                dropped_tasks=[],
+                added_tasks=[],
+                updated_schedule=input_data.current_schedule,
+                message=f"Schedule updated due to: {input_data.trigger_detail}",
+            )
+        return RealtimeOutput(**data)
