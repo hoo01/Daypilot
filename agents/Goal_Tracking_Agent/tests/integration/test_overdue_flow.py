@@ -95,7 +95,7 @@ async def test_overdue_known_subtask_returns_acknowledged(mongo_db, goal_in_db):
             OverdueTaskRef(
                 sub_task_id="t2",
                 goal_id="g001",
-                start_time=datetime(2026, 5, 27, 9, 0, 0),
+                scheduled_date=date(2026, 5, 27),
             )
         ],
     )
@@ -122,7 +122,7 @@ async def test_overdue_unknown_subtask_returns_partial_with_warning(mongo_db, go
             OverdueTaskRef(
                 sub_task_id="t99",  # does not exist
                 goal_id="g001",
-                start_time=datetime(2026, 5, 27, 9, 0, 0),
+                scheduled_date=date(2026, 5, 27),
             )
         ],
     )
@@ -143,7 +143,7 @@ async def test_overdue_idempotent_on_duplicate_event_id(mongo_db, goal_in_db):
         event_id="evt_003",
         overdue_tasks=[
             OverdueTaskRef(sub_task_id="t1", goal_id="g001",
-                           start_time=datetime(2026, 5, 27, 9, 0, 0))
+                           scheduled_date=date(2026, 5, 27))
         ],
     )
 

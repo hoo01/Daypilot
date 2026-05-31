@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel
 
@@ -6,7 +6,7 @@ from pydantic import BaseModel
 class OverdueTaskRef(BaseModel):
     sub_task_id: str
     goal_id: str
-    start_time: datetime   # originally-scheduled start; replaces planned_date (PRD §11 Q3)
+    scheduled_date: date   # the day this task was planned for (day-level granularity)
 
 
 class OverdueNotification(BaseModel):

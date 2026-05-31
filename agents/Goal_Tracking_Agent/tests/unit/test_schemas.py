@@ -179,11 +179,12 @@ class TestSubTaskSchema:
 # ── PRD §4.5/§7 event schema checks ──────────────────────────────────────────
 
 class TestOverdueNotificationSchema:
-    """OverdueNotification must use start_time (not planned_date) per PRD §11 Q3."""
+    """OverdueNotification uses scheduled_date (day-level) not per-window start_time."""
 
-    def test_overdue_task_ref_uses_start_time_not_planned_date(self):
-        assert "start_time" in OverdueTaskRef.model_fields
+    def test_overdue_task_ref_uses_scheduled_date(self):
+        assert "scheduled_date" in OverdueTaskRef.model_fields
         assert "planned_date" not in OverdueTaskRef.model_fields
+        assert "start_time" not in OverdueTaskRef.model_fields
 
     def test_overdue_notification_valid(self):
         notif = OverdueNotification(
@@ -192,12 +193,12 @@ class TestOverdueNotificationSchema:
                 OverdueTaskRef(
                     sub_task_id="t2",
                     goal_id="g001",
-                    start_time=datetime(2026, 5, 27, 21, 0, 0),
+                    scheduled_date=date(2026, 5, 27),
                 )
             ],
         )
         assert notif.event_id == "evt_001"
-        assert notif.overdue_tasks[0].start_time.hour == 21
+        assert notif.overdue_tasks[0].scheduled_date == date(2026, 5, 27)
 
 
 # ── PRD §6 input schema checks ────────────────────────────────────────────────
