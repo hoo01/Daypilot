@@ -310,3 +310,6 @@ agents/Schedule_Planning_Agent/
 ```
 
 **Shared schemas** live at `schemas/schedule.py` in the monorepo root and are never copied into this service. The `app/agent/schedule_agent.py` module adds the monorepo root to `sys.path` at import time for local development; in Docker, `COPY schemas/ ./schemas/` makes them available at `/app/schemas/`.
+
+
+<img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/d91db878-60d9-4c31-ae86-7126aa402818" />
