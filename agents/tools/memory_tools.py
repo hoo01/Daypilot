@@ -33,11 +33,28 @@ async def write_entity_to_memory(
     if relation_type:
         relations.append(Relation(type=relation_type, since=since))
 
+    try:
+        etype = EntityType(entity_type.lower())
+    except ValueError:
+        etype = EntityType.event
+
     entity = Entity(
         user_id=user_id,
         entity_name=entity_name,
-        entity_type=EntityType(entity_type),
+        entity_type=etype,
         relations=relations,
     )
     await _memory().write_entity(entity)
     return {"status": "saved", "entity": entity_name}
+
+
+async def store_conversation_memory(user_id: str, text: str, metadata: dict | None = None) -> dict:
+    """Compress and store a conversation insight as a searchable memory embedding."""
+    await _memory().store_memory(user_id, text, metadata)
+    return {"status": "stored", "text": text[:80]}
+
+
+async def retrieve_relevant_memories(user_id: str, query: str, k: int = 3) -> dict:
+    """Retrieve the most relevant past memories for the current context."""
+    results = await _memory().retrieve_similar(user_id, query, k)
+    return {"memories": results, "count": len(results)}

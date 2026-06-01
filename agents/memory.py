@@ -1,8 +1,14 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from google import genai
+
 from schemas import Entity, UpcomingEvent
 from db import Collections
+from config import settings
+
+_genai_client = genai.Client(api_key=settings.gemini_api_key)
 
 
 class MemoryAgent:
@@ -70,3 +76,43 @@ class MemoryAgent:
         if doc:
             doc.pop("_id", None)
         return doc or {}
+
+    async def store_memory(self, user_id: str, text: str, metadata: dict | None = None) -> None:
+        """Embed text and store in conversation_memory for later semantic retrieval."""
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: _genai_client.models.embed_content(model="models/gemini-embedding-001", contents=text),
+        )
+        embedding = result.embeddings[0].values
+        await self._db[Collections.CONVERSATION_MEMORY].insert_one({
+            "user_id": user_id,
+            "text": text,
+            "embedding": embedding,
+            "metadata": metadata or {},
+            "created_at": datetime.utcnow(),
+        })
+
+    async def retrieve_similar(self, user_id: str, query: str, k: int = 3) -> list[dict]:
+        """Find the k most semantically similar memories for a given query."""
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: _genai_client.models.embed_content(model="models/gemini-embedding-001", contents=query),
+        )
+        query_embedding = result.embeddings[0].values
+        pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": "conversation_memory_vector_index",
+                    "path": "embedding",
+                    "queryVector": query_embedding,
+                    "numCandidates": k * 10,
+                    "limit": k,
+                    "filter": {"user_id": user_id},
+                }
+            },
+            {"$project": {"_id": 0, "text": 1, "metadata": 1, "created_at": 1}},
+        ]
+        cursor = self._db[Collections.CONVERSATION_MEMORY].aggregate(pipeline)
+        return [doc async for doc in cursor]
