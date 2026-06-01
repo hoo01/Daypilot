@@ -209,30 +209,169 @@ Generate all 3 strategies now."""
 # Post-processing
 # ─────────────────────────────────────────────────────────
 
-def _enforce_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOutput:
+def _enforce_constraints(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOutput:
+    locked = inp.locked_blocks
+
+    # Locked blocks take precedence — drop calendar events that overlap them
+    if locked:
+        locked_intervals = []
+        for lb in locked:
+            try:
+                locked_intervals.append((_naive_dt(lb.start_time), _naive_dt(lb.end_time)))
+            except Exception:
+                pass
+
+        def _overlaps_any_locked(event) -> bool:
+            try:
+                e_start = _naive_dt(event.start_time)
+                e_end = _naive_dt(event.end_time)
+            except Exception:
+                return False
+            for lb_start, lb_end in locked_intervals:
+                if e_start < lb_end and lb_start < e_end:
+                    return True
+            return False
+
+        filtered_calendar = [e for e in inp.calendar_events if not _overlaps_any_locked(e)]
+    else:
+        filtered_calendar = list(inp.calendar_events)
+
+    replan_dt = _naive_dt(inp.replan_from_time) if inp.replan_from_time else None
+    locked_task_ids: set[str] = {lb.task_id for lb in locked if lb.task_id}
+    locked_title_time: set[tuple] = {(lb.title, _naive_dt(lb.start_time)) for lb in locked}
+    cal_title_time: set[tuple] = {(e.title, _naive_dt(e.start_time)) for e in filtered_calendar}
+    cal_location_map: dict = {
+        (e.title, _naive_dt(e.start_time)): e.location for e in filtered_calendar
+    }
+
     fixed = []
     for strategy in output.strategies:
         tasks = list(strategy.tasks)
 
         # Inject locked blocks — remove overlapping generated tasks first
-        if inp.locked_blocks:
+        if locked:
             tasks = [
                 t for t in tasks
                 if not any(
                     _times_overlap(t.start_time, t.end_time, lb.start_time, lb.end_time)
-                    for lb in inp.locked_blocks
+                    for lb in locked
                 )
             ]
-            tasks.extend(inp.locked_blocks)
+            tasks.extend(locked)
 
-        # Normalize timestamps and fix year typos
-        tasks = _normalize_tasks(tasks, inp.date)
-        tasks = _merge_short_deep_work(tasks)
+        # Strip Gemini-invented tasks before replan_from_time
+        if replan_dt is not None:
+            def _allowed_before_replan(t: ScheduleTask) -> bool:
+                try:
+                    t_dt = _naive_dt(t.start_time)
+                except Exception:
+                    return True
+                if t_dt >= replan_dt:
+                    return True
+                if t.task_id in locked_task_ids:
+                    return True
+                if (t.title, t_dt) in locked_title_time:
+                    return True
+                if (t.title, t_dt) in cal_title_time:
+                    return True
+                return False
+            tasks = [t for t in tasks if _allowed_before_replan(t)]
+
+        # Restore frozen calendar events before replan_from_time
+        if replan_dt is not None and filtered_calendar:
+            for event in [e for e in filtered_calendar if _naive_dt(e.start_time) < replan_dt]:
+                try:
+                    e_dt = _naive_dt(event.start_time)
+                except Exception:
+                    continue
+                exact = next((i for i, t in enumerate(tasks)
+                              if t.title == event.title and _naive_dt(t.start_time) == e_dt), None)
+                if exact is not None:
+                    tasks[exact] = tasks[exact].model_copy(update={
+                        "start_time": event.start_time, "end_time": event.end_time,
+                        "title": event.title, "location": event.location,
+                    })
+                    continue
+                loose = next((i for i, t in enumerate(tasks)
+                              if t.title == event.title and t.type == "calendar_event"), None)
+                if loose is not None:
+                    tasks[loose] = tasks[loose].model_copy(update={
+                        "start_time": event.start_time, "end_time": event.end_time,
+                        "title": event.title, "location": event.location,
+                    })
+                    continue
+                tasks.append(ScheduleTask(
+                    task_id=f"calendar-frozen-{event.id}",
+                    title=event.title, start_time=event.start_time,
+                    end_time=event.end_time, type="calendar_event", location=event.location,
+                ))
+
+        # Restore original location for calendar events
+        if cal_location_map:
+            corrected = []
+            for t in tasks:
+                if t.type == "calendar_event":
+                    try:
+                        key = (t.title, _naive_dt(t.start_time))
+                        if key in cal_location_map and t.location != cal_location_map[key]:
+                            t = t.model_copy(update={"location": cal_location_map[key]})
+                    except Exception:
+                        pass
+                corrected.append(t)
+            tasks = corrected
+
         tasks.sort(key=lambda t: t.start_time)
-
         fixed.append(strategy.model_copy(update={"tasks": tasks}))
 
     return output.model_copy(update={"strategies": fixed})
+
+
+def _validate_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOutput:
+    import re as _re
+    warnings: list[str] = []
+    fixed = []
+
+    for strategy in output.strategies:
+        tasks = _normalize_tasks(strategy.tasks, inp.date)
+        tasks = _merge_short_deep_work(tasks)
+
+        # Detect calendar overlaps
+        cal = [t for t in tasks if t.type == "calendar_event"]
+        for i in range(len(cal)):
+            for j in range(i + 1, len(cal)):
+                a, b = cal[i], cal[j]
+                if _times_overlap(a.start_time, a.end_time, b.start_time, b.end_time):
+                    warnings.append(f'[{strategy.name}] "{a.title}" overlaps "{b.title}"')
+
+        # Detect meal timing issues
+        for t in tasks:
+            if t.type != "meal":
+                continue
+            m = _re.search(r"T(\d{2}):", t.start_time)
+            hour = int(m.group(1)) if m else 0
+            title = t.title.lower()
+            if "lunch" in title and not (11 <= hour <= 14):
+                warnings.append(f'[{strategy.name}] "{t.title}" at {hour}:00 (expected 11-14)')
+            if "dinner" in title and not (17 <= hour <= 21):
+                warnings.append(f'[{strategy.name}] "{t.title}" at {hour}:00 (expected 17-21)')
+
+        # Detect time order issues
+        for i in range(1, len(tasks)):
+            prev, curr = tasks[i - 1], tasks[i]
+            if _naive_dt(curr.start_time) < _naive_dt(prev.start_time):
+                warnings.append(f'[{strategy.name}] "{curr.title}" starts before "{prev.title}"')
+
+        # Detect missing locked blocks
+        for lb in inp.locked_blocks:
+            if not any(t.title == lb.title and t.start_time == lb.start_time for t in tasks):
+                warnings.append(f'[{strategy.name}] Locked block "{lb.title}" was modified or removed')
+
+        fixed.append(strategy.model_copy(update={"tasks": tasks}))
+
+    return output.model_copy(update={
+        "strategies": fixed,
+        "warnings": output.warnings + warnings,
+    })
 
 
 # ─────────────────────────────────────────────────────────
@@ -308,7 +447,8 @@ async def plan_schedule(
     try:
         cleaned = _extract_json(response.text)
         output = ScheduleOutput(**json.loads(cleaned))
-        output = _enforce_and_fix(output, inp)
+        output = _enforce_constraints(output, inp)
+        output = _validate_and_fix(output, inp)
         return output.model_dump()
     except Exception:
         return {
