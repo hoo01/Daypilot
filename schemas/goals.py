@@ -1,5 +1,5 @@
 from datetime import date
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class GoalsInput(BaseModel):
@@ -10,11 +10,13 @@ class GoalsInput(BaseModel):
 
 class GoalSubTask(BaseModel):
     """A specific actionable sub-task for today.
-    
+
     Aligned with Goal Tracking Agent's app/schemas/output.py.
     Intentionally excludes planned_date — that lives on SubTask (domain)
     and is set by Schedule Agent, never returned by Goal Agent.
     """
+    model_config = ConfigDict(extra="forbid")
+
     title: str
     estimated_minutes: int
     priority: str                    # "high" | "medium" | "low"
