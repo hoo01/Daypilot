@@ -115,12 +115,30 @@ async def get_geo_info(
     """
     Compute commute duration for each leg of the user's day.
 
+    Args:
+        current_location: user's starting point (address string).
+        events: time-ordered list of dicts, each:
+            {"location": str | None, "start_time": ISO8601, "end_time": ISO8601}
+
+    Returns:
+        {"segments": [
+            {"from": str, "to": str, "duration_minutes": int | None,
+             "mode": "transit"|"walking"|"driving"|"none"|"unknown",
+             "maps_url": str, "error": str | None},
+            ...
+        ]}
+
     Tries transit → walking → driving in order.
     If all three modes fail, the segment is marked with duration_minutes=None,
     mode="unknown", and an error string so the caller can surface the issue.
 
-    Events with null/empty location are skipped (online meetings etc.);
-    the next segment departs from the last valid location.
+    Same-location legs return duration=0, mode="none", maps_url="".
+    Events with null/empty/virtual location (online/virtual/remote/zoom/tbd)
+    are skipped; the next segment departs from the last valid location.
+
+    duration uses Google Routes API with departure_time = previous event's
+    end_time (time-specific traffic). maps_url is a Google Maps deep-link
+    for frontend navigation (does not preset departure time).
     """
     _VIRTUAL = {"online", "virtual", "remote", "zoom", "tbd"}
 
