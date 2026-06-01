@@ -1,21 +1,21 @@
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     gemini_api_key: str
 
-    # 重推理 agents (dev: gemini-2.5-flash, prod: gemini-3.1-pro-preview)
     coordinator_model: str = "gemini-2.5-flash"
     planning_model: str = "gemini-2.5-flash"
     relationship_model: str = "gemini-2.5-flash"
 
-    # 高速 worker agents (dev: gemini-2.5-flash, prod: gemini-3.5-flash)
     health_model: str = "gemini-2.5-flash"
     goal_model: str = "gemini-2.5-flash"
+    goal_reasoning_model: str = "gemini-2.5-pro-preview"
+    goal_fast_model: str = "gemini-2.5-flash-lite"
     realtime_model: str = "gemini-2.5-flash"
     geo_model: str = "gemini-2.5-flash"
 
-    # 数据摄入 (dev: gemini-2.5-flash, prod: gemini-3.1-flash-lite)
     ingestion_model: str = "gemini-2.5-flash"
 
     mongodb_uri: str
@@ -27,6 +27,11 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     app_secret_key: str = "change_me_in_production"
+
+    memory_agent_url: str = "http://memory-agent"
+    calendar_service_account_json: Optional[str] = None
+    overload_threshold_minutes: int = 600
+    intake_session_ttl_hours: int = 24
 
     class Config:
         env_file = ".env"

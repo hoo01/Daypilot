@@ -6,26 +6,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 
-from db import close_db
+from db import close_db, get_db
+from db.indexes import ensure_indexes
 from api.routes import chat, schedule, auth
+from api.routes import events, goals as goals_router, intake, scheduled as scheduled_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-warm MCP at startup so requests don't wait for npx subprocess
     from agents.coordinator import get_mongo_mcp, build_coordinator
 
     exit_stack = AsyncExitStack()
     await exit_stack.__aenter__()
 
+    db = get_db()
+    await ensure_indexes(db)
+
+    from agents.goals import build_goal_tracking_root
+    from config import settings as cfg
+    goal_root = build_goal_tracking_root(db, cfg)
+
     try:
         mongo_mcp = get_mongo_mcp()
         await exit_stack.enter_async_context(mongo_mcp)
-        coordinator = build_coordinator(mcp_tools=mongo_mcp)
+        coordinator = build_coordinator(mcp_tools=mongo_mcp, goal_tracking_root=goal_root)
     except Exception:
-        # If MCP fails to start, run without it
-        from agents.coordinator import coordinator as default_coordinator
-        coordinator = default_coordinator
+        coordinator = build_coordinator(goal_tracking_root=goal_root)
 
     session_service = InMemorySessionService()
     runner = Runner(
@@ -53,6 +59,10 @@ app.add_middleware(
 app.include_router(chat.router)
 app.include_router(schedule.router)
 app.include_router(auth.router)
+app.include_router(events.router)
+app.include_router(goals_router.router)
+app.include_router(intake.router)
+app.include_router(scheduled_router.router)
 
 
 @app.get("/health")

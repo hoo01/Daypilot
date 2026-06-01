@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "scenario(id): marks test with a scenario ID (e.g. N1, C1, X)",
+    "category(name): marks test category (normal, state, edge, lifecycle, concurrency, state_guard, llm_robustness, boundary, timeout, partial_fail)",
+]
