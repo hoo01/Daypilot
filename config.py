@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     goal_fast_model: str = "gemini-2.5-flash-lite"
     realtime_model: str = "gemini-2.5-flash"
     geo_model: str = "gemini-2.5-flash"
+    google_maps_api_key: str = ""
 
     ingestion_model: str = "gemini-2.5-flash"
 
