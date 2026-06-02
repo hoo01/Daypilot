@@ -69,6 +69,7 @@ def make_subtask(
     is_completed: bool = False,
     completed_at: Optional[datetime] = None,
     planned_date: Optional[date] = None,
+    abandoned: bool = False,
 ) -> SubTask:
     return SubTask(
         sub_task_id=sub_task_id,
@@ -82,6 +83,7 @@ def make_subtask(
         is_completed=is_completed,
         completed_at=completed_at,
         planned_date=planned_date,
+        abandoned=abandoned,
     )
 
 
@@ -99,6 +101,7 @@ def make_goal(
     suggested_blocks_count: int = 2,
     suggested_split_ratio: Optional[list[float]] = None,
     progress_percent: float = 0.0,
+    replan_requested_at: Optional[datetime] = None,
 ) -> Goal:
     return Goal(
         goal_id=goal_id,
@@ -115,6 +118,7 @@ def make_goal(
         total_effort_minutes=total_effort_minutes,
         suggested_blocks_count=suggested_blocks_count,
         suggested_split_ratio=suggested_split_ratio or [0.5, 0.5],
+        replan_requested_at=replan_requested_at,
     )
 
 
