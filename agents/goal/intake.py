@@ -22,7 +22,7 @@ from agents.tools.feasibility_calc import (
     synthesize_feasibility,
 )
 
-_PROMPT = (Path(__file__).parent / "prompts" / "intake.md").read_text()
+_PROMPT = (Path(__file__).parent / "prompts" / "intake.md").read_text(encoding="utf-8")
 
 
 def build_goal_intake_agent(

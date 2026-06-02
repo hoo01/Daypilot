@@ -8,7 +8,7 @@ from agents.tools.goal_db import list_active_goals
 from agents.tools.memory_agent_client import write_weekly_summary
 from config import settings
 
-_PROMPT = (Path(__file__).parent / "prompts" / "weekly_memory.md").read_text()
+_PROMPT = (Path(__file__).parent / "prompts" / "weekly_memory.md").read_text(encoding="utf-8")
 
 
 def build_weekly_memory_writer(db: AsyncIOMotorDatabase, reasoning_model: str, standard_model: str) -> SequentialAgent:

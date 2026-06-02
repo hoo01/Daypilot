@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from agents.tools.goal_db import list_active_goals
 
-_PROMPT = (Path(__file__).parent / "prompts" / "daily_output.md").read_text()
+_PROMPT = (Path(__file__).parent / "prompts" / "daily_output.md").read_text(encoding="utf-8")
 
 
 def build_daily_output_builder(db: AsyncIOMotorDatabase, model: str) -> LlmAgent:

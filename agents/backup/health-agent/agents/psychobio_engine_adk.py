@@ -35,7 +35,7 @@ def _load_env(env_path: Path) -> None:
     """Load .env file without requiring python-dotenv."""
     if not env_path.exists():
         return
-    for line in env_path.read_text().splitlines():
+    for line in env_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             k, _, v = line.partition("=")

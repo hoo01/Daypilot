@@ -6,7 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from agents.tools.goal_db import get_goal, set_goal_status
 from agents.tools.goal_messaging import format_overdue_prompt
 
-_PROMPT = (Path(__file__).parent / "prompts" / "overdue.md").read_text()
+_PROMPT = (Path(__file__).parent / "prompts" / "overdue.md").read_text(encoding="utf-8")
 
 
 def build_overdue_handler_agent(db: AsyncIOMotorDatabase, model: str) -> LlmAgent:

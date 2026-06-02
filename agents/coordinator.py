@@ -1,6 +1,9 @@
+import asyncio
 import os
 from google.adk.agents import Agent
+from google.adk.agents.callback_context import CallbackContext
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioConnectionParams
+from google.genai import types as genai_types
 from mcp import StdioServerParameters
 from config import settings
 from agents.tools import (
@@ -8,6 +11,7 @@ from agents.tools import (
     write_entity_to_memory,
     store_conversation_memory,
     retrieve_relevant_memories,
+    clear_pending_reschedule,
     analyze_health,
     track_goals,
     get_relationship_context,
@@ -19,49 +23,80 @@ from agents.tools import (
 INSTRUCTION = """
 You are DayPilot, a proactive AI life assistant. You know the user's life — not just their meetings.
 
-When the user opens the app or asks about their day, follow this sequence:
-1. Call read_user_context to load their preferences, goals, and upcoming events.
-2. Call analyze_health to understand their energy level today.
-3. Call track_goals to check weekly goal progress.
-4. Call get_relationship_context to surface important upcoming dates (anniversaries, etc.).
-5. Call plan_schedule with all the above context to generate schedule options.
-6. If the user mentions a location/destination, call get_geo_info first to factor in commute.
+The following user context has already been loaded for this turn:
+<user_context>
+{user_context}
+</user_context>
 
-When the user tells you something personal (e.g. "Mia and I have been together for 3 months"),
-call write_entity_to_memory to persist it to the Knowledge Graph immediately.
-Also call store_conversation_memory with a compressed summary of the insight.
+User ID: {user_id}
 
-At the start of each conversation, call retrieve_relevant_memories with the user's
-current context or question to surface past insights that are relevant today.
+Based on this context, proactively surface what matters today:
+- If goals exist with progress, mention them specifically (e.g. "You have 4 Leetcode problems left this week").
+- If proactive_suggestions exist in the relationship context, quote them directly.
+- Suggest a daily schedule that fits the user's energy and focus window.
 
-When something in the user's day changes (new meeting, running late, energy drop),
-call adjust_schedule to dynamically replan.
-
-## Goal Intent Routing
-
-When the user's message is goal-related, classify the intent and route accordingly:
-
-| Intent | Condition | Action |
-|---|---|---|
-| `check_progress` | "how are my goals", "goal progress", "what goals" | Call track_goals(user_id) directly — no transfer |
-| `add_goal` | "I want to", "my goal is", "add goal", "set goal" | Assemble GoalAgentInput, transfer to goal_tracking_root |
-| `add_goal_continue` | Continuation of a previous goal intake | Reuse session_id, transfer to goal_tracking_root |
-| `update_goal` | "update goal", "change my goal", "replan" | Assemble input, transfer to goal_tracking_root |
-| `abandon_goal` | "abandon goal", "give up on", "cancel goal" | Assemble input, transfer to goal_tracking_root |
-
-When transferring to goal_tracking_root, first:
-1. Call analyze_health(user_id) → store result as health context
-2. Call retrieve_relevant_memories(user_id, query=raw_user_message) → store as memory_context
-3. Set state["input"] = GoalAgentInput(user_id, intent, raw_user_message, health, memory_context, calendar_free_slots=[])
-4. Transfer to goal_tracking_root
-
-You also have direct access to the MongoDB Knowledge Graph via MCP tools.
-Use these when you need to answer specific questions about stored user data that the
-specialist tools don't cover.
+You can call additional tools when needed:
+- write_entity_to_memory / store_conversation_memory: when user shares personal info
+- retrieve_relevant_memories: to recall past context
+- plan_schedule: to generate detailed schedule options with health/goal/geo context
+- get_geo_info: when locations/commute are relevant
+- adjust_schedule: when the user's day changes
+- analyze_health: for energy/sleep analysis
 
 Always be proactive — surface insights the user hasn't asked for yet.
 Keep responses concise and action-oriented.
 """
+
+
+async def _preload_user_context(callback_context: CallbackContext) -> genai_types.Content | None:
+    """Pre-loads user context in parallel before each agent turn."""
+    user_id = callback_context.user_id or "demo_user"
+
+    try:
+        ctx, goals, rel = await asyncio.gather(
+            read_user_context(user_id),
+            track_goals(user_id),
+            get_relationship_context(user_id),
+            return_exceptions=True,
+        )
+
+        context_parts = []
+
+        if not isinstance(goals, Exception) and goals.get("goals"):
+            context_parts.append(f"Goals: {goals}")
+
+        if not isinstance(rel, Exception):
+            suggestions = rel.get("proactive_suggestions", [])
+            upcoming = rel.get("upcoming_events", [])
+            if suggestions:
+                context_parts.append(f"Proactive suggestions: {suggestions}")
+            if upcoming:
+                context_parts.append(f"Upcoming events: {upcoming}")
+
+        if not isinstance(ctx, Exception):
+            prefs = ctx.get("preferences", {})
+            context_parts.append(
+                f"Focus window: {prefs.get('focus_window', '9PM-1AM')}, "
+                f"Energy pattern: {prefs.get('energy_pattern', 'unknown')}"
+            )
+            pending = prefs.get("pending_reschedule")
+            if pending and pending.get("tasks"):
+                context_parts.append(
+                    f"PENDING RESCHEDULE: The user did not complete these tasks yesterday "
+                    f"({pending.get('original_date')}): {pending['tasks']}. "
+                    f"Suggested reschedule date: {pending.get('suggested_date')}. "
+                    f"If the user confirms, call adjust_schedule to add these tasks to the new date "
+                    f"and then clear pending_reschedule by calling write_entity_to_memory or update via MCP."
+                )
+
+        callback_context.state["user_id"] = user_id
+        callback_context.state["user_context"] = "\n".join(context_parts) if context_parts else "No context loaded."
+
+    except Exception:
+        callback_context.state["user_id"] = user_id
+        callback_context.state["user_context"] = "Context unavailable."
+
+    return None
 
 
 def get_mongo_mcp() -> MCPToolset:
@@ -78,13 +113,12 @@ def get_mongo_mcp() -> MCPToolset:
 
 
 def build_coordinator(mcp_tools=None, goal_tracking_root=None) -> Agent:
-    from db.client import get_db
-
     tools = [
         read_user_context,
         write_entity_to_memory,
         store_conversation_memory,
         retrieve_relevant_memories,
+        clear_pending_reschedule,
         analyze_health,
         track_goals,
         get_relationship_context,
@@ -99,14 +133,17 @@ def build_coordinator(mcp_tools=None, goal_tracking_root=None) -> Agent:
     if goal_tracking_root is not None:
         sub_agents.append(goal_tracking_root)
 
-    return Agent(
+    agent_kwargs = dict(
         name="daypilot_coordinator",
         model=settings.coordinator_model,
         description="DayPilot's root coordinator. Orchestrates all specialist tools.",
         instruction=INSTRUCTION,
         tools=tools,
-        sub_agents=sub_agents if sub_agents else None,
+        before_agent_callback=_preload_user_context,
     )
+    if sub_agents:
+        agent_kwargs["sub_agents"] = sub_agents
+    return Agent(**agent_kwargs)
 
 
 # Default coordinator without MCP or goal agent (used if lifespan not set up)

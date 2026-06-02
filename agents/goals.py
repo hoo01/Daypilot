@@ -17,7 +17,7 @@ from agents.tools.goal_db import (
 )
 from agents.tools.subtask_db import mark_sub_task_complete
 
-_ROOT_PROMPT = (Path(__file__).parent / "goal" / "prompts" / "root.md").read_text()
+_ROOT_PROMPT = (Path(__file__).parent / "goal" / "prompts" / "root.md").read_text(encoding="utf-8")
 
 
 def build_goal_tracking_root(db: AsyncIOMotorDatabase, cfg) -> LlmAgent:

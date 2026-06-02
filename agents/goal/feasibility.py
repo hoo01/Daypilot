@@ -2,10 +2,10 @@ from pathlib import Path
 
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
 
-_TIME_PROMPT = (Path(__file__).parent / "prompts" / "feasibility_time.md").read_text()
-_HABIT_PROMPT = (Path(__file__).parent / "prompts" / "feasibility_habit.md").read_text()
-_LOAD_PROMPT = (Path(__file__).parent / "prompts" / "feasibility_load.md").read_text()
-_SYNTHESIS_PROMPT = (Path(__file__).parent / "prompts" / "feasibility_synthesis.md").read_text()
+_TIME_PROMPT = (Path(__file__).parent / "prompts" / "feasibility_time.md").read_text(encoding="utf-8")
+_HABIT_PROMPT = (Path(__file__).parent / "prompts" / "feasibility_habit.md").read_text(encoding="utf-8")
+_LOAD_PROMPT = (Path(__file__).parent / "prompts" / "feasibility_load.md").read_text(encoding="utf-8")
+_SYNTHESIS_PROMPT = (Path(__file__).parent / "prompts" / "feasibility_synthesis.md").read_text(encoding="utf-8")
 
 
 def build_feasibility_workflow(

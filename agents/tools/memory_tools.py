@@ -48,6 +48,12 @@ async def write_entity_to_memory(
     return {"status": "saved", "entity": entity_name}
 
 
+async def clear_pending_reschedule(user_id: str) -> dict:
+    """Clear pending reschedule tasks after user confirms rescheduling is done."""
+    await _memory().update_preference(user_id, "pending_reschedule", None)
+    return {"status": "cleared"}
+
+
 async def store_conversation_memory(user_id: str, text: str, metadata: dict | None = None) -> dict:
     """Compress and store a conversation insight as a searchable memory embedding."""
     await _memory().store_memory(user_id, text, metadata)

@@ -63,6 +63,13 @@ async def submit_feedback(body: FeedbackRequest) -> FeedbackResponse:
         f"Want me to reschedule them for tomorrow?"
     )
 
+    # Store uncompleted tasks so coordinator picks them up next turn
+    await mem.update_preference(body.user_id, "pending_reschedule", {
+        "tasks": uncompleted_titles,
+        "original_date": body.date,
+        "suggested_date": suggested_date,
+    })
+
     return FeedbackResponse(
         message=message,
         uncompleted=uncompleted_titles,
