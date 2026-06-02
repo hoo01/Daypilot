@@ -48,6 +48,7 @@ When the user's message is goal-related, classify the intent and route according
 | `add_goal_continue` | Continuation of a previous goal intake | Reuse session_id, transfer to goal_tracking_root |
 | `update_goal` | "update goal", "change my goal", "replan" | Assemble input, transfer to goal_tracking_root |
 | `abandon_goal` | "abandon goal", "give up on", "cancel goal" | Assemble input, transfer to goal_tracking_root |
+| `replan_goal` | track_goals() returns replan_pending=True for any goal | Transfer to goal_tracking_root with intent="replan"; pass the goal_id(s) where replan_pending=True |
 
 When transferring to goal_tracking_root, first:
 1. Call analyze_health(user_id) → store result as health context

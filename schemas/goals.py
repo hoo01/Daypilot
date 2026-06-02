@@ -35,3 +35,4 @@ class GoalsOutput(BaseModel):
     suggested_blocks_count: int
     suggested_split_ratio: list[float]
     daily_sub_tasks: list[GoalSubTask] = []
+    replan_pending: bool = False

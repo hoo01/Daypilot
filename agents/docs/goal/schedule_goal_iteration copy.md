@@ -32,54 +32,212 @@ class OverdueTaskRef(BaseModel):
 
 ---
 
-## 2. End-of-day checklist trigger — DESIGN IN PROGRESS
+## 2. End-of-day checklist — DESIGN COMPLETE, IMPLEMENTATION NOT STARTED
 
-### Trigger source decision
+### Trigger model
 
-**The end-of-day checklist is frontend-triggered, not Cloud Scheduler-triggered.**
+The trigger is **frontend-initiated at midnight (00:00 local time)**.
 
-The original plan (Cloud Scheduler → backend endpoint) is dropped. Rationale:
-- The checklist is a user-facing interaction; the frontend already owns the session.
-- Timing is user-dependent (not everyone wraps up at exactly 11 PM).
-- Letting the frontend initiate avoids push-notification infrastructure complexity.
-
-The Cloud Scheduler approach remains valid for silent background jobs (e.g. `daily-output`,
-`weekly-memory`) but is **not** the right model for an interactive checklist.
-
-### What the checklist flow looks like (high level)
+Throughout the day, the user marks tasks complete in the UI. Each completion is sent
+immediately to the backend via `POST /v1/events/subtask-completed`. At midnight, the
+frontend sends a single "close the day" request. The backend already has the full
+completion state; no checklist data needs to be re-sent — the midnight call is a
+processing trigger, not a data upload.
 
 ```
-Frontend detects end-of-day (user closes app / taps "end my day" / time threshold)
-  → Frontend calls backend: "give me today's incomplete tasks"
-  → Backend queries subtasks where planned_date == today AND is_completed == False
-  → Frontend renders checklist to user: "Did you complete these?"
-  → User taps done/not done per item
-  → Frontend sends results back to backend:
-      completed items  → POST /v1/events/subtask-completed
-      skipped items    → POST /v1/events/overdue  (OverdueNotification)
+During the day:
+  User taps task as done → POST /v1/events/subtask-completed  (real-time, per task)
+
+At midnight (frontend cron / background service):
+  POST /v1/scheduled/end-of-day  {"user_id": "...", "date": "2026-06-02"}
+    → Backend computes what's incomplete, classifies goal health, acts accordingly
+    → Returns summary to frontend (e.g. "3 tasks carried to tomorrow, 1 goal needs your input")
 ```
 
-### What still needs to be designed
+---
 
-The full data propagation chain — from frontend trigger through backend, Goal Agent, and
-back to Schedule Agent for next-day planning — has not yet been fully specified. The
-following questions must be answered before any backend API can be finalised:
+### Full data propagation chain
 
-1. **Frontend trigger**: What event causes the frontend to start the checklist?
-   (explicit button, time-based prompt, app close hook?)
-2. **Backend query endpoint**: The frontend needs an endpoint to fetch today's incomplete
-   subtasks per user. Does this live at `GET /v1/goals/incomplete-today` or is it an
-   extension of `/v1/scheduled/daily-output`?
-3. **Agent routing after results**: After the user responds, which agent decides whether
-   to silently carry tasks forward vs. trigger a Goal Agent replan? (See §5 for the
-   decision tree — that logic still applies, it just now has a frontend trigger instead
-   of a Cloud Scheduler trigger.)
-4. **Schedule Agent input**: How do confirmed-incomplete subtasks get fed into the next
-   `plan_schedule` call? Does Coordinator pass them as additional `goal_context`, or
-   does the Goal Agent update the subtask list first?
+```
+POST /v1/scheduled/end-of-day
+  │
+  ├─ 1. Query: subtasks where planned_date == today AND is_completed == False
+  │         grouped by goal_id
+  │
+  ├─ 2. For each affected goal:
+  │       a. Fetch goal document
+  │       b. Compute remaining_effort_minutes, remaining_days, daily_rate_needed
+  │       c. Compute historical_daily_rate  (via compute_daily_rate())
+  │       d. Classify: on_track  OR  needs_replan (Level 2)
+  │
+  ├─ 3a. ON-TRACK goals (silent carryover):
+  │       → update_sub_task(planned_date = today + 1 day)  for each incomplete subtask
+  │       → No user interaction. Tomorrow's daily-output naturally picks them up.
+  │
+  └─ 3b. NEEDS-REPLAN goals:
+          → update_goal(replan_requested_at = now())
+          → set_goal_status(goal_id, "OVERDUE")
+          → No immediate action. Coordinator picks this up next time user opens the app.
 
-**Implementation is blocked pending answers to the above. §5 (replan decision tree) is
-not blocked — it can be designed independently once the trigger source is settled.**
+
+Next day (user opens app):
+  Coordinator calls track_goals(user_id)
+    → track_goals calls POST /v1/scheduled/daily-output
+    → daily-output checks goal.replan_requested_at  →  sets GoalsOutput.replan_pending = True
+    → track_goals returns replan_pending = True to Coordinator
+
+  Coordinator sees replan_pending = True
+    → Routes to goal_tracking_root (Goal Agent) with intent = "replan"
+
+  Goal Agent (overdue handler):
+    → Presents user with: Extend deadline / Reduce scope / Snooze 24h / Keep as-is
+    → Applies user choice (updates deadline, marks subtasks ABANDONED, etc.)
+    → Clears goal.replan_requested_at = null
+
+  Coordinator receives updated goal state
+    → Calls plan_schedule() with the updated goal context
+    → Schedule Agent generates tomorrow's schedule with correct subtask list
+```
+
+---
+
+### Level 2 trigger conditions (same as §5, applied here)
+
+Both conditions use data already on the Goal document — no extra queries needed.
+
+```python
+remaining_effort    = sum(t.estimated_minutes for t in goal.sub_tasks if not t.is_completed)
+remaining_days      = max((goal.deadline - date.today()).days, 1)
+daily_rate_needed   = remaining_effort / remaining_days
+
+# historical_daily_rate: see compute_daily_rate() in §5C
+```
+
+**Level 2 fires if either condition is true:**
+- `daily_rate_needed > historical_daily_rate * 1.5`
+- `remaining_days <= 3 AND goal.progress_percent < 70`
+
+If neither fires → on_track (silent carryover).
+
+Level 1 (soft reminder / streak tracking from §5B) is a future enhancement; for the
+initial implementation only on_track vs. Level 2 is needed.
+
+---
+
+### Schema changes required
+
+**`schemas/goal_domain.py` — add to `Goal`:**
+```python
+replan_requested_at: Optional[datetime] = None   # set by end-of-day; cleared after user responds
+```
+
+**`schemas/goals.py` — add to `GoalsOutput`:**
+```python
+replan_pending: bool = False   # True when goal.replan_requested_at is set
+```
+
+**`api/routes/scheduled.py` — `_goal_to_goals_output()`:**
+```python
+replan_pending = goal.replan_requested_at is not None,
+```
+
+---
+
+### New endpoint: `POST /v1/scheduled/end-of-day`
+
+**Location:** `api/routes/scheduled.py`
+
+```python
+class EndOfDayRequest(BaseModel):
+    user_id: str
+    date: Optional[date] = None          # defaults to today
+
+class GoalEndOfDayResult(BaseModel):
+    goal_id: str
+    goal_title: str
+    action: str                          # "carried_over" | "replan_requested"
+    incomplete_count: int
+
+class EndOfDayResponse(BaseModel):
+    processed_date: date
+    goals_processed: int
+    results: list[GoalEndOfDayResult]
+    errors: list[str]
+
+@router.post("/scheduled/end-of-day", response_model=EndOfDayResponse)
+async def end_of_day(body: EndOfDayRequest) -> EndOfDayResponse:
+    target_date = body.date or date.today()
+    tomorrow = target_date + timedelta(days=1)
+    db = get_db()
+    results = []
+
+    goals = await list_active_goals(db, body.user_id)
+    for goal in goals:
+        incomplete = [t for t in goal.sub_tasks
+                      if not t.is_completed and t.planned_date == target_date]
+        if not incomplete:
+            continue
+
+        daily_rate = await compute_daily_rate(db, goal.goal_id)
+        remaining_effort = sum(t.estimated_minutes for t in goal.sub_tasks if not t.is_completed)
+        remaining_days = max((goal.deadline - target_date).days, 1)
+        daily_rate_needed = remaining_effort / remaining_days
+
+        needs_replan = (
+            (daily_rate > 0 and daily_rate_needed > daily_rate * 1.5)
+            or (remaining_days <= 3 and goal.progress_percent < 70)
+        )
+
+        if needs_replan:
+            await update_goal(db, goal.goal_id, {"replan_requested_at": _now_utc().isoformat()})
+            await set_goal_status(db, goal.goal_id, "OVERDUE")
+            action = "replan_requested"
+        else:
+            for t in incomplete:
+                await update_sub_task(db, goal.goal_id, t.sub_task_id,
+                                      {"planned_date": tomorrow.isoformat()})
+            action = "carried_over"
+
+        results.append(GoalEndOfDayResult(
+            goal_id=goal.goal_id,
+            goal_title=goal.title,
+            action=action,
+            incomplete_count=len(incomplete),
+        ))
+
+    return EndOfDayResponse(
+        processed_date=target_date,
+        goals_processed=len(results),
+        results=results,
+        errors=[],
+    )
+```
+
+---
+
+### Coordinator instruction change
+
+After the fix to `track_goals()` (§4), add this routing rule:
+
+```
+| `replan_goal` | track_goals() returns any goal with replan_pending=True |
+|               | Transfer to goal_tracking_root with intent="replan"      |
+|               | Pass the goal_id(s) with replan_pending=True as context  |
+```
+
+---
+
+### What needs to be built (ordered by dependency)
+
+| Step | Component | Location | Depends on |
+|---|---|---|---|
+| 1 | `replan_requested_at` field on `Goal` | `schemas/goal_domain.py` | — |
+| 2 | `compute_daily_rate()` | `agents/tools/progress_calc.py` | — |
+| 3 | `POST /v1/scheduled/end-of-day` endpoint | `api/routes/scheduled.py` | steps 1, 2 |
+| 4 | `replan_pending` on `GoalsOutput` + `_goal_to_goals_output()` update | `schemas/goals.py`, `api/routes/scheduled.py` | step 1 |
+| 5 | `track_goals()` HTTP fix (§4B) + parse `replan_pending` | `agents/tools/goal_tools.py` | step 4 |
+| 6 | Coordinator instruction: route on `replan_pending` | `agents/coordinator.py` | step 5 |
+| 7 | Frontend midnight cron → `POST /v1/scheduled/end-of-day` | Frontend | step 3 |
 
 ---
 
@@ -152,18 +310,21 @@ async def track_goals(user_id: str) -> dict:
 
     goals_output = data.get("goals_output", [])
     if not goals_output:
-        return {"goal_status": "no_goals", "progress_percent": 0.0, "urgency": "low", "goals": []}
+        return {"goal_status": "no_goals", "progress_percent": 0.0, "urgency": "low",
+                "goals": [], "replan_pending": False}
 
     # Derive aggregate status for the Coordinator
     urgencies = [g["urgency"] for g in goals_output]
     top_urgency = "high" if "high" in urgencies else ("medium" if "medium" in urgencies else "low")
     avg_feasibility = sum(g["feasibility_score"] for g in goals_output) / len(goals_output)
+    replan_pending = any(g.get("replan_pending", False) for g in goals_output)
 
     return {
         "goal_status": "on_track" if avg_feasibility >= 0.6 else "at_risk",
         "progress_percent": round(avg_feasibility * 100, 1),
         "urgency": top_urgency,
         "goals": goals_output,
+        "replan_pending": replan_pending,   # True if any goal needs user decision
     }
 ```
 
@@ -176,6 +337,164 @@ async def track_goals(user_id: str) -> dict:
 After this change, `plan_schedule()` receives real goal urgency, feasibility, and today's
 subtask list from the Goal Tracking Agent, so generated schedules are actually informed by
 goal progress.
+
+---
+
+## 4B. Supporting changes for the end-of-day + replan flow — NOT YET IMPLEMENTED
+
+These are smaller changes that don't fit neatly under a single section but are required
+for the §2 chain to work end-to-end.
+
+---
+
+### `compute_daily_rate()` — new function
+
+**File:** `agents/tools/progress_calc.py`
+
+Computes how many minutes of goal work the user has been completing per day, on average,
+over the past N days. Used by the end-of-day endpoint to evaluate Level 2 conditions.
+
+```python
+from datetime import date, datetime, timedelta, timezone
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from agents.tools.goal_db import get_goal
+
+async def compute_daily_rate(
+    db: AsyncIOMotorDatabase,
+    goal_id: str,
+    window_days: int = 7,
+) -> float:
+    """
+    Returns average completed effort (minutes/day) over the last window_days days.
+    Uses completed_at timestamps on sub_tasks — no event_log query needed.
+    Returns 0.0 if no completions exist yet.
+    """
+    goal = await get_goal(db, goal_id)
+    if not goal:
+        return 0.0
+
+    days_since_created = (date.today() - goal.created_at.date()).days
+    N = max(min(days_since_created, window_days), 1)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=N)
+
+    completed_minutes = sum(
+        t.estimated_minutes
+        for t in goal.sub_tasks
+        if t.is_completed
+        and t.completed_at is not None
+        and t.completed_at >= cutoff
+    )
+    return completed_minutes / N
+```
+
+---
+
+### `POST /v1/goals/{goal_id}/replan` — must clear `replan_requested_at`
+
+**File:** `api/routes/goals.py`, `replan_goal()`
+
+The endpoint already exists and updates `deadline` + sets `status = "IN_PROGRESS"`.
+It needs one additional write to clear the replan flag so the Coordinator stops routing
+to the Goal Agent:
+
+```python
+# Add to replan_goal(), after set_goal_status():
+from agents.tools.goal_db import update_goal
+await update_goal(db, goal_id, {"replan_requested_at": None})
+```
+
+---
+
+### "Reduce scope" — new endpoint for subtask abandonment
+
+**File:** `api/routes/goals.py`
+
+The "Reduce scope" replan option requires marking specific subtasks as abandoned
+(not the whole goal). This endpoint does not currently exist.
+
+```python
+class ReduceScopeRequest(BaseModel):
+    user_id: str
+    sub_task_ids: list[str]   # subtasks the user agrees to drop
+
+@router.post("/{goal_id}/reduce-scope", response_model=Goal)
+async def reduce_scope(goal_id: str, body: ReduceScopeRequest) -> Goal:
+    db = get_db()
+    goal = await get_goal(db, goal_id)
+    if goal is None:
+        raise HTTPException(status_code=404, detail={"error": "goal_not_found"})
+    if goal.status in TERMINAL_STATES:
+        raise HTTPException(status_code=422, detail={"error": "illegal_transition"})
+
+    for sub_task_id in body.sub_task_ids:
+        await update_sub_task(db, goal_id, sub_task_id, {"is_completed": True,
+                                                          "abandoned": True})
+    await update_goal(db, goal_id, {"replan_requested_at": None})
+    new_pct = await recompute_progress_percent(db, goal_id)
+    if new_pct == 100.0:
+        await set_goal_status(db, goal_id, "COMPLETED")
+
+    updated = await get_goal(db, goal_id)
+    # log event ...
+    return updated
+```
+
+Note: `SubTask` schema needs `abandoned: bool = False` added to distinguish dropped
+subtasks from genuinely completed ones. This affects `compute_progress_percent()`.
+
+**Decision (confirmed):** Abandoned subtasks are excluded from **both** numerator and
+denominator. They do not count as completed and do not inflate the total.
+
+```python
+# agents/tools/progress_calc.py — update compute_progress_percent():
+def compute_progress_percent(sub_tasks: list[SubTask]) -> float:
+    active = [t for t in sub_tasks if not getattr(t, "abandoned", False)]
+    if not active:
+        return 0.0
+    completed = sum(1 for t in active if t.is_completed)
+    return round(completed / len(active) * 100, 2)
+```
+
+`recompute_progress_percent()` in `agents/tools/goal_db.py` uses a MongoDB aggregation
+pipeline and must also be updated to filter out `abandoned == true` subtasks from both
+the size count and the completed filter.
+
+---
+
+### Goal Agent overdue handler — tool list update
+
+**File:** `agents/goal/overdue.py`
+
+The current tool list is `[get_goal, set_goal_status, format_overdue_prompt]`.
+For the replan flow (triggered when `replan_requested_at` is set), the agent needs
+to be able to call the three replan paths:
+
+```python
+# Add these tools to build_overdue_handler_agent():
+
+async def _call_replan(goal_id: str, new_deadline: str, user_id: str):
+    """Extend deadline: POST /v1/goals/{goal_id}/replan"""
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"{settings.goal_agent_url}/v1/goals/{goal_id}/replan",
+            json={"new_deadline": new_deadline, "user_id": user_id},
+        )
+
+async def _call_reduce_scope(goal_id: str, sub_task_ids: list[str], user_id: str):
+    """Drop subtasks: POST /v1/goals/{goal_id}/reduce-scope"""
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"{settings.goal_agent_url}/v1/goals/{goal_id}/reduce-scope",
+            json={"sub_task_ids": sub_task_ids, "user_id": user_id},
+        )
+
+async def _clear_replan_flag(goal_id: str):
+    """Used for 'Keep as-is' — clears flag without changing goal."""
+    return await update_goal(db, goal_id, {"replan_requested_at": None})
+```
+
+The overdue handler prompt (`agents/goal/prompts/overdue.md`) also needs updating
+to cover the four user choices: Extend deadline / Reduce scope / Snooze 24h / Keep as-is.
 
 ---
 
@@ -271,13 +590,25 @@ in `Goal_Tracking_Agent/app/tools/`.
 | # | Item | Status |
 |---|---|---|
 | 1 | `OverdueTaskRef` type change | ✅ Resolved — change reverted, `start_time: datetime` kept per PRD §11 Q3 |
-| 2 | End-of-day checklist trigger | 🔶 Design in progress — frontend-triggered; full data chain TBD |
-| 3 | `handle_overdue` rescheduling | 🔶 Deferred — blocked on §2 data chain design |
+| 2 | End-of-day checklist — full chain design | ✅ Design complete |
+| 2-1 | `replan_requested_at` field on `Goal` schema | ⬜ Not started |
+| 2-2 | `compute_daily_rate()` in `progress_calc.py` | ⬜ Not started |
+| 2-3 | `POST /v1/scheduled/end-of-day` endpoint | ⬜ Not started |
+| 2-4 | `replan_pending` on `GoalsOutput` + `_goal_to_goals_output()` | ⬜ Not started |
+| 2-5 | `track_goals()` HTTP fix + parse `replan_pending` | ⬜ Not started (same as 4B) |
+| 2-6 | Coordinator instruction: route on `replan_pending` | ⬜ Not started |
+| 2-7 | Frontend midnight cron → `POST /v1/scheduled/end-of-day` | ⬜ Not started (frontend) |
+| 3 | `handle_overdue` rescheduling | 🔶 Deferred — rescheduling now handled by §2-3 endpoint; `handle_overdue` remains a log-only receiver |
 | 4A | Remove `upsert_goal_state` / `get_goal_state` from `MemoryAgent` | ⬜ Not started |
-| 4B | `track_goals()` → real HTTP call to `/v1/scheduled/daily-output` | ⬜ Not started |
+| 4B | `track_goals()` → real HTTP call + return `replan_pending` | ⬜ Not started (same as 2-5) |
 | 4C | Add `goal_agent_url` to `config.py` | ⬜ Not started |
-| 5A | End-of-day replan decision tree (Coordinator logic) | ⬜ Not started — can be designed once §2 trigger is settled |
-| 5B | Level 1 streak tracking via event_log query | ⬜ Not started |
-| 5C | `compute_daily_rate()` tool function | ⬜ Not started |
-| 5D | Level 2 forced replan prompt + user choice handling | ⬜ Not started |
-| 5E | `replan_snoozed_until` field on Goal schema + snooze logic | ⬜ Not started |
+| 4B-1 | `compute_daily_rate()` in `progress_calc.py` | ⬜ Not started — implementation spec in §4B |
+| 4B-2 | `replan_goal` endpoint: clear `replan_requested_at` after replan | ⬜ Not started — spec in §4B |
+| 4B-3 | `POST /v1/goals/{id}/reduce-scope` new endpoint | ⬜ Not started — spec in §4B; decision needed on `abandoned` flag |
+| 4B-4 | `SubTask` schema: add `abandoned: bool = False`; update both progress_percent functions | ⬜ Not started — decision confirmed: excluded from numerator AND denominator |
+| 4B-5 | Goal Agent overdue handler: add replan/reduce-scope/clear tools | ⬜ Not started — spec in §4B |
+| 4B-6 | `agents/goal/prompts/overdue.md`: update for 4-choice replan flow | ⬜ Not started |
+| 5A | Level 2 forced replan prompt + user choice (Goal Agent) | ⬜ Not started — design complete in §2 + §4B |
+| 5B | Level 1 streak tracking (3-day rolling window via event_log) | ⬜ Not started — future enhancement after Level 2 works |
+| 5C | `compute_daily_rate()` | ⬜ Not started (same as 4B-1) |
+| 5D | `replan_snoozed_until` field + snooze logic | ⬜ Not started — needed for Goal Agent "Snooze 24h" option |
