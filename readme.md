@@ -41,43 +41,52 @@ DayPilot flips this. It surfaces what you haven't thought of yet and weaves it p
 
 ## Architecture
 
-Single FastAPI server with a Google ADK coordinator agent orchestrating specialist tool functions. MongoDB Atlas is the persistence layer for the Knowledge Graph, accessed via MCP.
+Single FastAPI server with a Google ADK coordinator agent. Context is pre-loaded in parallel before each turn via ADK's `before_agent_callback`, so Gemini always has fresh user data without needing to decide which tools to call.
 
 ```
 User
   ↓
 POST /chat/
   ↓
-Coordinator Agent (Google ADK + Gemini)
-  ├── read_user_context       → MongoDB Knowledge Graph
-  ├── retrieve_relevant_memories → MongoDB Vector Search
-  ├── analyze_health          → energy + focus window
-  ├── track_goals             → goal progress + urgency
-  ├── get_relationship_context → upcoming dates + proactive suggestions
-  ├── plan_schedule           → 3 optimized daily strategies
-  ├── adjust_schedule         → real-time replanning
-  ├── write_entity_to_memory  → persist facts from conversation
-  ├── store_conversation_memory → vector embedding → MongoDB
-  └── MongoDB MCP             → direct Knowledge Graph queries
+before_agent_callback (parallel, every turn)
+  ├── read_user_context   ─┐
+  ├── track_goals          ├── asyncio.gather → inject into session state
+  └── get_relationship_context ─┘
+  ↓
+Coordinator Agent (Google ADK + Gemini 2.5 Flash)
+  ├── Reads pre-loaded context from session state
+  ├── Proactively surfaces goals, upcoming dates, schedule
+  └── Calls additional tools on demand:
+      ├── plan_schedule           → 3 optimized daily strategies
+      ├── adjust_schedule         → real-time replanning
+      ├── get_geo_info            → commute segments via Google Routes API
+      ├── write_entity_to_memory  → persist facts from conversation
+      ├── store_conversation_memory → vector embedding → MongoDB
+      ├── clear_pending_reschedule → after task rescheduling confirmed
+      └── MongoDB MCP             → direct Knowledge Graph queries
+
+POST /schedule/feedback (end-of-day checkbox)
+  ├── Updates goal progress in MongoDB
+  ├── Stores pending_reschedule in user_preferences
+  └── Next /chat/ turn: coordinator detects pending tasks and reschedules
 ```
 
 ---
 
 ## Memory System
 
-DayPilot has two memory layers:
-
-**Knowledge Graph (MongoDB)**
-- `entities` — people, interests, events, goals with relations and upcoming dates
-- `user_preferences` — focus window, energy pattern, commute habits
+**Knowledge Graph (MongoDB Atlas)**
+- `entities` — people, interests, events with relations and upcoming dates
+- `user_preferences` — focus window, energy pattern, commute, pending reschedules
 - `goal_state` — weekly goals with progress tracking
-- `conversation_memory` — vector embeddings for semantic retrieval (Atlas Vector Search)
+- `conversation_memory` — vector embeddings (Atlas Vector Search, 3072-dim)
 
 **How memory grows**
 - Cold start: Google OAuth → reads Calendar, Gmail, Contacts → Gemini extracts entities → MongoDB
-- Per conversation: coordinator extracts facts → `write_entity_to_memory`
+- Per turn: `before_agent_callback` preloads context in parallel (no per-request tool call latency)
 - After each turn: background consolidation → Gemini compresses insight → `store_conversation_memory`
 - Next session: `retrieve_relevant_memories` semantically retrieves relevant past context
+- End of day: `/schedule/feedback` stores uncompleted tasks → coordinator reschedules on next turn
 
 ---
 
@@ -86,15 +95,17 @@ DayPilot has two memory layers:
 | Tool | Description | Status |
 |---|---|---|
 | `read_user_context` | Loads preferences, goals, upcoming events from MongoDB | Ready |
-| `retrieve_relevant_memories` | Semantic search over past conversation memories | Ready |
-| `get_relationship_context` | Surfaces upcoming important dates with Gemini suggestions | Ready |
 | `track_goals` | Reads goal state, uses Gemini to assess urgency and suggest blocks | Ready |
+| `get_relationship_context` | Surfaces upcoming important dates with Gemini suggestions | Ready |
+| `retrieve_relevant_memories` | Semantic search over past conversation memories | Ready |
 | `plan_schedule` | Generates 3 daily schedule strategies with constraint enforcement | Ready |
 | `adjust_schedule` | Real-time replanning when disruptions occur | Ready |
+| `get_geo_info` | Multi-segment commute calculation via Google Routes API | Ready |
 | `write_entity_to_memory` | Persists entities extracted from conversation | Ready |
-| `store_conversation_memory` | Embeds and stores conversation insights for future retrieval | Ready |
+| `store_conversation_memory` | Embeds and stores conversation insights | Ready |
+| `clear_pending_reschedule` | Clears pending task reschedule after confirmation | Ready |
 | `analyze_health` | Energy and focus window analysis | Stub |
-| `get_geo_info` | Commute time and departure window calculation | Stub |
+| `MongoDB MCP` | Direct Knowledge Graph queries via MCP protocol | Ready |
 
 ---
 
@@ -103,13 +114,14 @@ DayPilot has two memory layers:
 | Layer | Technology |
 |---|---|
 | LLM | Gemini 2.5 Flash |
-| Agent framework | Google ADK |
+| Agent framework | Google ADK (`before_agent_callback`, `MCPToolset`) |
 | Backend | Python + FastAPI |
-| Database | MongoDB Atlas |
-| MCP | mongodb-mcp-server (stdio) |
+| Database | MongoDB Atlas (Knowledge Graph + Vector Search) |
+| MCP | mongodb-mcp-server (stdio subprocess) |
 | Embeddings | gemini-embedding-001 (3072 dim) |
 | Vector Search | MongoDB Atlas Vector Search |
 | Auth | Google OAuth 2.0 (Calendar + Gmail + Contacts) |
+| Geo | Google Routes API (transit → walking → driving fallback) |
 
 ---
 
@@ -137,16 +149,30 @@ tonight. Leave for the library by 9:15AM — that gives you a 90-minute
 window this morning for 2 problems first."
 ```
 
+That evening, Kai didn't finish his Leetcode session. He checks the box in the UI. DayPilot asks if he wants to reschedule — he says yes, and it automatically slots it into tomorrow.
+
+---
+
+## API Reference
+
+See [docs/api.md](docs/api.md) for full endpoint documentation.
+
+Key endpoints:
+- `POST /chat/` — main conversation interface
+- `POST /schedule/feedback` — end-of-day task completion feedback
+- `POST /schedule/adjust` — real-time schedule adjustment
+- `GET /auth/google` — Google OAuth login
+
 ---
 
 ## Judging Criteria
 
 | Criterion | Our answer |
 |---|---|
-| Technical implementation | ADK multi-agent system, Knowledge Graph, Vector Search, MCP integration |
-| Originality | Proactive life-awareness; no existing scheduler knows your life |
+| Technical implementation | ADK `before_agent_callback`, Knowledge Graph, Vector Search, MCP, Google Routes API |
+| Originality | Proactive life-awareness + closed feedback loop; no existing scheduler knows your life |
 | Potential impact | Works for any user across any life domain |
-| Design & UX | Zero onboarding; proactive suggestions surface naturally in chat |
+| Design & UX | Zero onboarding; proactive suggestions surface naturally in chat; end-of-day feedback loop |
 
 ---
 

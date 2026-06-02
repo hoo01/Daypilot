@@ -3,7 +3,7 @@ from pathlib import Path
 from google.adk.agents import LlmAgent, LoopAgent
 
 
-_PROMPT = (Path(__file__).parent / "prompts" / "validation.md").read_text()
+_PROMPT = (Path(__file__).parent / "prompts" / "validation.md").read_text(encoding="utf-8")
 
 
 def build_validation_loop(model: str) -> LoopAgent:

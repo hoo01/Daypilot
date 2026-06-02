@@ -7,7 +7,7 @@ from agents.tools.goal_db import get_goal, recompute_progress_percent
 from agents.tools.subtask_db import get_sub_task
 from agents.tools.goal_messaging import format_behind_schedule_reminder
 
-_PROMPT = (Path(__file__).parent / "prompts" / "progress.md").read_text()
+_PROMPT = (Path(__file__).parent / "prompts" / "progress.md").read_text(encoding="utf-8")
 
 
 def build_progress_tracking_agent(db: AsyncIOMotorDatabase, model: str) -> LlmAgent:

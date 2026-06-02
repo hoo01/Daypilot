@@ -22,16 +22,12 @@ async def lifespan(app: FastAPI):
     db = get_db()
     await ensure_indexes(db)
 
-    from agents.goals import build_goal_tracking_root
-    from config import settings as cfg
-    goal_root = build_goal_tracking_root(db, cfg)
-
     try:
         mongo_mcp = get_mongo_mcp()
         await exit_stack.enter_async_context(mongo_mcp)
-        coordinator = build_coordinator(mcp_tools=mongo_mcp, goal_tracking_root=goal_root)
+        coordinator = build_coordinator(mcp_tools=mongo_mcp)
     except Exception:
-        coordinator = build_coordinator(goal_tracking_root=goal_root)
+        coordinator = build_coordinator()
 
     session_service = InMemorySessionService()
     runner = Runner(
