@@ -106,7 +106,7 @@ def build_coordinator(mcp_tools=None, goal_tracking_root=None) -> Agent:
         description="DayPilot's root coordinator. Orchestrates all specialist tools.",
         instruction=INSTRUCTION,
         tools=tools,
-        sub_agents=sub_agents if sub_agents else None,
+        sub_agents=sub_agents or [],
     )
 
 
