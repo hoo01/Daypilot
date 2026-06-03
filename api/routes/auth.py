@@ -11,6 +11,9 @@ from config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Store flows between authorization and callback to preserve code_verifier
+_pending_flows: dict[str, Flow] = {}
+
 
 def _build_flow() -> Flow:
     return Flow.from_client_config(
@@ -38,6 +41,7 @@ async def initiate_google_auth(user_id: str):
         state=user_id,
         prompt="consent",
     )
+    _pending_flows[user_id] = flow
     return {"auth_url": auth_url}
 
 
@@ -46,7 +50,7 @@ async def google_auth_callback(code: str, state: str):
     """Handle OAuth callback. Exchanges code, stores credentials, triggers ingestion."""
     user_id = state
 
-    flow = _build_flow()
+    flow = _pending_flows.pop(user_id, None) or _build_flow()
     try:
         flow.fetch_token(code=code)
     except Exception as e:

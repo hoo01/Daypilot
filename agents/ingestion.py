@@ -2,7 +2,9 @@ import json
 import asyncio
 from datetime import datetime, timedelta
 
+import httplib2
 from google.oauth2.credentials import Credentials
+from google.auth.transport.httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 from google import genai
 from google.genai import types as genai_types
@@ -61,6 +63,14 @@ class IngestionAgent:
 
         return {"status": "ok", "source": source, "entities_ingested": count}
 
+    def _build_authorized_http(self, creds: Credentials):
+        proxy_info = httplib2.ProxyInfo(
+            httplib2.socks.PROXY_TYPE_HTTP,
+            "127.0.0.1",
+            7897,
+        )
+        return AuthorizedHttp(creds, http=httplib2.Http(proxy_info=proxy_info))
+
     def _fetch_google_data_sync(self, creds: Credentials, source: str) -> dict:
         now = datetime.utcnow()
         lookback_days = 90 if source == "cold_start" else 7
@@ -68,10 +78,11 @@ class IngestionAgent:
         time_max = (now + timedelta(days=30)).isoformat() + "Z"
 
         result: dict = {"calendar_events": [], "gmail_senders": [], "contacts": []}
+        http = self._build_authorized_http(creds)
 
         # Google Calendar
         try:
-            cal = build("calendar", "v3", credentials=creds)
+            cal = build("calendar", "v3", http=http)
             events_resp = cal.events().list(
                 calendarId="primary",
                 timeMin=time_min,
@@ -97,7 +108,7 @@ class IngestionAgent:
 
         # Gmail - metadata only (From headers, no message body)
         try:
-            gmail = build("gmail", "v1", credentials=creds)
+            gmail = build("gmail", "v1", http=http)
             msgs_resp = gmail.users().messages().list(
                 userId="me", maxResults=100
             ).execute()
@@ -119,7 +130,7 @@ class IngestionAgent:
 
         # Google People / Contacts
         try:
-            people = build("people", "v1", credentials=creds)
+            people = build("people", "v1", http=http)
             connections_resp = people.people().connections().list(
                 resourceName="people/me",
                 pageSize=100,
