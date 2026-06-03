@@ -49,9 +49,10 @@ User
 POST /chat/
   ↓
 before_agent_callback (parallel, every turn)
-  ├── read_user_context   ─┐
-  ├── track_goals          ├── asyncio.gather → inject into session state
-  └── get_relationship_context ─┘
+  ├── read_user_context          ─┐
+  ├── track_goals                 │  asyncio.gather → inject into session state
+  ├── get_relationship_context    │
+  └── analyze_health             ─┘  (full PsychoBio pipeline — PSI, PLI, energy, focus window)
   ↓
 Coordinator Agent (Google ADK + Gemini 2.5 Flash)
   ├── Reads pre-loaded context from session state
@@ -104,7 +105,7 @@ POST /schedule/feedback (end-of-day checkbox)
 | `write_entity_to_memory` | Persists entities extracted from conversation | Ready |
 | `store_conversation_memory` | Embeds and stores conversation insights | Ready |
 | `clear_pending_reschedule` | Clears pending task reschedule after confirmation | Ready |
-| `analyze_health` | Energy and focus window analysis | Stub |
+| `analyze_health` | Full psychobiological pipeline (PSI/PLI, energy_score, focus_windows, cognitive_load, Gemini insight) — runs automatically before each turn | Ready |
 | `MongoDB MCP` | Direct Knowledge Graph queries via MCP protocol | Ready |
 
 ---

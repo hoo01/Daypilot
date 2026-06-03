@@ -42,3 +42,6 @@ _local/
 .history/
 .env
 _local/
+
+# Backup / dev scratch directories
+agents/backup/

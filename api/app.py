@@ -19,6 +19,9 @@ async def lifespan(app: FastAPI):
     exit_stack = AsyncExitStack()
     await exit_stack.__aenter__()
 
+    from agents.health_agent.scenario_selector import get_active_scenario, get_target_date
+    print(f"[Health] Active scenario: {get_active_scenario()}, target_date={get_target_date()}")
+
     db = get_db()
     await ensure_indexes(db)
 
