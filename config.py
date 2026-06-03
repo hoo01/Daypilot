@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     app_secret_key: str = "change_me_in_production"
 
     memory_agent_url: str = "http://memory-agent"
-    goal_agent_url: str = "http://localhost:8001"
+    goal_agent_url: str = "http://localhost:8000"
     calendar_service_account_json: Optional[str] = None
     overload_threshold_minutes: int = 600
     intake_session_ttl_hours: int = 24
