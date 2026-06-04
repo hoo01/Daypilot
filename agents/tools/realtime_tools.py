@@ -1,7 +1,8 @@
 import json
 from google import genai
 from config import settings
-
+from agents.memory import MemoryAgent
+from db import get_db
 
 async def adjust_schedule(
     user_id: str,
@@ -22,6 +23,13 @@ async def adjust_schedule(
             "updated_schedule": [],
             "message": "No active schedule to adjust.",
         }
+    # Load user's focus window so deep work gets rescheduled into it
+    try:
+        mem = MemoryAgent(get_db())
+        prefs = await mem.get_preferences(user_id)
+        focus_window = prefs.get("focus_window", "unknown")
+    except Exception:
+        focus_window = "unknown"
 
     prompt = f"""
 You are DayPilot's real-time schedule adjustment engine.
@@ -34,8 +42,10 @@ Rules:
 - All times must remain in ISO 8601 format (e.g. "2026-05-25T21:00:00")
 - Keep the total number of tasks reasonable — drop lower-priority ones if time is tight
 - Write a short, friendly message (1-2 sentences) explaining what changed
+- When rescheduling "deep_work" tasks, prefer placing them within the user's focus window ({focus_window}) where they are most productive. Avoid moving deep work to low-energy times unless no slot in the focus window is available.
 
 Trigger type: {trigger}
+User's focus window (peak productivity): {focus_window}
 What happened: {trigger_detail}
 
 Current schedule:
