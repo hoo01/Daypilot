@@ -9,7 +9,8 @@ from pydantic import BaseModel
 from db.client import get_db
 from db.collections import Collections
 from schemas.goal_domain import Goal, EventLogEntry
-from agents.tools.goal_db import get_goal, list_active_goals, set_goal_status
+from agents.tools.goal_db import get_goal, list_active_goals, set_goal_status, update_goal, recompute_progress_percent
+from agents.tools.subtask_db import update_sub_task
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/goals", tags=["goals"])
@@ -117,6 +118,8 @@ async def replan_goal(goal_id: str, body: ReplanRequest) -> Goal:
     if updated is None:
         raise HTTPException(status_code=404, detail={"error": "goal_not_found", "goal_id": goal_id})
 
+    await update_goal(db, goal_id, {"replan_requested_at": None})
+
     await db[EVENT_LOG].insert_one(EventLogEntry(
         event_id=f"replan-{goal_id}-{int(_now_utc().timestamp())}",
         event_type="replan",
@@ -128,4 +131,42 @@ async def replan_goal(goal_id: str, body: ReplanRequest) -> Goal:
         warnings=[],
     ).model_dump(mode="json"))
 
+    return updated
+
+
+class ReduceScopeRequest(BaseModel):
+    user_id: str
+    sub_task_ids: list[str]
+
+
+@router.post("/{goal_id}/reduce-scope", response_model=Goal)
+async def reduce_scope(goal_id: str, body: ReduceScopeRequest) -> Goal:
+    db = get_db()
+    goal = await get_goal(db, goal_id)
+    if goal is None:
+        raise HTTPException(status_code=404, detail={"error": "goal_not_found", "goal_id": goal_id})
+    if goal.status in TERMINAL_STATES:
+        raise HTTPException(status_code=422,
+            detail={"error": "illegal_transition",
+                    "message": f"Cannot reduce scope of a {goal.status} goal"})
+
+    for sub_task_id in body.sub_task_ids:
+        await update_sub_task(db, goal_id, sub_task_id, {"abandoned": True})
+
+    await update_goal(db, goal_id, {"replan_requested_at": None})
+    new_pct = await recompute_progress_percent(db, goal_id)
+    if new_pct == 100.0:
+        await set_goal_status(db, goal_id, "COMPLETED")
+
+    updated = await get_goal(db, goal_id)
+    await db[EVENT_LOG].insert_one(EventLogEntry(
+        event_id=f"reduce-scope-{goal_id}-{int(_now_utc().timestamp())}",
+        event_type="reduce_scope",
+        goal_id=goal_id,
+        payload={"sub_task_ids": body.sub_task_ids, "user_id": body.user_id},
+        received_at=_now_utc(),
+        processed_at=_now_utc(),
+        status="processed",
+        warnings=[],
+    ).model_dump(mode="json"))
     return updated

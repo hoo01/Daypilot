@@ -64,19 +64,6 @@ class MemoryAgent:
             doc.pop("_id", None)
         return doc or {}
 
-    async def upsert_goal_state(self, user_id: str, goal_data: dict) -> None:
-        await self._db[Collections.GOAL_STATE].update_one(
-            {"user_id": user_id},
-            {"$set": goal_data},
-            upsert=True,
-        )
-
-    async def get_goal_state(self, user_id: str) -> dict:
-        doc = await self._db[Collections.GOAL_STATE].find_one({"user_id": user_id})
-        if doc:
-            doc.pop("_id", None)
-        return doc or {}
-
     async def store_memory(self, user_id: str, text: str, metadata: dict | None = None) -> None:
         """Embed text and store in conversation_memory for later semantic retrieval."""
         loop = asyncio.get_event_loop()

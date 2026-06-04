@@ -1,68 +1,44 @@
-import json
-from datetime import date
-from google import genai
+import httpx
 from config import settings
-from db import get_db
-from agents.memory import MemoryAgent
 
 
 async def track_goals(user_id: str) -> dict:
     """
-    Retrieve current goal state and assess progress using Gemini.
-    Returns goal status, urgency, and suggested time blocks to catch up.
+    Retrieve current goal state by calling the daily-output scheduled endpoint.
+    Returns goal status, urgency, and replan_pending flag.
     """
-    mem = MemoryAgent(get_db())
-    goal_state = await mem.get_goal_state(user_id)
-    prefs = await mem.get_preferences(user_id)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"{settings.goal_agent_url}/v1/scheduled/daily-output",
+                json={"user_id": user_id},
+            )
+            response.raise_for_status()
+            data = response.json()
+    except Exception:
+        return {"goal_status": "unavailable", "progress_percent": 0.0, "urgency": "low",
+                "goals": [], "replan_pending": False}
 
-    if not goal_state or not goal_state.get("goals"):
+    goals_output = data.get("goals_output", [])
+    if not goals_output:
         return {
             "goal_status": "no_goals",
             "progress_percent": 0.0,
             "urgency": "low",
             "goals": [],
-            "suggested_blocks": [],
+            "replan_pending": False,
         }
 
-    prompt = f"""You are a goal tracking assistant. Analyze the user's current goal progress and return actionable insights.
+    # Derive aggregate status for the Coordinator
+    urgencies = [g["urgency"] for g in goals_output]
+    top_urgency = "high" if "high" in urgencies else ("medium" if "medium" in urgencies else "low")
+    avg_feasibility = sum(g["feasibility_score"] for g in goals_output) / len(goals_output)
+    replan_pending = any(g.get("replan_pending", False) for g in goals_output)
 
-Today: {date.today().isoformat()}
-User focus window: {prefs.get("focus_window", "unknown")}
-User energy pattern: {prefs.get("energy_pattern", "unknown")}
-
-Goal state:
-{json.dumps(goal_state.get("goals", []), indent=2)}
-
-Return a JSON object with:
-- goal_status: "on_track" | "behind_schedule" | "at_risk" | "completed"
-- progress_percent: number 0-100 (average across all goals)
-- urgency: "low" | "medium" | "high" | "critical"
-- goals: the original goals array with updated urgency per goal
-- suggested_blocks: list of strings like "2h Leetcode tonight 9PM-11PM"
-- summary: one sentence describing the overall goal situation
-
-Return ONLY valid JSON."""
-
-    client = genai.Client(api_key=settings.gemini_api_key)
-    response = client.models.generate_content(
-        model=settings.goal_model,
-        contents=prompt,
-        config=genai.types.GenerateContentConfig(
-            response_mime_type="application/json",
-        ),
-    )
-
-    try:
-        result = json.loads(response.text)
-    except (json.JSONDecodeError, ValueError):
-        goals = goal_state.get("goals", [])
-        return {
-            "goal_status": "on_track",
-            "progress_percent": 60.0,
-            "urgency": "medium",
-            "goals": goals,
-            "suggested_blocks": [],
-            "summary": "Goal tracking data loaded.",
-        }
-
-    return result
+    return {
+        "goal_status": "on_track" if avg_feasibility >= 0.6 else "at_risk",
+        "progress_percent": round(avg_feasibility * 100, 1),
+        "urgency": top_urgency,
+        "goals": goals_output,
+        "replan_pending": replan_pending,
+    }

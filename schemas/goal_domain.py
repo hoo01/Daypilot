@@ -15,6 +15,7 @@ class SubTask(BaseModel):
     is_completed: bool
     completed_at: Optional[datetime] = None
     planned_date: Optional[date] = None  # set by Schedule Agent via /v1/events/subtask-scheduled
+    abandoned: bool = False
 
 
 class Goal(BaseModel):
@@ -32,6 +33,7 @@ class Goal(BaseModel):
     total_effort_minutes: int
     suggested_blocks_count: int
     suggested_split_ratio: list[float]
+    replan_requested_at: Optional[datetime] = None
 
 
 VALID_GOAL_STATUSES = {

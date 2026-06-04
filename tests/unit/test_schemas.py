@@ -81,6 +81,62 @@ class TestOverdueTaskRefContract:
         )
 
 
+class TestNewIterationFields:
+    """Verify all schema fields added in the schedule-goal iteration."""
+
+    def test_subtask_has_abandoned_field_defaulting_false(self):
+        from datetime import date
+        t = SubTask(
+            sub_task_id="t1", goal_id="g1", title="T",
+            estimated_minutes=30, priority="medium",
+            deadline=date(2026, 12, 31), preferred_time_of_day="flexible",
+            can_split=True, is_completed=False,
+        )
+        assert t.abandoned is False
+
+    def test_subtask_abandoned_can_be_set_true(self):
+        from datetime import date
+        t = SubTask(
+            sub_task_id="t1", goal_id="g1", title="T",
+            estimated_minutes=30, priority="medium",
+            deadline=date(2026, 12, 31), preferred_time_of_day="flexible",
+            can_split=True, is_completed=False, abandoned=True,
+        )
+        assert t.abandoned is True
+
+    def test_goal_has_replan_requested_at_defaulting_none(self):
+        from datetime import date, datetime, timezone
+        g = Goal(
+            goal_id="g1", user_id="u1", title="G", goal_type="weekly",
+            status="CREATED", created_at=datetime.now(timezone.utc),
+            deadline=date(2026, 12, 31), progress_percent=0.0,
+            sub_tasks=[], feasibility_score=0.8, feasibility_note="",
+            total_effort_minutes=60, suggested_blocks_count=1,
+            suggested_split_ratio=[1.0],
+        )
+        assert g.replan_requested_at is None
+
+    def test_goals_output_has_replan_pending_defaulting_false(self):
+        from datetime import date
+        o = GoalsOutput(
+            goal_id="g1", urgency="low", feasibility_score=0.8,
+            feasibility_note="", total_effort_minutes=60,
+            suggested_blocks_count=1, suggested_split_ratio=[1.0],
+            daily_sub_tasks=[],
+        )
+        assert o.replan_pending is False
+
+    def test_goals_output_replan_pending_can_be_set_true(self):
+        from datetime import date
+        o = GoalsOutput(
+            goal_id="g1", urgency="high", feasibility_score=0.4,
+            feasibility_note="", total_effort_minutes=60,
+            suggested_blocks_count=1, suggested_split_ratio=[1.0],
+            daily_sub_tasks=[], replan_pending=True,
+        )
+        assert o.replan_pending is True
+
+
 class TestValidGoalStatuses:
     def test_all_lifecycle_states_present(self):
         expected = {"CREATED", "IN_PROGRESS", "COMPLETED", "PARTIALLY_COMPLETED", "OVERDUE", "ABANDONED"}

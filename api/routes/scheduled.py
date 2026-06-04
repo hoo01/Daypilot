@@ -12,7 +12,9 @@ from pymongo.errors import DuplicateKeyError
 from db.client import get_db
 from db.collections import Collections
 from schemas.goals import GoalsOutput, GoalSubTask
-from agents.tools.goal_db import list_active_goals
+from agents.tools.goal_db import list_active_goals, update_goal, set_goal_status
+from agents.tools.subtask_db import update_sub_task
+from agents.tools.progress_calc import compute_daily_rate
 from agents.tools.memory_agent_client import write_weekly_summary
 from config import settings
 
@@ -85,6 +87,7 @@ def _goal_to_goals_output(goal) -> GoalsOutput:
         suggested_blocks_count=goal.suggested_blocks_count,
         suggested_split_ratio=goal.suggested_split_ratio,
         daily_sub_tasks=sub_tasks,
+        replan_pending=goal.replan_requested_at is not None,
     )
 
 
@@ -129,6 +132,82 @@ async def daily_output(body: DailyOutputRequest, request: Request) -> DailyOutpu
     return DailyOutputResponse(
         processed_users=processed,
         goals_output=all_output,
+        errors=errors,
+    )
+
+
+class EndOfDayRequest(BaseModel):
+    user_id: str
+    date: Optional[date] = None
+
+
+class GoalEndOfDayResult(BaseModel):
+    goal_id: str
+    goal_title: str
+    action: str          # "carried_over" | "replan_requested"
+    incomplete_count: int
+
+
+class EndOfDayResponse(BaseModel):
+    processed_date: date
+    goals_processed: int
+    results: list[GoalEndOfDayResult]
+    errors: list[str]
+
+
+@router.post("/end-of-day", response_model=EndOfDayResponse)
+async def end_of_day(body: EndOfDayRequest) -> EndOfDayResponse:
+    target_date = body.date or date.today()
+    tomorrow = target_date + timedelta(days=1)
+    db = get_db()
+    results = []
+    errors = []
+
+    goals = await list_active_goals(db, body.user_id)
+    for goal in goals:
+        incomplete = [t for t in goal.sub_tasks
+                      if not t.is_completed and not t.abandoned
+                      and t.planned_date == target_date]
+        if not incomplete:
+            continue
+
+        try:
+            daily_rate = await compute_daily_rate(db, goal.goal_id)
+            remaining_effort = sum(t.estimated_minutes for t in goal.sub_tasks
+                                   if not t.is_completed and not t.abandoned)
+            remaining_days = max((goal.deadline - target_date).days, 1)
+            daily_rate_needed = remaining_effort / remaining_days
+
+            needs_replan = (
+                (daily_rate > 0 and daily_rate_needed > daily_rate * 1.5)
+                or (remaining_days <= 3 and goal.progress_percent < 70)
+            )
+
+            if needs_replan:
+                await update_goal(db, goal.goal_id,
+                                  {"replan_requested_at": _now_utc().isoformat()})
+                await set_goal_status(db, goal.goal_id, "OVERDUE")
+                action = "replan_requested"
+            else:
+                for t in incomplete:
+                    await update_sub_task(db, goal.goal_id, t.sub_task_id,
+                                          {"planned_date": tomorrow.isoformat()})
+                action = "carried_over"
+
+            results.append(GoalEndOfDayResult(
+                goal_id=goal.goal_id,
+                goal_title=goal.title,
+                action=action,
+                incomplete_count=len(incomplete),
+            ))
+        except Exception as exc:
+            logger.error("end_of_day error for goal %s: %s", goal.goal_id, exc)
+            errors.append(f"goal {goal.goal_id}: {exc}")
+
+    return EndOfDayResponse(
+        processed_date=target_date,
+        goals_processed=len(results),
+        results=results,
         errors=errors,
     )
 

@@ -90,7 +90,10 @@ async def set_goal_status(
 
 
 async def recompute_progress_percent(db: AsyncIOMotorDatabase, goal_id: str) -> float:
-    """Atomic aggregation pipeline update — prevents lost-update race (Invariant I9)."""
+    """Atomic aggregation pipeline update — prevents lost-update race (Invariant I9).
+
+    Abandoned subtasks are excluded from both numerator and denominator.
+    """
     from pymongo import ReturnDocument as _RD
 
     doc = await db[GOALS].find_one_and_update(
@@ -99,32 +102,50 @@ async def recompute_progress_percent(db: AsyncIOMotorDatabase, goal_id: str) -> 
             {
                 "$set": {
                     "progress_percent": {
-                        "$cond": {
-                            "if": {"$eq": [{"$size": "$sub_tasks"}, 0]},
-                            "then": 0.0,
-                            "else": {
-                                "$round": [
-                                    {
-                                        "$multiply": [
+                        "$let": {
+                            "vars": {
+                                "active": {
+                                    "$filter": {
+                                        "input": "$sub_tasks",
+                                        "as": "t",
+                                        "cond": {"$ne": ["$$t.abandoned", True]},
+                                    }
+                                }
+                            },
+                            "in": {
+                                "$cond": {
+                                    "if": {"$eq": [{"$size": "$$active"}, 0]},
+                                    "then": 0.0,
+                                    "else": {
+                                        "$round": [
                                             {
-                                                "$divide": [
+                                                "$multiply": [
                                                     {
-                                                        "$size": {
-                                                            "$filter": {
-                                                                "input": "$sub_tasks",
-                                                                "as": "t",
-                                                                "cond": "$$t.is_completed",
-                                                            }
-                                                        }
+                                                        "$divide": [
+                                                            {
+                                                                "$size": {
+                                                                    "$filter": {
+                                                                        "input": "$$active",
+                                                                        "as": "t",
+                                                                        "cond": {
+                                                                            "$and": [
+                                                                                {"$ne": ["$$t.abandoned", True]},
+                                                                                "$$t.is_completed",
+                                                                            ]
+                                                                        },
+                                                                    }
+                                                                }
+                                                            },
+                                                            {"$size": "$$active"},
+                                                        ]
                                                     },
-                                                    {"$size": "$sub_tasks"},
+                                                    100,
                                                 ]
                                             },
-                                            100,
+                                            2,
                                         ]
                                     },
-                                    2,
-                                ]
+                                }
                             },
                         }
                     }
