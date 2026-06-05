@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DayPilot — Layout Playground</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: #141412; color: #f0ede8; height: 100vh; display: flex; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+/* ── Control panel ── */
+.panel { width: 272px; flex-shrink: 0; background: #1e1e1c; border-right: 1px solid #2a2a28; display: flex; flex-direction: column; overflow: hidden; }
+.panel-header { padding: 16px 16px 12px; border-bottom: 1px solid #2a2a28; flex-shrink: 0; }
+.panel-logo { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.panel-logo-icon { width: 22px; height: 22px; background: #7aaa7e; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; }
+.panel-logo-text { font-family: 'DM Serif Display', serif; font-size: 14px; color: #f0ede8; }
+.panel-sub { font-size: 9px; color: #555; letter-spacing: 0.09em; text-transform: uppercase; }
+
+.panel-body { flex: 1; overflow-y: auto; padding: 8px 0 4px; }
+.panel-body::-webkit-scrollbar { width: 3px; }
+.panel-body::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+.section-title { font-size: 9px; font-weight: 500; color: #4a4a48; letter-spacing: 0.09em; text-transform: uppercase; padding: 10px 14px 6px; margin-top: 4px; border-top: 1px solid #262624; }
+.section-title:first-child { border-top: none; margin-top: 0; }
+
+.ctrl { display: flex; align-items: center; gap: 6px; padding: 0 14px; margin-bottom: 7px; }
+.ctrl-label { font-size: 10.5px; color: #888; width: 110px; flex-shrink: 0; line-height: 1.3; }
+.ctrl-slider { flex: 1; -webkit-appearance: none; appearance: none; height: 3px; background: #333; border-radius: 2px; outline: none; cursor: pointer; min-width: 0; }
+.ctrl-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #7aaa7e; cursor: pointer; transition: transform 0.1s; }
+.ctrl-slider::-webkit-slider-thumb:hover { transform: scale(1.25); }
+.ctrl-val { font-size: 10px; color: #7aaa7e; width: 30px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+.presets { display: flex; gap: 5px; flex-wrap: wrap; padding: 6px 14px 10px; }
+.preset-btn { font-size: 10px; padding: 3px 9px; border-radius: 6px; border: 1px solid #333; background: transparent; color: #777; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+.preset-btn:hover { background: #2a2a28; color: #bbb; border-color: #555; }
+.preset-btn.active { background: #1a2e1c; color: #7aaa7e; border-color: #4a7a4e; }
+
+.panel-footer { padding: 10px 14px; border-top: 1px solid #2a2a28; flex-shrink: 0; }
+.reset-btn { width: 100%; padding: 7px; background: transparent; border: 1px solid #333; border-radius: 7px; color: #555; font-size: 10.5px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s; }
+.reset-btn:hover { background: #2a2a28; color: #999; border-color: #555; }
+
+/* ── Preview ── */
+.preview-wrap { flex: 1; display: flex; flex-direction: column; padding: 20px; overflow: hidden; background: #111110; }
+.preview-label { font-size: 9px; color: #3a3a38; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+.preview-frame { width: 100%; flex: 1; border-radius: 12px; overflow: hidden; border: 1px solid #2a2a28; }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="panel-header">
+    <div class="panel-logo">
+      <div class="panel-logo-icon"><i class="ti ti-navigation"></i></div>
+      <span class="panel-logo-text">DayPilot</span>
+    </div>
+    <div class="panel-sub">Layout playground</div>
+  </div>
+
+  <div class="panel-body">
+
+    <div class="section-title">Presets</div>
+    <div class="presets">
+      <button class="preset-btn active" onclick="applyPreset('default',this)">Default</button>
+      <button class="preset-btn" onclick="applyPreset('compact',this)">Compact</button>
+      <button class="preset-btn" onclick="applyPreset('airy',this)">Airy</button>
+      <button class="preset-btn" onclick="applyPreset('wide',this)">Wide</button>
+    </div>
+
+    <div class="section-title">Layout</div>
+    <div class="ctrl"><span class="ctrl-label">Nav width</span><input class="ctrl-slider" type="range" min="40" max="80" value="52" id="navWidth" oninput="update()"><span class="ctrl-val" id="v-navWidth">52px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Main col flex</span><input class="ctrl-slider" type="range" min="10" max="25" value="14" id="mainFlex" oninput="update()"><span class="ctrl-val" id="v-mainFlex">1.4</span></div>
+    <div class="ctrl"><span class="ctrl-label">Right col flex</span><input class="ctrl-slider" type="range" min="6" max="20" value="10" id="rightFlex" oninput="update()"><span class="ctrl-val" id="v-rightFlex">1.0</span></div>
+    <div class="ctrl"><span class="ctrl-label">Page pad horizontal</span><input class="ctrl-slider" type="range" min="8" max="52" value="22" id="pagePadH" oninput="update()"><span class="ctrl-val" id="v-pagePadH">22px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Page pad top</span><input class="ctrl-slider" type="range" min="10" max="60" value="28" id="pagePadT" oninput="update()"><span class="ctrl-val" id="v-pagePadT">28px</span></div>
+
+    <div class="section-title">Task cards</div>
+    <div class="ctrl"><span class="ctrl-label">Card radius</span><input class="ctrl-slider" type="range" min="0" max="22" value="10" id="cardRadius" oninput="update()"><span class="ctrl-val" id="v-cardRadius">10px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Card pad vertical</span><input class="ctrl-slider" type="range" min="5" max="22" value="11" id="cardPadV" oninput="update()"><span class="ctrl-val" id="v-cardPadV">11px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Card pad horizontal</span><input class="ctrl-slider" type="range" min="8" max="30" value="13" id="cardPadH" oninput="update()"><span class="ctrl-val" id="v-cardPadH">13px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Card gap</span><input class="ctrl-slider" type="range" min="2" max="20" value="7" id="cardGap" oninput="update()"><span class="ctrl-val" id="v-cardGap">7px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Task font size</span><input class="ctrl-slider" type="range" min="11" max="17" value="13" id="taskFont" oninput="update()"><span class="ctrl-val" id="v-taskFont">13px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Checkbox size</span><input class="ctrl-slider" type="range" min="12" max="24" value="17" id="cbSize" oninput="update()"><span class="ctrl-val" id="v-cbSize">17px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Geo border width</span><input class="ctrl-slider" type="range" min="1" max="6" value="3" id="geoBorder" oninput="update()"><span class="ctrl-val" id="v-geoBorder">3px</span></div>
+
+    <div class="section-title">Typography</div>
+    <div class="ctrl"><span class="ctrl-label">Date font size</span><input class="ctrl-slider" type="range" min="16" max="36" value="24" id="dateFont" oninput="update()"><span class="ctrl-val" id="v-dateFont">24px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Insights font size</span><input class="ctrl-slider" type="range" min="10" max="16" value="12" id="insightFont" oninput="update()"><span class="ctrl-val" id="v-insightFont">12px</span></div>
+
+    <div class="section-title">Accent color</div>
+    <div class="ctrl"><span class="ctrl-label">Hue</span><input class="ctrl-slider" type="range" min="80" max="200" value="128" id="accentH" oninput="update()"><span class="ctrl-val" id="v-accentH">128°</span></div>
+    <div class="ctrl"><span class="ctrl-label">Saturation</span><input class="ctrl-slider" type="range" min="10" max="75" value="28" id="accentS" oninput="update()"><span class="ctrl-val" id="v-accentS">28%</span></div>
+    <div class="ctrl"><span class="ctrl-label">Lightness</span><input class="ctrl-slider" type="range" min="32" max="68" value="58" id="accentL" oninput="update()"><span class="ctrl-val" id="v-accentL">58%</span></div>
+    <div class="ctrl"><span class="ctrl-label">Surface lightness</span><input class="ctrl-slider" type="range" min="88" max="99" value="96" id="surfaceL" oninput="update()"><span class="ctrl-val" id="v-surfaceL">96%</span></div>
+
+    <div class="section-title">Submit & prompt</div>
+    <div class="ctrl"><span class="ctrl-label">Button height</span><input class="ctrl-slider" type="range" min="32" max="60" value="44" id="btnH" oninput="update()"><span class="ctrl-val" id="v-btnH">44px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Button radius</span><input class="ctrl-slider" type="range" min="0" max="30" value="10" id="btnR" oninput="update()"><span class="ctrl-val" id="v-btnR">10px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Prompt radius</span><input class="ctrl-slider" type="range" min="0" max="30" value="10" id="promptR" oninput="update()"><span class="ctrl-val" id="v-promptR">10px</span></div>
+
+    <div class="section-title">Insights panel</div>
+    <div class="ctrl"><span class="ctrl-label">Card radius</span><input class="ctrl-slider" type="range" min="0" max="22" value="10" id="insR" oninput="update()"><span class="ctrl-val" id="v-insR">10px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Panel padding</span><input class="ctrl-slider" type="range" min="8" max="40" value="18" id="insP" oninput="update()"><span class="ctrl-val" id="v-insP">18px</span></div>
+    <div class="ctrl"><span class="ctrl-label">Item spacing</span><input class="ctrl-slider" type="range" min="4" max="22" value="10" id="insItemP" oninput="update()"><span class="ctrl-val" id="v-insItemP">10px</span></div>
+
+  </div>
+
+  <div class="panel-footer">
+    <button class="reset-btn" onclick="resetAll()">↺  Reset to defaults</button>
+  </div>
+</div>
+
+<div class="preview-wrap">
+  <div class="preview-label">Live preview — /today</div>
+  <iframe class="preview-frame" id="preview" frameborder="0"></iframe>
+</div>
+
+<script>
+const DEFAULTS = {
+  navWidth:52, mainFlex:14, rightFlex:10, pagePadH:22, pagePadT:28,
+  cardRadius:10, cardPadV:11, cardPadH:13, cardGap:7,
+  taskFont:13, cbSize:17, geoBorder:3,
+  dateFont:24, insightFont:12,
+  accentH:128, accentS:28, accentL:58, surfaceL:96,
+  btnH:44, btnR:10, promptR:10,
+  insR:10, insP:18, insItemP:10
+};
+
+const PRESETS = {
+  default: {...DEFAULTS},
+  compact: {navWidth:44,mainFlex:15,rightFlex:9,pagePadH:14,pagePadT:16,cardRadius:6,cardPadV:7,cardPadH:10,cardGap:4,taskFont:12,cbSize:14,geoBorder:2,dateFont:19,insightFont:11,accentH:128,accentS:28,accentL:58,surfaceL:96,btnH:36,btnR:6,promptR:6,insR:6,insP:12,insItemP:6},
+  airy:    {navWidth:56,mainFlex:14,rightFlex:9,pagePadH:36,pagePadT:42,cardRadius:14,cardPadV:16,cardPadH:18,cardGap:13,taskFont:14,cbSize:19,geoBorder:3,dateFont:30,insightFont:13,accentH:128,accentS:28,accentL:58,surfaceL:97,btnH:50,btnR:14,promptR:14,insR:14,insP:24,insItemP:14},
+  wide:    {navWidth:52,mainFlex:18,rightFlex:12,pagePadH:26,pagePadT:28,cardRadius:10,cardPadV:11,cardPadH:13,cardGap:7,taskFont:13,cbSize:17,geoBorder:3,dateFont:24,insightFont:12,accentH:128,accentS:28,accentL:58,surfaceL:96,btnH:44,btnR:10,promptR:10,insR:10,insP:22,insItemP:11}
+};
+
+const LABELS = {
+  navWidth:'navWidth',mainFlex:'mainFlex',rightFlex:'rightFlex',pagePadH:'pagePadH',pagePadT:'pagePadT',
+  cardRadius:'cardRadius',cardPadV:'cardPadV',cardPadH:'cardPadH',cardGap:'cardGap',
+  taskFont:'taskFont',cbSize:'cbSize',geoBorder:'geoBorder',
+  dateFont:'dateFont',insightFont:'insightFont',
+  accentH:'accentH',accentS:'accentS',accentL:'accentL',surfaceL:'surfaceL',
+  btnH:'btnH',btnR:'btnR',promptR:'promptR',
+  insR:'insR',insP:'insP',insItemP:'insItemP'
+};
+
+function g(id){ return parseFloat(document.getElementById(id).value); }
+function hsl(h,s,l){ return `hsl(${h},${s}%,${l}%)`; }
+
+function getVals(){
+  return Object.fromEntries(Object.keys(DEFAULTS).map(k=>[k,g(k)]));
+}
+
+function updateLabels(v){
+  document.getElementById('v-navWidth').textContent  = v.navWidth+'px';
+  document.getElementById('v-mainFlex').textContent  = (v.mainFlex/10).toFixed(1);
+  document.getElementById('v-rightFlex').textContent = (v.rightFlex/10).toFixed(1);
+  document.getElementById('v-pagePadH').textContent  = v.pagePadH+'px';
+  document.getElementById('v-pagePadT').textContent  = v.pagePadT+'px';
+  document.getElementById('v-cardRadius').textContent= v.cardRadius+'px';
+  document.getElementById('v-cardPadV').textContent  = v.cardPadV+'px';
+  document.getElementById('v-cardPadH').textContent  = v.cardPadH+'px';
+  document.getElementById('v-cardGap').textContent   = v.cardGap+'px';
+  document.getElementById('v-taskFont').textContent  = v.taskFont+'px';
+  document.getElementById('v-cbSize').textContent    = v.cbSize+'px';
+  document.getElementById('v-geoBorder').textContent = v.geoBorder+'px';
+  document.getElementById('v-dateFont').textContent  = v.dateFont+'px';
+  document.getElementById('v-insightFont').textContent = v.insightFont+'px';
+  document.getElementById('v-accentH').textContent   = v.accentH+'°';
+  document.getElementById('v-accentS').textContent   = v.accentS+'%';
+  document.getElementById('v-accentL').textContent   = v.accentL+'%';
+  document.getElementById('v-surfaceL').textContent  = v.surfaceL+'%';
+  document.getElementById('v-btnH').textContent      = v.btnH+'px';
+  document.getElementById('v-btnR').textContent      = v.btnR+'px';
+  document.getElementById('v-promptR').textContent   = v.promptR+'px';
+  document.getElementById('v-insR').textContent      = v.insR+'px';
+  document.getElementById('v-insP').textContent      = v.insP+'px';
+  document.getElementById('v-insItemP').textContent  = v.insItemP+'px';
+}
+
+function buildPage(v){
+  const h=v.accentH, s=v.accentS, l=v.accentL, sl=v.surfaceL;
+  const css = `
+:root{
+  --g50:${hsl(h,s,Math.min(sl+2,99))};
+  --g100:${hsl(h,s,sl-1)};
+  --g200:${hsl(h,s,l+20)};
+  --g400:${hsl(h,s,l)};
+  --g600:${hsl(h,s,l-16)};
+  --w50:#faf9f5; --w200:#e0ddd0; --w600:#7a7060;
+  --surf:${hsl(h,Math.max(s-12,5),sl)};
+  --surfb:${hsl(h,s,l+23)};
+  --tp:#2c2c2a; --ts:#5f5e5a; --tt:#b4b2a9;
+  --fs:'DM Serif Display',serif; --fn:'DM Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:var(--fn);background:var(--w50);color:var(--tp);-webkit-font-smoothing:antialiased;}
+.app{display:flex;height:100vh;overflow:hidden;}
+.nav{width:${v.navWidth}px;background:var(--g50);border-right:0.5px solid var(--g200);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:4px;flex-shrink:0;}
+.nav-logo{width:30px;height:30px;border-radius:8px;background:var(--g400);display:flex;align-items:center;justify-content:center;margin-bottom:14px;flex-shrink:0;}
+.nav-logo i{font-size:15px;color:white;}
+.ni{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--tt);font-size:18px;transition:background .15s,color .15s;position:relative;}
+.ni:hover,.ni.on{background:var(--g100);color:var(--g600);}
+.ni:hover .tt2{opacity:1;transform:translateX(0);}
+.tt2{position:absolute;left:calc(100% + 10px);background:var(--tp);color:white;font-size:11px;font-family:var(--fn);padding:4px 9px;border-radius:6px;white-space:nowrap;opacity:0;transform:translateX(-4px);transition:opacity .15s,transform .15s;pointer-events:none;z-index:20;}
+.nav-sp{flex:1;}
+.nav-av{width:28px;height:28px;border-radius:50%;background:var(--g200);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--g600);font-size:14px;transition:background .15s;}
+.nav-av:hover{background:var(--g400);color:white;}
+.main{flex:${v.mainFlex/10};display:flex;flex-direction:column;padding:${v.pagePadT}px ${v.pagePadH}px 16px;overflow:hidden;min-width:0;}
+.pdate{font-family:var(--fs);font-size:${v.dateFont}px;color:var(--tp);line-height:1.2;margin-bottom:3px;}
+.pdate em{color:var(--g400);font-style:italic;}
+.psub{font-size:11px;color:var(--tt);margin-bottom:${Math.round(v.pagePadT*0.6)}px;}
+.tlist{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:${v.cardGap}px;padding-right:4px;}
+.tlist::-webkit-scrollbar{width:3px;}
+.tlist::-webkit-scrollbar-thumb{background:var(--g200);border-radius:3px;}
+.tc{background:var(--surf);border:0.5px solid var(--surfb);border-radius:${v.cardRadius}px;padding:${v.cardPadV}px ${v.cardPadH}px;cursor:pointer;transition:border-color .15s;flex-shrink:0;}
+.tc:hover{border-color:var(--g200);}
+.tc.geo{border-left:${v.geoBorder}px solid var(--g400);}
+.tc.done .ttl{text-decoration:line-through;opacity:.4;}
+.tc.done .ttime{opacity:.4;}
+.trow{display:flex;align-items:center;gap:9px;}
+.cb{width:${v.cbSize}px;height:${v.cbSize}px;border-radius:50%;border:1.5px solid var(--g200);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s;}
+.cb:hover{border-color:var(--g400);}
+.cb.on{background:var(--g400);border-color:var(--g400);}
+.cb.on::after{content:'';display:block;width:${Math.round(v.cbSize*0.30)}px;height:${Math.round(v.cbSize*0.22)}px;border-left:1.5px solid white;border-bottom:1.5px solid white;transform:rotate(-45deg) translateY(-1px);}
+.ttl{font-size:${v.taskFont}px;font-weight:500;color:var(--tp);flex:1;}
+.ttime{font-size:${v.taskFont-1.5}px;color:var(--g400);flex-shrink:0;}
+.ttime.d{color:var(--tt);}
+.gpin{font-size:${v.taskFont+1}px;color:var(--g400);flex-shrink:0;}
+.gpanel{overflow:hidden;max-height:0;opacity:0;margin-top:0;transition:max-height .28s ease,opacity .22s ease,margin-top .22s ease,padding .22s ease;padding:0 10px;background:${hsl(h,Math.max(s-5,8),Math.min(sl-5,94))};border-radius:6px;display:flex;flex-direction:column;gap:5px;}
+.gpanel.open{max-height:80px;opacity:1;margin-top:8px;padding:8px 10px;}
+.gtop{display:flex;align-items:center;gap:5px;padding-bottom:5px;border-bottom:0.5px solid var(--g200);}
+.gleave{font-size:11px;font-weight:500;color:var(--g600);flex:1;}
+.gdur{font-size:11px;color:var(--g400);}
+.gbot{display:flex;align-items:center;justify-content:space-between;}
+.groute{font-size:11px;color:var(--tt);}
+.gnav{font-size:10px;color:var(--g600);background:var(--g200);border-radius:10px;padding:3px 10px;cursor:pointer;white-space:nowrap;font-family:var(--fn);font-weight:500;border:none;transition:background .15s;}
+.gnav:hover{background:var(--g400);color:white;}
+.sub-btn{margin-top:10px;width:100%;height:${v.btnH}px;background:var(--g400);color:white;font-family:var(--fn);font-size:14px;font-weight:500;border:none;border-radius:${v.btnR}px;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.sub-btn:hover{background:var(--g600);}
+.pinput{margin-top:9px;display:flex;align-items:center;gap:8px;background:white;border:0.5px solid var(--g200);border-radius:${v.promptR}px;padding:9px 10px;flex-shrink:0;transition:border-color .15s;}
+.pinput:focus-within{border-color:var(--g400);}
+.pinput input{flex:1;border:none;outline:none;font-family:var(--fn);font-size:13px;color:var(--tp);background:transparent;}
+.pinput input::placeholder{color:var(--tt);}
+.psend{width:28px;height:28px;background:var(--g400);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:none;transition:background .15s;}
+.psend:hover{background:var(--g600);}
+.psend i{font-size:15px;color:white;}
+.right{flex:${v.rightFlex/10};border-left:0.5px solid var(--g200);padding:${v.pagePadT}px ${v.insP}px;overflow-y:auto;min-width:0;background:white;}
+.right::-webkit-scrollbar{width:3px;}
+.right::-webkit-scrollbar-thumb{background:var(--g200);border-radius:3px;}
+.icard{background:var(--w50);border:0.5px solid var(--w200);border-radius:${v.insR}px;padding:12px 14px;}
+.ihead{font-family:var(--fs);font-size:15px;color:var(--tp);margin-bottom:12px;}
+.iitem{padding:${v.insItemP}px 0;}
+.iitem+.iitem{border-top:0.5px solid var(--w200);}
+.itag{display:inline-block;font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px;margin-bottom:4px;font-family:var(--fn);}
+.t-i{background:var(--g100);color:var(--g600);}
+.t-p{background:#eae8df;color:#7a7060;}
+.t-s{background:#e8eef8;color:#4a5f8a;}
+.itxt{font-size:${v.insightFont}px;color:var(--ts);line-height:1.65;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--tp);color:white;font-family:var(--fn);font-size:12px;padding:10px 16px;border-radius:9px;display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:100;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+.tlink{color:var(--g400);cursor:pointer;font-weight:500;}
+  `;
+
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
+<style>${css}</style></head>
+<body>
+<div class="app">
+  <nav class="nav">
+    <div class="nav-logo"><i class="ti ti-navigation"></i></div>
+    <div class="ni on"><i class="ti ti-calendar-event"></i><span class="tt2">Today</span></div>
+    <div class="ni"><i class="ti ti-message-2"></i><span class="tt2">Chat</span></div>
+    <div class="nav-sp"></div>
+    <div class="nav-av"><i class="ti ti-user"></i></div>
+  </nav>
+  <main class="main">
+    <div class="pdate">Thursday, <em>Jun 5</em></div>
+    <div class="psub">4 tasks today &middot; 2 with travel</div>
+    <div class="tlist">
+      <div class="tc geo" id="c1" onclick="tg('g1',this)">
+        <div class="trow">
+          <div class="cb" id="x1" onclick="event.stopPropagation();tc('x1','c1')"></div>
+          <span class="ttl">Go to the gym</span>
+          <span class="ttime">3:00 PM</span>
+          <i class="ti ti-map-pin gpin"></i>
+        </div>
+        <div class="gpanel open" id="g1">
+          <div class="gtop"><i class="ti ti-clock-bolt" style="font-size:12px;color:var(--g600);flex-shrink:0;"></i><span class="gleave">Leave by 2:42 PM</span><span class="gdur">18 min drive</span></div>
+          <div class="gbot"><span class="groute">USC Viterbi &rarr; LA Fitness</span><button class="gnav">Navigate &nearr;</button></div>
+        </div>
+      </div>
+      <div class="tc geo done" id="c2" onclick="tg('g2',this)">
+        <div class="trow">
+          <div class="cb on" id="x2" onclick="event.stopPropagation();tc('x2','c2')"></div>
+          <span class="ttl">Morning standup</span>
+          <span class="ttime d">10:00 AM</span>
+          <i class="ti ti-map-pin gpin" style="opacity:.3;"></i>
+        </div>
+        <div class="gpanel" id="g2">
+          <div class="gtop"><i class="ti ti-clock-bolt" style="font-size:12px;color:var(--g600);flex-shrink:0;"></i><span class="gleave">Leave by 9:45 AM</span><span class="gdur">12 min drive</span></div>
+          <div class="gbot"><span class="groute">Home &rarr; Viterbi Engineering</span><button class="gnav">Navigate &nearr;</button></div>
+        </div>
+      </div>
+      <div class="tc" id="c3"><div class="trow"><div class="cb" id="x3" onclick="tc('x3','c3')"></div><span class="ttl">Leetcode practice</span><span class="ttime d">9:00 PM</span></div></div>
+      <div class="tc" id="c4"><div class="trow"><div class="cb" id="x4" onclick="tc('x4','c4')"></div><span class="ttl">Read research paper</span><span class="ttime d">10:30 PM</span></div></div>
+      <div class="tc" id="c5"><div class="trow"><div class="cb" id="x5" onclick="tc('x5','c5')"></div><span class="ttl">Write weekly reflection</span><span class="ttime d">11:00 PM</span></div></div>
+    </div>
+    <button class="sub-btn" onclick="st()">Submit today's progress</button>
+    <div class="pinput"><input placeholder="Ask anything about your day&hellip;"/><button class="psend"><i class="ti ti-arrow-up"></i></button></div>
+  </main>
+  <aside class="right">
+    <div class="icard">
+      <div class="ihead">Insights</div>
+      <div class="iitem"><span class="itag t-i">Insight</span><p class="itxt">You tend to skip evening tasks on gym days. Completion rate drops ~40% when gym is scheduled.</p></div>
+      <div class="iitem"><span class="itag t-p">Pattern</span><p class="itxt">3 of the last 5 Fridays ended with incomplete tasks. You complete more on Tue–Thu.</p></div>
+      <div class="iitem"><span class="itag t-s">Suggestion</span><p class="itxt">Consider moving Leetcode to early afternoon on gym days to improve follow-through.</p></div>
+      <div class="iitem"><span class="itag t-p">Pattern</span><p class="itxt">Your most productive window is 9 AM–12 PM. Only 1 task is in that block today.</p></div>
+    </div>
+  </aside>
+</div>
+<div class="toast" id="toast">Progress submitted! 🎉 <span class="tlink">Ask in chat →</span></div>
+<script>
+function tg(id,card){const p=document.getElementById(id);if(!p)return;p.classList.toggle('open',!p.classList.contains('open'));}
+function tc(cbId,cardId){document.getElementById(cbId).classList.toggle('on');document.getElementById(cardId).classList.toggle('done');}
+let _t;function st(){const t=document.getElementById('toast');clearTimeout(_t);t.classList.add('show');_t=setTimeout(()=>t.classList.remove('show'),4000);}
+<\/script>
+</body></html>`;
+}
+
+function update(){
+  const v = getVals();
+  updateLabels(v);
+  const iframe = document.getElementById('preview');
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open(); doc.write(buildPage(v)); doc.close();
+}
+
+function applyPreset(name, btn){
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const p = PRESETS[name];
+  Object.keys(p).forEach(k=>{ const el=document.getElementById(k); if(el) el.value=p[k]; });
+  update();
+}
+
+function resetAll(){
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.preset-btn')[0].classList.add('active');
+  Object.keys(DEFAULTS).forEach(k=>{ const el=document.getElementById(k); if(el) el.value=DEFAULTS[k]; });
+  update();
+}
+
+update();
+</script>
+</body>
+</html>
