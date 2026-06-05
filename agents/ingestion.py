@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import httplib2
 from google.oauth2.credentials import Credentials
-from google.auth.transport.httplib2 import AuthorizedHttp
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 from google import genai
 from google.genai import types as genai_types
@@ -64,13 +64,19 @@ class IngestionAgent:
         return {"status": "ok", "source": source, "entities_ingested": count}
 
     def _build_authorized_http(self, creds: Credentials):
-        proxy_info = httplib2.ProxyInfo(
-            httplib2.socks.PROXY_TYPE_HTTP,
-            "127.0.0.1",
-            7897,
-        )
-        return AuthorizedHttp(creds, http=httplib2.Http(proxy_info=proxy_info))
-
+        import os
+        proxy_port = os.getenv("INGESTION_PROXY_PORT")  # set in China (e.g. 7897); unset elsewhere
+        if proxy_port:
+            proxy_info = httplib2.ProxyInfo(
+                httplib2.socks.PROXY_TYPE_HTTP,
+                "127.0.0.1",
+                int(proxy_port),
+            )
+            return AuthorizedHttp(creds, http=httplib2.Http(proxy_info=proxy_info))
+        # No proxy configured → direct connection (US / servers outside China)
+        return AuthorizedHttp(creds, http=httplib2.Http())
+    
+    
     def _fetch_google_data_sync(self, creds: Credentials, source: str) -> dict:
         now = datetime.utcnow()
         lookback_days = 90 if source == "cold_start" else 7
