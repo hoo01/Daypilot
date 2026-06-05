@@ -11,8 +11,8 @@ class Settings(BaseSettings):
 
     health_model: str = "gemini-2.5-flash"
     goal_model: str = "gemini-2.5-flash"
-    goal_reasoning_model: str = "gemini-2.5-pro-preview"
-    goal_fast_model: str = "gemini-2.5-flash-lite"
+    goal_reasoning_model: str = "gemini-2.5-flash"
+    goal_fast_model: str = "gemini-2.5-flash"
     realtime_model: str = "gemini-2.5-flash"
     geo_model: str = "gemini-2.5-flash"
     google_maps_api_key: str = ""

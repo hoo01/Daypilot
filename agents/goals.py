@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from google.adk.agents import LlmAgent
+from google.adk.tools.agent_tool import AgentTool
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from agents.goal.intake import build_goal_intake_agent
@@ -61,16 +62,14 @@ def build_goal_tracking_root(db: AsyncIOMotorDatabase, cfg) -> LlmAgent:
     return LlmAgent(
         name="goal_tracking_root",
         model=reasoning_model,
-        description="Goal Tracking Agent root. Routes by intent to the appropriate sub-agent or tool.",
+        description="Goal Tracking Agent root. Routes by intent to the appropriate specialist agent or tool.",
         instruction=_ROOT_PROMPT,
-        sub_agents=[
-            goal_intake_agent,
-            progress_tracking_agent,
-            overdue_handler_agent,
-            weekly_memory_writer,
-            daily_output_builder,
-        ],
         tools=[
+            AgentTool(goal_intake_agent),
+            AgentTool(progress_tracking_agent),
+            AgentTool(overdue_handler_agent),
+            AgentTool(weekly_memory_writer),
+            AgentTool(daily_output_builder),
             _get_goal,
             _list_active_goals,
             _set_goal_status,

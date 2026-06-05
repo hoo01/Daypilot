@@ -15,6 +15,7 @@ def build_validation_loop(model: str) -> LoopAgent:
     )
     return LoopAgent(
         name="validation_loop",
+        description="Validates goal dimensions (quantifiable, time-bound, granularity); sets state['validation.passed'].",
         sub_agents=[goal_validator],
         max_iterations=5,
     )

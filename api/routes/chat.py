@@ -83,9 +83,12 @@ async def chat(
         session_id=session_id,
         new_message=content,
     ):
+        # Collect the last final response — don't break early, which would cancel
+        # inner sub-agent generators and trigger GeneratorExit / OpenTelemetry errors.
         if event.is_final_response() and event.content and event.content.parts:
-            reply = event.content.parts[0].text
-            break
+            text = event.content.parts[0].text
+            if text:
+                reply = text
 
     # Async memory consolidation — runs after response is sent, never blocks user
     background_tasks.add_task(_consolidate_memory, body.user_id, body.message, reply)

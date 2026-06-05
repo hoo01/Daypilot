@@ -42,6 +42,20 @@ async def start_intake_session(
     return session
 
 
+async def find_open_intake_session(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+) -> Optional[IntakeSession]:
+    now = _now_utc()
+    doc = await db[INTAKE_SESSIONS].find_one(
+        {"user_id": user_id, "status": "open", "expires_at": {"$gt": now.isoformat()}},
+        sort=[("created_at", -1)],
+    )
+    if doc is None:
+        return None
+    return _doc_to_session(doc)
+
+
 async def resume_intake_session(
     db: AsyncIOMotorDatabase,
     session_id: str,

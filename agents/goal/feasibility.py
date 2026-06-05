@@ -40,9 +40,11 @@ def build_feasibility_workflow(
 
     feasibility_parallel = ParallelAgent(
         name="feasibility_parallel",
+        description="Runs time, habit, and load feasibility checks in parallel.",
         sub_agents=[time_agent, habit_agent, load_agent],
     )
     return SequentialAgent(
         name="feasibility_workflow",
+        description="Full feasibility pipeline: runs parallel checks then synthesizes a score and 3-option proposal.",
         sub_agents=[feasibility_parallel, synthesis_agent],
     )
