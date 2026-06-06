@@ -1,18 +1,12 @@
 """
 Health tool — Owner: Vatsal
 
-analyze_health() is the coordinator's entry point to the PsychoBio pipeline.
+analyze_health() runs the PsychoBio pipeline and returns a dict matching
+the HealthOutput schema (energy_level, focus_window, cognitive_load_score,
+avoid_tasks) plus enriched fields for the coordinator prompt.
 
-Data source: bundled scenario datasets under agents/health_agent/datasets/.
-At process startup, scenario_selector.py picks one scenario randomly and fixes
-it for the session. analyze_health() always uses that scenario.
-
-Preference: reads user's preferred focus window from MongoDB (via MemoryAgent).
-Falls back to "9PM-1AM" if no preference is stored.
-
-Returns a dict shaped like HealthOutput (energy_score, focus_windows,
-cognitive_load) plus enriched fields (node3_verdict, node4_classification,
-final_insight, psi, pli) for optional use by the coordinator prompt.
+Pattern: same as relationship_tools.py — reads MongoDB, runs pipeline,
+returns a plain dict.
 """
 
 from db import get_db
@@ -28,16 +22,9 @@ from agents.health_agent.schemas import HealthPipelineOutput
 
 async def analyze_health(user_id: str) -> dict:
     """
-    Run the PsychoBio pipeline for the user and return their health context.
-
-    The scenario (data source) is fixed for the process lifetime by
-    scenario_selector. The target date is resolved from the scenario manifest
-    relative to today.
-
-    Returns keys: energy_score, focus_windows, cognitive_load, node3_verdict,
-    node4_classification, final_insight, psi, pli, scenario.
-
-    Falls back to neutral values if the pipeline errors.
+    Analyze the user's psychobiological state via the PsychoBio pipeline.
+    Returns energy level, optimal focus window, cognitive load score,
+    and tasks to avoid — matching HealthOutput schema.
     """
     # Fetch user's preferred focus window from MongoDB (falls back gracefully)
     try:
@@ -59,33 +46,31 @@ async def analyze_health(user_id: str) -> dict:
             scenario=scenario,
         )
         return {
-            "energy_score":         output.energy_score,
-            "focus_windows":        output.focus_windows,
-            "cognitive_load":       output.cognitive_load,
+            "energy_level":         output.energy_level,
+            "focus_window":         output.focus_window,
+            "cognitive_load_score": output.cognitive_load_score,
+            "avoid_tasks":          output.avoid_tasks,
             "node3_verdict":        output.node3_verdict,
             "node4_classification": output.node4_classification,
             "final_insight":        output.final_insight,
             "psi":                  output.psychological_strain_index,
             "pli":                  output.physical_load_index,
-            "scenario":             output.scenario,
-            "target_date":          output.target_date,
         }
     except Exception as e:
-        print(f"[analyze_health] Pipeline error for {user_id} (scenario={scenario}): {e}")
-        return _fallback(preferred_focus_window, scenario)
+        print(f"[analyze_health] Pipeline error for {user_id}: {e}")
+        return _fallback(preferred_focus_window)
 
 
-def _fallback(preferred_focus_window: str, scenario: str) -> dict:
+def _fallback(preferred_focus_window: str) -> dict:
     """Neutral health context when pipeline cannot run."""
     return {
-        "energy_score":         "medium",
-        "focus_windows":        [preferred_focus_window],
-        "cognitive_load":       0.5,
+        "energy_level":         "medium",
+        "focus_window":         preferred_focus_window,
+        "cognitive_load_score": 0.65,
+        "avoid_tasks":          [],
         "node3_verdict":        "NONE",
         "node4_classification": None,
         "final_insight":        None,
         "psi":                  50.0,
         "pli":                  0.0,
-        "scenario":             scenario,
-        "target_date":          None,
     }

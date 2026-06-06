@@ -105,7 +105,7 @@ POST /schedule/feedback (end-of-day checkbox)
 | `write_entity_to_memory` | Persists entities extracted from conversation | Ready |
 | `store_conversation_memory` | Embeds and stores conversation insights | Ready |
 | `clear_pending_reschedule` | Clears pending task reschedule after confirmation | Ready |
-| `analyze_health` | Full psychobiological pipeline (PSI/PLI, energy_score, focus_windows, cognitive_load, Gemini insight) — runs automatically before each turn | Ready |
+| `analyze_health` | PsychoBio pipeline — energy_level, focus_window, cognitive_load_score, avoid_tasks | Ready |
 | `MongoDB MCP` | Direct Knowledge Graph queries via MCP protocol | Ready |
 
 ---

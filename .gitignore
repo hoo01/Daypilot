@@ -45,3 +45,6 @@ _local/
 
 # Backup / dev scratch directories
 agents/backup/
+
+# Health agent runtime memory logs (generated per-run, not source)
+agents/health_agent/memory/

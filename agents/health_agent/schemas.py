@@ -24,15 +24,15 @@ _SHIFT_MAP = {
 }
 
 
-def _derive_focus_windows(preferred: str, psi: float) -> list[str]:
+def _derive_focus_window(preferred: str, psi: float) -> str:
     """
-    Return focus windows adjusted for current PSI.
+    Return focus window adjusted for current PSI.
     PSI >= 65 (low energy): shift 2h earlier and shorten.
     PSI < 65: return preferred unchanged.
     """
     if psi >= 65:
-        return [_SHIFT_MAP.get(preferred, preferred)]
-    return [preferred]
+        return _SHIFT_MAP.get(preferred, preferred)
+    return preferred
 
 
 class HealthPipelineOutput(BaseModel):
@@ -40,8 +40,9 @@ class HealthPipelineOutput(BaseModel):
     Response model for the health pipeline.
 
     Core psychobio fields mirror PsychobioState.
-    Compatibility fields (energy_score, focus_windows, cognitive_load) match
-    the root HealthOutput schema so the coordinator consumes this directly.
+    Compatibility fields (energy_level, focus_window, cognitive_load_score,
+    avoid_tasks) match the root HealthOutput schema so schedule_tools.py
+    consumes this directly.
     """
 
     user_id: str
@@ -55,10 +56,11 @@ class HealthPipelineOutput(BaseModel):
     node4_classification: Optional[str] = None
     final_insight: Optional[str] = None
 
-    # Root HealthOutput compatibility fields
-    energy_score: str          # "low" | "medium" | "high"
-    focus_windows: list[str]
-    cognitive_load: float
+    # Root HealthOutput compatibility fields (match schemas.health.HealthOutput)
+    energy_level: str              # "low" | "medium" | "high"
+    focus_window: str              # e.g. "9PM-1AM"
+    cognitive_load_score: float    # 0.0–1.0  (PSI / 100)
+    avoid_tasks: list[str]         # derived from PSI thresholds
 
     @classmethod
     def from_state(
@@ -77,6 +79,13 @@ class HealthPipelineOutput(BaseModel):
         else:
             energy = "high"
 
+        # Derive avoid_tasks from PSI thresholds
+        avoid: list[str] = []
+        if psi >= 65:
+            avoid = ["back-to-back deep work", "high-complexity tasks"]
+        elif psi >= 35:
+            avoid = ["extended focus sessions without breaks"]
+
         return cls(
             user_id=state.get("user_id", ""),
             target_date=state.get("target_date", ""),
@@ -86,7 +95,8 @@ class HealthPipelineOutput(BaseModel):
             node3_verdict=state.get("node3_verdict", "NONE"),
             node4_classification=state.get("node4_classification"),
             final_insight=state.get("final_insight"),
-            energy_score=energy,
-            focus_windows=_derive_focus_windows(preferred_focus_window, psi),
-            cognitive_load=round(psi / 100, 3),
+            energy_level=energy,
+            focus_window=_derive_focus_window(preferred_focus_window, psi),
+            cognitive_load_score=round(psi / 100, 3),
+            avoid_tasks=avoid,
         )

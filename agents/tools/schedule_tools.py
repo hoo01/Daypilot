@@ -92,9 +92,10 @@ def _build_prompt(inp: ScheduleInput) -> str:
     pref_commute = prefs.commute_minutes if prefs else 30
     pref_break = prefs.break_frequency if prefs else 90
 
-    health_energy    = health.energy_score if health else "medium"
-    health_focus     = health.focus_windows[0] if health and health.focus_windows else "9PM-1AM"
-    health_cognitive = health.cognitive_load if health else 0.5
+    health_energy = health.energy_level if health else "medium"
+    health_focus = health.focus_window if health else "9PM-1AM"
+    health_cognitive = health.cognitive_load_score if health else 0.65
+    health_avoid = ", ".join(health.avoid_tasks) if health and health.avoid_tasks else "(none)"
 
     goal_urgency = goals.urgency if goals else "medium"
     goal_feasibility = goals.feasibility_score if goals else 1.0
@@ -151,6 +152,7 @@ Break frequency: every {pref_break} minutes
 Energy level: {health_energy}
 Best focus window: {health_focus}
 Cognitive load score: {health_cognitive} (0=exhausted, 1=peak)
+Avoid: {health_avoid}
 
 ## Goal Status
 Urgency: {goal_urgency}
