@@ -19,6 +19,10 @@ class Settings(BaseSettings):
 
     ingestion_model: str = "gemini-2.5-flash"
 
+    # Health-agent (previously in agents/health_agent/config.py)
+    node4_model: str = "gemini-2.5-flash"
+    memory_backend: str = "jsonl"   # "jsonl" | "bigquery"
+
     mongodb_uri: str
     mongodb_db_name: str = "daypilot"
 

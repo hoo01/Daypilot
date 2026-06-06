@@ -78,16 +78,21 @@ async def chat(
     )
 
     reply = ""
-    async for event in runner.run_async(
-        user_id=body.user_id,
-        session_id=session_id,
-        new_message=content,
-    ):
-        if event.is_final_response() and event.content and event.content.parts:
-            reply = event.content.parts[0].text
-            break
+    try:
+        async for event in runner.run_async(
+            user_id=body.user_id,
+            session_id=session_id,
+            new_message=content,
+        ):
+            if event.is_final_response() and event.content and event.content.parts:
+                reply = event.content.parts[0].text
+                break
+    except Exception as e:
+        print(f"[chat] LLM error for {body.user_id}: {e}")
+        reply = "I'm having trouble connecting right now. Please try again in a moment."
 
     # Async memory consolidation — runs after response is sent, never blocks user
-    background_tasks.add_task(_consolidate_memory, body.user_id, body.message, reply)
+    if reply and "trouble connecting" not in reply:
+        background_tasks.add_task(_consolidate_memory, body.user_id, body.message, reply)
 
     return ChatResponse(reply=reply, session_id=session_id)

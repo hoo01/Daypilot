@@ -41,7 +41,8 @@ You can call additional tools when needed:
 - plan_schedule: to generate detailed schedule options with health/goal/geo context
 - get_geo_info: when locations/commute are relevant
 - adjust_schedule: when the user's day changes
-- analyze_health: for energy/sleep analysis
+- analyze_health: for energy/sleep analysis. Returns energy_level,
+  focus_window, cognitive_load_score, and avoid_tasks.
 
 Always be proactive — surface insights the user hasn't asked for yet.
 Keep responses concise and action-oriented.
@@ -53,10 +54,11 @@ async def _preload_user_context(callback_context: CallbackContext) -> genai_type
     user_id = callback_context.user_id or "demo_user"
 
     try:
-        ctx, goals, rel = await asyncio.gather(
+        ctx, goals, rel, health = await asyncio.gather(
             read_user_context(user_id),
             track_goals(user_id),
             get_relationship_context(user_id),
+            analyze_health(user_id),
             return_exceptions=True,
         )
 
@@ -89,8 +91,22 @@ async def _preload_user_context(callback_context: CallbackContext) -> genai_type
                     f"and then clear pending_reschedule by calling write_entity_to_memory or update via MCP."
                 )
 
+        if not isinstance(health, Exception) and health.get("node4_classification"):
+            context_parts.append(
+                f"Health: {health['node4_classification']} "
+                f"(PSI={health['psi']:.0f}, energy={health['energy_level']}). "
+                f"{health.get('final_insight', '')}"
+            )
+        elif not isinstance(health, Exception):
+            context_parts.append(
+                f"Health: energy={health.get('energy_level', 'medium')}, "
+                f"cognitive_load={health.get('cognitive_load_score', 0.65):.2f}"
+            )
+
         callback_context.state["user_id"] = user_id
         callback_context.state["user_context"] = "\n".join(context_parts) if context_parts else "No context loaded."
+        if not isinstance(health, Exception):
+            callback_context.state["health_context"] = health
 
     except Exception:
         callback_context.state["user_id"] = user_id
