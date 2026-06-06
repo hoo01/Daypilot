@@ -9,6 +9,8 @@ Pattern: same as relationship_tools.py — reads MongoDB, runs pipeline,
 returns a plain dict.
 """
 
+import time
+
 from db import get_db
 from agents.memory import MemoryAgent
 from agents.health_agent.agents.graph_orchestrator import run_pipeline
@@ -18,6 +20,9 @@ from agents.health_agent.scenario_selector import (
     get_target_date,
 )
 from agents.health_agent.schemas import HealthPipelineOutput
+
+_cache: dict[str, tuple[float, dict]] = {}
+_CACHE_TTL = 600  # 10 minutes — pipeline result is static per scenario+date
 
 
 async def analyze_health(user_id: str) -> dict:
@@ -38,6 +43,13 @@ async def analyze_health(user_id: str) -> dict:
     run_dir = get_run_dir()
     target_date = get_target_date()
 
+    cache_key = f"{user_id}:{target_date}:{scenario}"
+    now = time.monotonic()
+    if cache_key in _cache:
+        ts, cached = _cache[cache_key]
+        if now - ts < _CACHE_TTL:
+            return cached
+
     try:
         state = await run_pipeline(user_id, target_date, run_dir)
         output = HealthPipelineOutput.from_state(
@@ -45,7 +57,7 @@ async def analyze_health(user_id: str) -> dict:
             preferred_focus_window=preferred_focus_window,
             scenario=scenario,
         )
-        return {
+        result = {
             "energy_level":         output.energy_level,
             "focus_window":         output.focus_window,
             "cognitive_load_score": output.cognitive_load_score,
@@ -56,6 +68,8 @@ async def analyze_health(user_id: str) -> dict:
             "psi":                  output.psychological_strain_index,
             "pli":                  output.physical_load_index,
         }
+        _cache[cache_key] = (now, result)
+        return result
     except Exception as e:
         print(f"[analyze_health] Pipeline error for {user_id}: {e}")
         return _fallback(preferred_focus_window)

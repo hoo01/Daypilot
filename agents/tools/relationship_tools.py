@@ -1,9 +1,13 @@
 import json
+import time
 from datetime import date
 from google import genai
 from config import settings
 from db import get_db
 from agents.memory import MemoryAgent
+
+_cache: dict[str, tuple[float, dict]] = {}
+_CACHE_TTL = 1800  # 30 minutes — upcoming events don't change within a session
 
 
 def _days_away(date_str: str) -> int:
@@ -18,6 +22,13 @@ async def get_relationship_context(user_id: str, lookahead_days: int = 14) -> di
     Query the Knowledge Graph for important upcoming dates and people.
     Returns natural-language proactive suggestions for the coordinator to surface.
     """
+    cache_key = f"{user_id}:{date.today().isoformat()}"
+    now = time.monotonic()
+    if cache_key in _cache:
+        ts, cached = _cache[cache_key]
+        if now - ts < _CACHE_TTL:
+            return cached
+
     mem = MemoryAgent(get_db())
     upcoming = await mem.query_upcoming(user_id, days=lookahead_days)
 
@@ -56,7 +67,7 @@ Example output:
 """
 
     client = genai.Client(api_key=settings.gemini_api_key)
-    response = client.models.generate_content(
+    response = await client.aio.models.generate_content(
         model=settings.relationship_model,
         contents=prompt,
         config=genai.types.GenerateContentConfig(
@@ -71,8 +82,10 @@ Example output:
     except (json.JSONDecodeError, AttributeError):
         suggestions = [f"{e['event']} in {e['days_away']} days" for e in events_with_days]
 
-    return {
+    result = {
         "upcoming_events": events_with_days,
         "proactive_suggestions": suggestions,
         "important_people": [],
     }
+    _cache[cache_key] = (now, result)
+    return result

@@ -44,7 +44,7 @@ Return a JSON object with:
 Return ONLY valid JSON."""
 
     client = genai.Client(api_key=settings.gemini_api_key)
-    response = client.models.generate_content(
+    response = await client.aio.models.generate_content(
         model=settings.goal_model,
         contents=prompt,
         config=genai.types.GenerateContentConfig(

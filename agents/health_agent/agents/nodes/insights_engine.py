@@ -219,7 +219,7 @@ async def _insights_engine_fn(ctx) -> None:
     for attempt in range(1, max_retries + 1):
         try:
             client = genai.Client(api_key=api_key)
-            response = client.models.generate_content(
+            response = await client.aio.models.generate_content(
                 model=model,
                 contents=user_prompt,
                 config=genai_types.GenerateContentConfig(
