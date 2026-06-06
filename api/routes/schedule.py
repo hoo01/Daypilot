@@ -5,6 +5,9 @@ from schemas import RealtimeInput, RealtimeOutput
 from agents.tools.realtime_tools import adjust_schedule
 from agents.memory import MemoryAgent
 from db import get_db
+from telemetry import tracer, get_logger
+
+_logger = get_logger("routes.schedule")
 
 router = APIRouter(prefix="/schedule", tags=["schedule"])
 

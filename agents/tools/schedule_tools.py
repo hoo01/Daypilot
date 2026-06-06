@@ -10,6 +10,7 @@ from schemas.schedule import (
     ScheduleInput, ScheduleOutput, ScheduleTask, ScheduleStrategy,
     CalendarEvent, UserPreferences,
 )
+from telemetry.instrument import traced_tool
 from schemas.health import HealthOutput
 
 
@@ -381,6 +382,7 @@ def _validate_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOut
 _genai_client = genai.Client(api_key=settings.gemini_api_key)
 
 
+@traced_tool("plan_schedule")
 async def plan_schedule(
     user_id: str,
     target_date: str = "",

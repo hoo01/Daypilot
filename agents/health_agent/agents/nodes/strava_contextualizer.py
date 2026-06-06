@@ -16,6 +16,9 @@ from typing import Any
 from google.adk.workflow import FunctionNode
 
 from agents.health_agent.agents.tools.data_tools import DataRepository
+from telemetry import tracer, get_logger
+
+_logger = get_logger("health.node2")
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -189,8 +192,28 @@ async def _strava_contextualizer_fn(ctx) -> None:
     ctx.state["node2_metrics"] = metrics
 
 
+async def _traced_strava_contextualizer_fn(ctx) -> None:
+    """Traced wrapper for Node 2."""
+    import time
+    with tracer.start_as_current_span("health.node2.strava_contextualizer") as span:
+        span.set_attribute("pipeline.node", "strava_contextualizer")
+        span.set_attribute("health.target_date", ctx.state.get("target_date", ""))
+        start = time.perf_counter()
+        await _strava_contextualizer_fn(ctx)
+        duration_ms = (time.perf_counter() - start) * 1000
+        metrics = ctx.state.get("node2_metrics", {})
+        span.set_attribute("node2.physical_load_score", metrics.get("physical_load_score", 0))
+        span.set_attribute("node2.fatigue_type", metrics.get("fatigue_type", "NOMINAL"))
+        span.set_attribute("node2.duration_ms", duration_ms)
+        # Emit key metrics as a span event for Dynatrace visibility
+        metric_summary = {k: str(v) for k, v in metrics.items() if k != "description_raw"}
+        metric_str = str(metric_summary)
+        span.add_event("agent.output", {"node2.metrics": metric_str[:4096]})
+        _logger.info(f"[node2.strava_contextualizer] OK — {metric_str[:500]}")
+
+
 # ADK FunctionNode — instantiated once, reused across runs
 strava_contextualizer = FunctionNode(
-    func=_strava_contextualizer_fn,
+    func=_traced_strava_contextualizer_fn,
     name="strava_contextualizer",
 )

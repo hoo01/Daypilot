@@ -20,9 +20,16 @@ from agents.health_agent.scenario_selector import (
     get_target_date,
 )
 from agents.health_agent.schemas import HealthPipelineOutput
+from opentelemetry import trace
+from telemetry import tracer, meter, get_logger
 
+_logger = get_logger("health_tools")
 _cache: dict[str, tuple[float, dict]] = {}
 _CACHE_TTL = 600  # 10 minutes — pipeline result is static per scenario+date
+
+_health_duration = meter.create_histogram("health.analyze.duration", unit="ms", description="Health analysis total duration")
+_health_cache_hits = meter.create_counter("health.cache.hits", description="Health cache hit count")
+_health_pipeline_errors = meter.create_counter("health.pipeline.errors", description="Health pipeline errors")
 
 
 async def analyze_health(user_id: str) -> dict:
@@ -48,31 +55,50 @@ async def analyze_health(user_id: str) -> dict:
     if cache_key in _cache:
         ts, cached = _cache[cache_key]
         if now - ts < _CACHE_TTL:
+            _health_cache_hits.add(1, {"user.id": user_id})
+            _logger.debug(f"Cache hit for {user_id} ({scenario}/{target_date})")
             return cached
 
-    try:
-        state = await run_pipeline(user_id, target_date, run_dir)
-        output = HealthPipelineOutput.from_state(
-            state,
-            preferred_focus_window=preferred_focus_window,
-            scenario=scenario,
-        )
-        result = {
-            "energy_level":         output.energy_level,
-            "focus_window":         output.focus_window,
-            "cognitive_load_score": output.cognitive_load_score,
-            "avoid_tasks":          output.avoid_tasks,
-            "node3_verdict":        output.node3_verdict,
-            "node4_classification": output.node4_classification,
-            "final_insight":        output.final_insight,
-            "psi":                  output.psychological_strain_index,
-            "pli":                  output.physical_load_index,
-        }
-        _cache[cache_key] = (now, result)
-        return result
-    except Exception as e:
-        print(f"[analyze_health] Pipeline error for {user_id}: {e}")
-        return _fallback(preferred_focus_window)
+    with tracer.start_as_current_span("health.run_pipeline") as span:
+        span.set_attribute("user.id", user_id)
+        span.set_attribute("health.scenario", scenario)
+        span.set_attribute("health.target_date", target_date)
+        start = time.perf_counter()
+
+        try:
+            state = await run_pipeline(user_id, target_date, run_dir)
+            output = HealthPipelineOutput.from_state(
+                state,
+                preferred_focus_window=preferred_focus_window,
+                scenario=scenario,
+            )
+            result = {
+                "energy_level":         output.energy_level,
+                "focus_window":         output.focus_window,
+                "cognitive_load_score": output.cognitive_load_score,
+                "avoid_tasks":          output.avoid_tasks,
+                "node3_verdict":        output.node3_verdict,
+                "node4_classification": output.node4_classification,
+                "final_insight":        output.final_insight,
+                "psi":                  output.psychological_strain_index,
+                "pli":                  output.physical_load_index,
+            }
+            _cache[cache_key] = (now, result)
+            span.set_attribute("health.verdict", result["node3_verdict"])
+            span.set_attribute("health.psi", result["psi"])
+            span.set_attribute("health.pli", result["pli"])
+            _logger.info(f"Health analysis complete for {user_id}: verdict={result['node3_verdict']}, PSI={result['psi']:.0f}")
+            return result
+        except Exception as e:
+            span.set_status(trace.StatusCode.ERROR, str(e))
+            span.record_exception(e)
+            _health_pipeline_errors.add(1, {"user.id": user_id, "scenario": scenario})
+            _logger.error(f"Pipeline error for {user_id}: {e}")
+            return _fallback(preferred_focus_window)
+        finally:
+            duration_ms = (time.perf_counter() - start) * 1000
+            _health_duration.record(duration_ms, {"scenario": scenario})
+            span.set_attribute("health.duration_ms", duration_ms)
 
 
 def _fallback(preferred_focus_window: str) -> dict:

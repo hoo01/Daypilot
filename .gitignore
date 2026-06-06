@@ -48,3 +48,7 @@ agents/backup/
 
 # Health agent runtime memory logs (generated per-run, not source)
 agents/health_agent/memory/
+
+# Claude Code / MCP (contains credentials)
+.claude/
+.mcp.json

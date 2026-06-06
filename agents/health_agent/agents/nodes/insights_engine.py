@@ -23,6 +23,11 @@ import os
 from typing import Any
 
 from google.adk.workflow import FunctionNode
+from telemetry import tracer, meter, get_logger
+
+_logger = get_logger("health.node4")
+_node4_duration = meter.create_histogram("health.node4.duration", unit="ms", description="Node 4 LLM call duration")
+_node4_retries = meter.create_counter("health.node4.retries", description="Node 4 retry count")
 
 
 SYSTEM_PROMPT = """You are a precision psychobiological analyst. You always produce a full assessment — every run gets AI insights and a classification, regardless of whether strain signals are elevated or nominal.
@@ -180,9 +185,9 @@ def _write_memory(ctx, classification: str) -> None:
             ctx.state.get("target_date", ""),
             record,
         )
-        print(f"[Node 4] Memory write OK for {ctx.state.get('user_id')} on {ctx.state.get('target_date')}")
+        _logger.info(f"[node4.memory_write] OK for {ctx.state.get('user_id')} on {ctx.state.get('target_date')}")
     except Exception as e:
-        print(f"[Node 4] WARN: memory write failed: {e}")
+        _logger.warning(f"[node4.memory_write] FAILED for {ctx.state.get('user_id')}: {e}")
 
 
 async def _insights_engine_fn(ctx) -> None:
@@ -201,14 +206,14 @@ async def _insights_engine_fn(ctx) -> None:
 
     api_key = settings.gemini_api_key
     if not api_key:
-        print("[Node 4] WARN: GEMINI_API_KEY not set — skipping Gemini analysis.")
+        _logger.error("[node4.insights_engine] FAILED — GEMINI_API_KEY not set")
         return
 
     try:
         from google import genai
         from google.genai import types as genai_types
     except ImportError:
-        print("[Node 4] ERROR: google-genai not installed.")
+        _logger.error("[node4.insights_engine] FAILED — google-genai not installed")
         return
 
     user_prompt = _build_user_prompt(ctx.state)
@@ -250,17 +255,42 @@ async def _insights_engine_fn(ctx) -> None:
             return
 
         except json.JSONDecodeError as e:
-            print(f"[Node 4] JSON parse error on attempt {attempt}: {e}")
+            _logger.warning(f"[node4.insights_engine] JSON parse error on attempt {attempt}: {e}")
+            _node4_retries.add(1, {"reason": "json_parse_error"})
             if attempt == max_retries:
-                print(f"[Node 4] All retries exhausted. Raw response:\n{raw}")
+                _logger.error(f"[node4.insights_engine] FAILED — all retries exhausted. Raw response: {raw[:500]}")
         except Exception as e:
-            print(f"[Node 4] ERROR on attempt {attempt}: {e}")
+            _logger.error(f"[node4.insights_engine] FAILED on attempt {attempt}: {type(e).__name__}: {e}")
+            _node4_retries.add(1, {"reason": "exception"})
             if attempt == max_retries:
-                print("[Node 4] All retries exhausted.")
+                _logger.error(f"[node4.insights_engine] FAILED — all retries exhausted")
+
+
+async def _traced_insights_engine_fn(ctx) -> None:
+    """Traced wrapper for Node 4."""
+    import time
+    with tracer.start_as_current_span("health.node4.insights_engine") as span:
+        span.set_attribute("pipeline.node", "insights_engine")
+        span.set_attribute("health.target_date", ctx.state.get("target_date", ""))
+        span.set_attribute("node3.verdict", ctx.state.get("node3_verdict", ""))
+        start = time.perf_counter()
+        await _insights_engine_fn(ctx)
+        duration_ms = (time.perf_counter() - start) * 1000
+        classification = ctx.state.get("node4_classification", "UNKNOWN")
+        insight = ctx.state.get("final_insight", "")
+        span.set_attribute("node4.classification", classification)
+        span.set_attribute("node4.insight_length", len(insight))
+        span.set_attribute("node4.duration_ms", duration_ms)
+        if insight:
+            span.add_event("agent.output", {"gen_ai.response.text": insight[:4096]})
+            _logger.info(f"[node4.insights_engine] OK — classification={classification}, insight: {insight[:300]}")
+        else:
+            _logger.warning(f"[node4.insights_engine] EMPTY — no insight produced after {duration_ms:.0f}ms")
+        _node4_duration.record(duration_ms)
 
 
 # ADK FunctionNode — instantiated once, reused across runs
 insights_engine = FunctionNode(
-    func=_insights_engine_fn,
+    func=_traced_insights_engine_fn,
     name="insights_engine",
 )

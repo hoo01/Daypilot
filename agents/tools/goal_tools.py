@@ -1,11 +1,14 @@
 import json
+import time
 from datetime import date
 from google import genai
 from config import settings
 from db import get_db
 from agents.memory import MemoryAgent
+from telemetry.instrument import traced_tool
 
 
+@traced_tool("track_goals")
 async def track_goals(user_id: str) -> dict:
     """
     Retrieve current goal state and assess progress using Gemini.

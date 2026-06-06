@@ -6,6 +6,9 @@ load_dotenv()
 # ADK expects GOOGLE_API_KEY — always use GEMINI_API_KEY from .env
 os.environ["GOOGLE_API_KEY"] = os.environ.get("GEMINI_API_KEY", "")
 
+# Initialize telemetry early
+import telemetry  # noqa: F401, E402
+
 import uvicorn
 from api.app import app
 

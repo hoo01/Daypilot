@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     overload_threshold_minutes: int = 600
     intake_session_ttl_hours: int = 24
 
+    # Dynatrace / OpenTelemetry
+    dt_environment: str = ""
+    dt_api_token: str = ""
+    dt_mode: str = "on_demand"  # "always" | "on_demand" | "off"
+    oauth_client_id: str = ""
+    oauth_client_secret: str = ""
+    oauth_account_urn: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
