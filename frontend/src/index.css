@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #edf3ed;
+  --bg-deep: #e3ebe1;
+  --surface: rgba(255, 255, 255, 0.42);
+  --surface-strong: rgba(255, 255, 255, 0.62);
+  --surface-soft: rgba(255, 255, 255, 0.26);
+  --line: rgba(21, 29, 25, 0.08);
+  --line-strong: rgba(21, 29, 25, 0.12);
+  --text: #121817;
+  --muted: #66716b;
+  --muted-2: #87908b;
+  --accent: #b8d3bc;
+  --accent-2: #dae8c0;
+  --accent-3: #a6c7ae;
+  --accent-4: #8fb699;
+  --glass: blur(24px) saturate(135%);
+  --shadow: 0 28px 90px rgba(24, 30, 27, 0.08);
+  --shadow-soft: 0 18px 44px rgba(24, 30, 27, 0.05);
+  --radius-xl: 34px;
+  --radius-lg: 24px;
+  --radius-md: 18px;
+  --radius-sm: 14px;
+  --error: #dc2626;
+  --error-surface: rgba(220, 38, 38, 0.08);
+}
+
+[data-theme="dark"] {
+  --bg: #0d1210;
+  --bg-deep: #080e0c;
+  --surface: rgba(255, 255, 255, 0.06);
+  --surface-strong: rgba(255, 255, 255, 0.10);
+  --surface-soft: rgba(255, 255, 255, 0.03);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --text: #f0f4f1;
+  --muted: #8a9e91;
+  --muted-2: #637068;
+  --accent: #4ade80;
+  --accent-2: #86efac;
+  --accent-3: #22c55e;
+  --accent-4: #16a34a;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  overflow: hidden;
+}
+
+body {
+  background:
+    radial-gradient(900px 620px at 14% 12%, rgba(184, 211, 188, 0.35), transparent 56%),
+    radial-gradient(760px 520px at 88% 18%, rgba(218, 232, 192, 0.32), transparent 54%),
+    radial-gradient(820px 620px at 52% 100%, rgba(169, 201, 176, 0.16), transparent 62%),
+    linear-gradient(180deg, #f3f7f1 0%, #ebf1eb 100%);
+}
+
+#root { height: 100%; }
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(21, 29, 25, 0.12);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+button { font-family: inherit; cursor: pointer; }
+input { font-family: inherit; }

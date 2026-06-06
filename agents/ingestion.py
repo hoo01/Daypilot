@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import httplib2
 from google.oauth2.credentials import Credentials
-from google.auth.transport.httplib2 import AuthorizedHttp
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 from google import genai
 from google.genai import types as genai_types
