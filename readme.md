@@ -67,8 +67,7 @@ Coordinator Agent (Google ADK + Gemini 2.5 Flash)
       └── MongoDB MCP             → direct Knowledge Graph queries
 
 POST /schedule/feedback (end-of-day checkbox)
-  ├── Updates goal progress in MongoDB
-  ├── Stores pending_reschedule in user_preferences
+  ├── Stores pending_reschedule in user_preferences (progress is cumulative — skipping a task never decrements it)
   └── Next /chat/ turn: coordinator detects pending tasks and reschedules
 ```
 
@@ -84,7 +83,7 @@ POST /schedule/feedback (end-of-day checkbox)
 
 **How memory grows**
 - Cold start: Google OAuth → reads Calendar, Gmail, Contacts → Gemini extracts entities → MongoDB
-- Per turn: `before_agent_callback` preloads context in parallel (no per-request tool call latency)
+- Per turn: `before_agent_callback` preloads context in parallel (no per-request tool call latency); relationship context and health analysis are cached (30 min / 10 min TTL) — first call is cold, subsequent calls are instant
 - After each turn: background consolidation → Gemini compresses insight → `store_conversation_memory`
 - Next session: `retrieve_relevant_memories` semantically retrieves relevant past context
 - End of day: `/schedule/feedback` stores uncompleted tasks → coordinator reschedules on next turn
@@ -114,7 +113,7 @@ POST /schedule/feedback (end-of-day checkbox)
 
 | Layer | Technology |
 |---|---|
-| LLM | Gemini 2.5 Flash |
+| LLM | Gemini 2.5 Flash (coordinator) · Gemini 2.5 Flash-Lite (preload tools) |
 | Agent framework | Google ADK (`before_agent_callback`, `MCPToolset`) |
 | Backend | Python + FastAPI |
 | Database | MongoDB Atlas (Knowledge Graph + Vector Search) |
