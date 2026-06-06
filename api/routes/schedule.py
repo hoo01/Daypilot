@@ -12,13 +12,20 @@ router = APIRouter(prefix="/schedule", tags=["schedule"])
 @router.post("/adjust", response_model=RealtimeOutput)
 async def adjust_schedule_endpoint(body: RealtimeInput) -> RealtimeOutput:
     """Trigger a real-time schedule adjustment when something changes."""
-    result = await adjust_schedule(
-        user_id=body.user_id,
-        current_schedule=[t.model_dump() for t in body.current_schedule],
-        trigger=body.trigger,
-        trigger_detail=body.trigger_detail,
-    )
-    return RealtimeOutput(**result)
+    try:
+        result = await adjust_schedule(
+            user_id=body.user_id,
+            current_schedule=[t.model_dump() for t in body.current_schedule],
+            trigger=body.trigger,
+            trigger_detail=body.trigger_detail,
+        )
+        return RealtimeOutput(**result)
+    except Exception as e:
+        print(f"[schedule/adjust] Error for {body.user_id}: {e}")
+        return RealtimeOutput(
+            updated_schedule=[],
+            message="I'm having trouble adjusting the schedule right now. Please try again in a moment.",
+        )
 
 
 class UncompletedTask(BaseModel):
