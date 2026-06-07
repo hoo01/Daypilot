@@ -1,12 +1,28 @@
 from datetime import date, timedelta
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from schemas import RealtimeInput, RealtimeOutput
 from agents.tools.realtime_tools import adjust_schedule
 from agents.memory import MemoryAgent
 from db import get_db
+from db.collections import Collections
 
 router = APIRouter(prefix="/schedule", tags=["schedule"])
+
+
+@router.get("/today")
+async def get_today_schedule(user_id: str = Query(...)) -> dict:
+    """Return today's persisted schedule tasks for a user."""
+    today = date.today().isoformat()
+    db = get_db()
+    doc = await db[Collections.DAILY_SCHEDULES].find_one(
+        {"user_id": user_id, "date": today},
+        {"_id": 0, "tasks": 1},
+    )
+    if not doc:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="No schedule for today")
+    return {"tasks": doc.get("tasks", [])}
 
 
 @router.post("/adjust", response_model=RealtimeOutput)

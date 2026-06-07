@@ -35,3 +35,11 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
         IndexModel([("goal_id", ASCENDING), ("received_at", DESCENDING)], name="goal_events"),
         IndexModel([("event_type", ASCENDING), ("received_at", DESCENDING)], name="type_time"),
     ])
+
+    await db[Collections.DAILY_SCHEDULES].create_indexes([
+        IndexModel(
+            [("user_id", ASCENDING), ("date", ASCENDING)],
+            unique=True,
+            name="user_date_unique",
+        ),
+    ])

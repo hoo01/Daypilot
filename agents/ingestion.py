@@ -19,7 +19,11 @@ SCOPES = [
     "https://www.googleapis.com/auth/contacts.readonly",
 ]
 
-_genai_client = genai.Client(api_key=settings.gemini_api_key)
+import http_client as _http_client
+_genai_client = genai.Client(
+    api_key=settings.gemini_api_key,
+    http_options=genai_types.HttpOptions(httpx_async_client=_http_client.shared_async_client()),
+)
 
 
 class IngestionAgent:
@@ -64,12 +68,23 @@ class IngestionAgent:
         return {"status": "ok", "source": source, "entities_ingested": count}
 
     def _build_authorized_http(self, creds: Credentials):
-        proxy_info = httplib2.ProxyInfo(
-            httplib2.socks.PROXY_TYPE_HTTP,
-            "127.0.0.1",
-            7897,
+        import os
+        from urllib.parse import urlparse
+        proxy_url = (
+            os.environ.get("HTTPS_PROXY")
+            or os.environ.get("https_proxy")
+            or os.environ.get("HTTP_PROXY")
+            or ""
         )
-        return AuthorizedHttp(creds, http=httplib2.Http(proxy_info=proxy_info))
+        if proxy_url:
+            parsed = urlparse(proxy_url)
+            proxy_info = httplib2.ProxyInfo(
+                httplib2.socks.PROXY_TYPE_HTTP,
+                parsed.hostname,
+                parsed.port or 7890,
+            )
+            return AuthorizedHttp(creds, http=httplib2.Http(proxy_info=proxy_info))
+        return AuthorizedHttp(creds, http=httplib2.Http())
 
     def _fetch_google_data_sync(self, creds: Credentials, source: str) -> dict:
         now = datetime.utcnow()
@@ -180,15 +195,12 @@ Today: {datetime.utcnow().date().isoformat()}
 
 Return ONLY a valid JSON array, no explanation text."""
 
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: _genai_client.models.generate_content(
-                model=settings.ingestion_model,
-                contents=prompt,
-                config=genai_types.GenerateContentConfig(
-                    response_mime_type="application/json"
-                ),
+        response = await _genai_client.aio.models.generate_content(
+            model=settings.ingestion_model,
+            contents=prompt,
+            config=genai_types.GenerateContentConfig(
+                response_mime_type="application/json",
+                thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
             ),
         )
 

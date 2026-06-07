@@ -1,6 +1,12 @@
 import json
 from google import genai
 from config import settings
+import http_client as _http_client
+
+_client = genai.Client(
+    api_key=settings.gemini_api_key,
+    http_options=genai.types.HttpOptions(httpx_async_client=_http_client.shared_async_client()),
+)
 
 
 async def adjust_schedule(
@@ -51,12 +57,12 @@ Return valid JSON with this exact structure:
 }}
 """
 
-    client = genai.Client(api_key=settings.gemini_api_key)
-    response = client.models.generate_content(
+    response = await _client.aio.models.generate_content(
         model=settings.realtime_model,
         contents=prompt,
         config=genai.types.GenerateContentConfig(
             response_mime_type="application/json",
+            thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
         ),
     )
 

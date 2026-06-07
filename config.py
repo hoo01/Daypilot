@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     gemini_api_key: str
+    gemini_api_version: str = "v1"
 
     coordinator_model: str = "gemini-2.5-flash"
     planning_model: str = "gemini-2.5-flash"
@@ -11,8 +12,8 @@ class Settings(BaseSettings):
 
     health_model: str = "gemini-2.5-flash"
     goal_model: str = "gemini-2.5-flash"
-    goal_reasoning_model: str = "gemini-2.5-pro-preview"
-    goal_fast_model: str = "gemini-2.5-flash-lite"
+    goal_reasoning_model: str = "gemini-2.5-flash"
+    goal_fast_model: str = "gemini-2.5-flash"
     realtime_model: str = "gemini-2.5-flash"
     geo_model: str = "gemini-2.5-flash"
     google_maps_api_key: str = ""
@@ -33,6 +34,9 @@ class Settings(BaseSettings):
     calendar_service_account_json: Optional[str] = None
     overload_threshold_minutes: int = 600
     intake_session_ttl_hours: int = 24
+
+    https_proxy: str = ""
+    frontend_url: str = "http://localhost:5173"
 
     class Config:
         env_file = ".env"

@@ -140,6 +140,9 @@ def build_coordinator(mcp_tools=None, goal_tracking_root=None) -> Agent:
         instruction=INSTRUCTION,
         tools=tools,
         before_agent_callback=_preload_user_context,
+        generate_content_config=genai_types.GenerateContentConfig(
+            thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
+        ),
     )
     if sub_agents:
         agent_kwargs["sub_agents"] = sub_agents

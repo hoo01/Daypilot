@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useStore } from '../store/useStore';
 import { api } from '../utils/api';
 import { storage } from '../utils/storage';
@@ -184,7 +186,23 @@ export default function ChatPage() {
               >
                 {msg.role === 'user' ? 'You' : 'DayPilot'}
               </span>
-              {msg.text}
+              {msg.role === 'user' ? (
+                msg.text
+              ) : (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <p style={{ margin: '0 0 6px', lineHeight: 1.6 }}>{children}</p>,
+                    ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>{children}</ul>,
+                    ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: '18px' }}>{children}</ol>,
+                    li: ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
+                    strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
+                    code: ({ children }) => <code style={{ background: 'rgba(21,29,25,0.07)', borderRadius: '4px', padding: '1px 4px', fontSize: '12px', fontFamily: 'monospace' }}>{children}</code>,
+                  }}
+                >
+                  {msg.text}
+                </ReactMarkdown>
+              )}
             </div>
           </div>
         ))}

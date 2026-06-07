@@ -1,10 +1,10 @@
-import asyncio
 import json
 import re
 from datetime import datetime, date
 from google import genai
 from config import settings
 from db import get_db
+from db.collections import Collections
 from agents.memory import MemoryAgent
 from schemas.schedule import (
     ScheduleInput, ScheduleOutput, ScheduleTask, ScheduleStrategy,
@@ -378,7 +378,38 @@ def _validate_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOut
 # Tool function
 # ─────────────────────────────────────────────────────────
 
-_genai_client = genai.Client(api_key=settings.gemini_api_key)
+import http_client as _http_client
+_genai_client = genai.Client(
+    api_key=settings.gemini_api_key,
+    http_options=genai.types.HttpOptions(httpx_async_client=_http_client.shared_async_client()),
+)
+
+
+async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict) -> None:
+    """Save the top-recommended strategy's tasks to daily_schedules collection."""
+    try:
+        top_name = schedule_dict.get("top_recommendation", "")
+        strategies = schedule_dict.get("strategies", [])
+        strategy = next(
+            (s for s in strategies if s.get("name") == top_name),
+            strategies[0] if strategies else None,
+        )
+        if not strategy:
+            return
+        tasks = strategy.get("tasks", [])
+        db = get_db()
+        await db[Collections.DAILY_SCHEDULES].update_one(
+            {"user_id": user_id, "date": target_date},
+            {"$set": {
+                "user_id": user_id,
+                "date": target_date,
+                "tasks": tasks,
+                "strategy_name": strategy.get("name", ""),
+            }},
+            upsert=True,
+        )
+    except Exception:
+        pass  # never block schedule generation
 
 
 async def plan_schedule(
@@ -432,15 +463,12 @@ async def plan_schedule(
 
     prompt = _build_prompt(inp)
 
-    loop = asyncio.get_event_loop()
-    response = await loop.run_in_executor(
-        None,
-        lambda: _genai_client.models.generate_content(
-            model=settings.planning_model,
-            contents=prompt,
-            config=genai.types.GenerateContentConfig(
-                response_mime_type="application/json",
-            ),
+    response = await _genai_client.aio.models.generate_content(
+        model=settings.planning_model,
+        contents=prompt,
+        config=genai.types.GenerateContentConfig(
+            response_mime_type="application/json",
+            thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
         ),
     )
 
@@ -449,7 +477,9 @@ async def plan_schedule(
         output = ScheduleOutput(**json.loads(cleaned))
         output = _enforce_constraints(output, inp)
         output = _validate_and_fix(output, inp)
-        return output.model_dump()
+        result = output.model_dump()
+        await _persist_schedule(user_id, target_date, result)
+        return result
     except Exception:
         return {
             "date": target_date,

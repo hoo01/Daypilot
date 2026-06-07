@@ -43,9 +43,9 @@ export default function Shell() {
   return (
     <div
       style={{
-        width: '100vw',
+        width: '100%',
         height: '100vh',
-        padding: '20px',
+        padding: '12px',
       }}
     >
       <BackendBanner />
@@ -67,12 +67,12 @@ export default function Shell() {
           style={{
             position: 'relative',
             zIndex: 5,
-            height: '80px',
+            height: '64px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '18px',
-            padding: '0 28px 0 24px',
+            gap: '12px',
+            padding: '0 20px 0 18px',
           }}
         >
           {/* brand */}
@@ -105,7 +105,7 @@ export default function Shell() {
           </div>
 
           {/* right side */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* tabs */}
             <div
               style={{
@@ -127,9 +127,9 @@ export default function Shell() {
                     border: 0,
                     borderRadius: '999px',
                     background: tab === t ? 'rgba(255,255,255,0.72)' : 'transparent',
-                    padding: '10px 14px',
+                    padding: '7px 12px',
                     fontFamily: 'inherit',
-                    fontSize: '13px',
+                    fontSize: '12px',
                     fontWeight: 600,
                     letterSpacing: '0.02em',
                     color: tab === t ? 'var(--text)' : 'var(--muted)',
@@ -148,13 +148,13 @@ export default function Shell() {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '10px 14px',
+                gap: '6px',
+                padding: '7px 11px',
                 borderRadius: '999px',
                 background: 'rgba(255,255,255,0.56)',
                 border: '1px solid rgba(21,29,25,0.08)',
                 color: '#2c3531',
-                fontSize: '13px',
+                fontSize: '12px',
                 whiteSpace: 'nowrap',
                 boxShadow: '0 8px 22px rgba(24,30,27,0.04)',
                 backdropFilter: 'blur(12px) saturate(120%)',
@@ -162,38 +162,43 @@ export default function Shell() {
             >
               <span
                 style={{
-                  width: '8px',
-                  height: '8px',
+                  width: '7px',
+                  height: '7px',
                   borderRadius: '50%',
                   background: 'linear-gradient(180deg, #d7ead9, #8fb99a)',
-                  boxShadow: '0 0 0 4px rgba(169, 203, 176, 0.12)',
                   flexShrink: 0,
                 }}
               />
               {dateLabel}
             </div>
 
-            {/* backend status chip */}
+            {/* backend status dot — compact, only shows text if offline */}
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '10px 14px',
+                gap: '6px',
+                padding: '7px 11px',
                 borderRadius: '999px',
                 background: 'rgba(255,255,255,0.56)',
                 border: '1px solid rgba(21,29,25,0.08)',
                 color: '#2c3531',
-                fontSize: '13px',
+                fontSize: '12px',
                 whiteSpace: 'nowrap',
                 boxShadow: '0 8px 22px rgba(24,30,27,0.04)',
                 backdropFilter: 'blur(12px) saturate(120%)',
               }}
             >
-              Backend{' '}
-              <strong style={{ color: isBackendDown ? 'var(--error)' : undefined }}>
-                {isBackendDown ? 'Offline' : 'Healthy'}
-              </strong>
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: isBackendDown ? 'var(--error)' : 'linear-gradient(180deg, #d7ead9, #8fb99a)',
+                  flexShrink: 0,
+                }}
+              />
+              {isBackendDown ? 'Backend Offline' : 'Backend'}
             </div>
           </div>
         </header>
@@ -201,11 +206,12 @@ export default function Shell() {
         {/* content */}
         <div
           style={{
-            height: 'calc(100% - 80px)',
+            height: 'calc(100% - 64px)',
             display: 'grid',
-            gridTemplateColumns: '84px minmax(0, 1fr)',
-            gap: '16px',
-            padding: '0 16px 16px',
+            gridTemplateColumns: '72px minmax(0, 1fr)',
+            gridTemplateRows: '1fr',
+            gap: '12px',
+            padding: '0 12px 12px',
             position: 'relative',
             zIndex: 2,
           }}

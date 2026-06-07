@@ -41,6 +41,8 @@ async def lifespan(app: FastAPI):
 
     await exit_stack.aclose()
     await close_db()
+    import http_client
+    await http_client.close()
 
 
 app = FastAPI(title="DayPilot", version="0.1.0", lifespan=lifespan)

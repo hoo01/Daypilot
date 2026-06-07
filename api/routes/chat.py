@@ -1,4 +1,3 @@
-import asyncio
 from uuid import uuid4
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
@@ -9,10 +8,14 @@ from api.dependencies import get_runner
 from agents.memory import MemoryAgent
 from db import get_db
 from config import settings
+import http_client
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-_genai_client = genai.Client(api_key=settings.gemini_api_key)
+_genai_client = genai.Client(
+    api_key=settings.gemini_api_key,
+    http_options=types.HttpOptions(httpx_async_client=http_client.shared_async_client()),
+)
 
 
 class ChatRequest(BaseModel):
@@ -38,13 +41,12 @@ Assistant: {assistant_reply}
 If there is nothing worth remembering, return exactly: NOTHING
 Otherwise return a single compressed sentence summarizing what to remember."""
 
-    loop = asyncio.get_event_loop()
     try:
-        response = await loop.run_in_executor(
-            None,
-            lambda: _genai_client.models.generate_content(
-                model=settings.ingestion_model,
-                contents=prompt,
+        response = await _genai_client.aio.models.generate_content(
+            model=settings.ingestion_model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         summary = response.text.strip()
@@ -85,7 +87,6 @@ async def chat(
     ):
         if event.is_final_response() and event.content and event.content.parts:
             reply = event.content.parts[0].text
-            break
 
     # Async memory consolidation — runs after response is sent, never blocks user
     background_tasks.add_task(_consolidate_memory, body.user_id, body.message, reply)

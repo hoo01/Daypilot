@@ -85,6 +85,7 @@ export default function TodayPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [noSchedule, setNoSchedule] = useState(false);
   const quote = useRef(getDailyQuote()).current;
 
   const lastFeedbackDate = storage.getLastFeedbackDate();
@@ -100,15 +101,18 @@ export default function TodayPage() {
           setLoading(false);
         }
         const res = await api.getScheduleToday(userId);
-        // res expected to be an array of tasks
         const list = Array.isArray(res) ? res : res.tasks || [];
         const sorted = list.sort((a, b) =>
           (a.start_time || '').localeCompare(b.start_time || '')
         );
         setTasks(sorted);
         storage.setTodaySchedule(sorted);
-      } catch {
-        if (!tasks.length) {
+        setNoSchedule(false);
+      } catch (err) {
+        if (err?.status === 404) {
+          setNoSchedule(true);
+          storage.setTodaySchedule(null);
+        } else if (!tasks.length) {
           setTasks(MOCK_TASKS);
         }
       } finally {
@@ -150,7 +154,7 @@ export default function TodayPage() {
     }
   }
 
-  const displayTasks = tasks.length ? tasks : MOCK_TASKS;
+  const displayTasks = tasks.length ? tasks : [];
   const dateLabel = new Intl.DateTimeFormat('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
   }).format(new Date());
@@ -159,8 +163,9 @@ export default function TodayPage() {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 340px',
-        gap: '16px',
+        gridTemplateColumns: 'minmax(0, 1fr) 280px',
+        gridTemplateRows: '1fr',
+        gap: '12px',
         height: '100%',
         minWidth: 0,
       }}
@@ -180,7 +185,7 @@ export default function TodayPage() {
         }}
       >
         {/* date + quote header */}
-        <div style={{ padding: '20px 20px 0' }}>
+        <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
           <div
             style={{
               display: 'flex',
@@ -281,9 +286,37 @@ export default function TodayPage() {
             gap: '12px',
           }}
         >
-          {loading && !displayTasks.length ? (
-            <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center' }}>
+          {loading ? (
+            <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', marginTop: '32px' }}>
               Loading schedule...
+            </p>
+          ) : noSchedule ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
+              <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>
+                No schedule for today yet
+              </p>
+              <p style={{ fontSize: '13px', lineHeight: 1.6, margin: '0 0 20px' }}>
+                Chat with DayPilot to build your day plan.
+              </p>
+              <button
+                onClick={openAgentDrawer}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '14px',
+                  border: 0,
+                  background: 'linear-gradient(135deg, #161d1b, #36423c)',
+                  color: 'white',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Plan my day
+              </button>
+            </div>
+          ) : displayTasks.length === 0 ? (
+            <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', marginTop: '32px' }}>
+              No tasks scheduled.
             </p>
           ) : (
             displayTasks.map((task) => (
@@ -303,6 +336,7 @@ export default function TodayPage() {
             background:
               'linear-gradient(180deg, rgba(242,246,240,0), rgba(242,246,240,0.78) 18%, rgba(242,246,240,0.97))',
             borderTop: '1px solid rgba(21,29,25,0.05)',
+            flexShrink: 0,
           }}
         >
           {/* agent compose bar */}
@@ -409,6 +443,7 @@ export default function TodayPage() {
           boxShadow: 'var(--shadow-soft)',
           padding: '16px',
           overflowY: 'auto',
+          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',

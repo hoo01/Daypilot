@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 from google_auth_oauthlib.flow import Flow
@@ -47,7 +48,7 @@ async def initiate_google_auth(user_id: str):
 
 @router.get("/callback")
 async def google_auth_callback(code: str, state: str):
-    """Handle OAuth callback. Exchanges code, stores credentials, triggers ingestion."""
+    """Handle OAuth callback. Exchanges code, stores credentials, then redirects to the frontend."""
     user_id = state
 
     flow = _pending_flows.pop(user_id, None) or _build_flow()
@@ -73,14 +74,16 @@ async def google_auth_callback(code: str, state: str):
         upsert=True,
     )
 
-    agent = IngestionAgent(MemoryAgent(db))
-    result = await agent.run({
-        "user_id": user_id,
-        "credentials": creds_dict,
-        "source": "cold_start",
-    })
+    # Run ingestion in background — don't block the redirect
+    asyncio.create_task(
+        IngestionAgent(MemoryAgent(db)).run({
+            "user_id": user_id,
+            "credentials": creds_dict,
+            "source": "cold_start",
+        })
+    )
 
-    return {"status": "ok", "user_id": user_id, **result}
+    return RedirectResponse(url=f"{settings.frontend_url}/today?user_id={user_id}")
 
 
 @router.post("/ingest/{user_id}")

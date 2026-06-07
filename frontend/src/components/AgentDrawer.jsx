@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useStore } from '../store/useStore';
 import { storage } from '../utils/storage';
 import { api } from '../utils/api';
@@ -207,7 +209,23 @@ export default function AgentDrawer({ open, onClose }) {
               >
                 {msg.role === 'user' ? 'You' : 'DayPilot'}
               </span>
-              {msg.text}
+              {msg.role === 'user' ? (
+                msg.text
+              ) : (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <p style={{ margin: '0 0 4px', lineHeight: 1.55 }}>{children}</p>,
+                    ul: ({ children }) => <ul style={{ margin: '3px 0', paddingLeft: '16px' }}>{children}</ul>,
+                    ol: ({ children }) => <ol style={{ margin: '3px 0', paddingLeft: '16px' }}>{children}</ol>,
+                    li: ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
+                    strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
+                    code: ({ children }) => <code style={{ background: 'rgba(21,29,25,0.07)', borderRadius: '4px', padding: '1px 4px', fontSize: '11px', fontFamily: 'monospace' }}>{children}</code>,
+                  }}
+                >
+                  {msg.text}
+                </ReactMarkdown>
+              )}
             </div>
           ))}
           {sending && (

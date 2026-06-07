@@ -4,6 +4,12 @@ from google import genai
 from config import settings
 from db import get_db
 from agents.memory import MemoryAgent
+import http_client as _http_client
+
+_client = genai.Client(
+    api_key=settings.gemini_api_key,
+    http_options=genai.types.HttpOptions(httpx_async_client=_http_client.shared_async_client()),
+)
 
 
 async def track_goals(user_id: str) -> dict:
@@ -43,12 +49,12 @@ Return a JSON object with:
 
 Return ONLY valid JSON."""
 
-    client = genai.Client(api_key=settings.gemini_api_key)
-    response = client.models.generate_content(
+    response = await _client.aio.models.generate_content(
         model=settings.goal_model,
         contents=prompt,
         config=genai.types.GenerateContentConfig(
             response_mime_type="application/json",
+            thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
         ),
     )
 
