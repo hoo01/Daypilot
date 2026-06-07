@@ -17,7 +17,7 @@ export default function AgentDrawer({ open, onClose }) {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatMessages, open]);
+  }, [chatMessages, open, sending]);
 
   async function send() {
     const text = input.trim();
@@ -184,8 +184,29 @@ export default function AgentDrawer({ open, onClose }) {
             </div>
           ))}
           {sending && (
-            <div style={{ alignSelf: 'flex-start', color: 'var(--muted)', fontSize: '12px', fontStyle: 'italic', padding: '6px 14px' }}>
-              ◆ DayPilot is responding…
+            <div style={{
+              alignSelf: 'flex-start',
+              padding: '10px 14px',
+              borderRadius: '16px',
+              border: '1px solid rgba(110,231,183,0.18)',
+              background: 'rgba(110,231,183,0.06)',
+            }}>
+              <span style={{ display: 'block', fontSize: '10px', letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '7px', fontWeight: 600 }}>
+                ◆ DayPilot
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {[0, 160, 320].map((delay) => (
+                  <span
+                    key={delay}
+                    style={{
+                      width: '5px', height: '5px', borderRadius: '50%',
+                      background: 'var(--accent)',
+                      display: 'inline-block',
+                      animation: `thinking-bounce 1.2s ease-in-out ${delay}ms infinite`,
+                    }}
+                  />
+                ))}
+              </span>
             </div>
           )}
         </div>

@@ -47,8 +47,18 @@ export default function ChatPage() {
     }
   }, []);
 
+  const AFFIRM_RE = /^(yes|yeah|yep|yup|ok|okay|sure|confirm|go ahead|do it|sounds good|great|perfect|let'?s do it|y)\s*[!.]?$/i;
+
   async function sendMessage(text) {
     if (!text || sending) return;
+
+    // When a proposal is waiting and the user affirms, confirm directly instead of re-asking the LLM
+    if (pendingProposal && AFFIRM_RE.test(text.trim())) {
+      addMessage({ role: 'user', text });
+      await handleConfirm();
+      return;
+    }
+
     const userId    = storage.getUserId();
     const sessionId = storage.getSessionId();
     addMessage({ role: 'user', text });
@@ -261,15 +271,27 @@ export default function ChatPage() {
               alignSelf: 'flex-start',
               padding: '12px 16px',
               borderRadius: '18px',
-              border: '1px solid rgba(255,255,255,0.10)',
-              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(110,231,183,0.18)',
+              background: 'rgba(110,231,183,0.06)',
               fontSize: '13px',
             }}
           >
-            <span style={{ display: 'block', fontSize: '11px', letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '6px', fontWeight: 600 }}>
+            <span style={{ display: 'block', fontSize: '11px', letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '8px', fontWeight: 600 }}>
               ◆ DayPilot
             </span>
-            <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Thinking…</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              {[0, 160, 320].map((delay) => (
+                <span
+                  key={delay}
+                  style={{
+                    width: '6px', height: '6px', borderRadius: '50%',
+                    background: 'var(--accent)',
+                    display: 'inline-block',
+                    animation: `thinking-bounce 1.2s ease-in-out ${delay}ms infinite`,
+                  }}
+                />
+              ))}
+            </span>
           </div>
         )}
       </div>

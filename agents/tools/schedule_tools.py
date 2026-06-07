@@ -209,7 +209,8 @@ Feasibility: {goal_feasibility:.2f}{f" — {goal_feasibility_note}" if goal_feas
 6. Use ONLY these task types: deep_work, routine, break, commute, exercise, study, meal, personal, preparation, sleep, calendar_event
 7. top_recommendation MUST be exactly one of: "Most Productive", "Most Relaxed", or "Fastest"
 8. Task titles MUST use the specific goal or activity name — never generic labels like "Study Session (Goal Task)" or "Deep Work Block". If the goal is Leetcode, write "Leetcode Practice". If it's writing, write "Writing Session". Use the exact activity name.
-8. CRITICAL: All start_time and end_time MUST be full ISO 8601 strings, e.g. "{inp.date}T09:00:00"
+9. Calendar event titles MUST be copied verbatim from the calendar_events input. Never rename them to generic labels like "Event", "Appointment", or "Meeting".
+10. CRITICAL: All start_time and end_time MUST be full ISO 8601 strings, e.g. "{inp.date}T09:00:00"
 
 ## Output Format (valid JSON only)
 {{
@@ -509,7 +510,7 @@ async def plan_schedule(
         calendar_events=[
             CalendarEvent(
                 id=str(i),
-                title=e.get("title", e.get("summary", "Event")),
+                title=e.get("title", e.get("name", e.get("summary", "Event"))),
                 start_time=_normalize_timestamp(
                     e.get("start_time", e.get("start", target_date + "T00:00:00")),
                     target_date,

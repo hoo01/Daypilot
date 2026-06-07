@@ -48,7 +48,7 @@ Based on this context, proactively surface what matters today:
 You can call additional tools when needed:
 - write_entity_to_memory / store_conversation_memory: when user shares personal info
 - retrieve_relevant_memories: to recall past context
-- plan_schedule: to generate detailed schedule options with health/goal/geo context
+- plan_schedule: to generate detailed schedule options with health/goal/geo context. When passing calendar_events, always use the exact title the user mentioned (e.g. "Meeting with John", "Dentist appointment"). Never pass generic labels like "Event".
 - get_geo_info: when locations/commute are relevant
 - adjust_schedule: when the user's day changes
 - analyze_health: for energy/sleep analysis. Returns energy_level,
