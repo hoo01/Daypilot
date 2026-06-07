@@ -7,6 +7,9 @@ from agents.tools.schedule_tools import _persist_schedule
 from agents.memory import MemoryAgent
 from db import get_db
 from db.collections import Collections
+from telemetry import tracer, get_logger
+
+_logger = get_logger("routes.schedule")
 
 router = APIRouter(prefix="/schedule", tags=["schedule"])
 

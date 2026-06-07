@@ -15,6 +15,9 @@ from typing import Any
 from google.adk.workflow import FunctionNode
 
 from agents.health_agent.agents.tools.data_tools import DataRepository
+from telemetry import tracer, get_logger
+
+_logger = get_logger("health.node1")
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -129,8 +132,29 @@ async def _healthkit_sentinel_fn(ctx) -> None:
     ctx.state["node1_flags"] = flags
 
 
+async def _traced_healthkit_sentinel_fn(ctx) -> None:
+    """Traced wrapper for Node 1."""
+    import time
+    with tracer.start_as_current_span("health.node1.healthkit_sentinel") as span:
+        span.set_attribute("pipeline.node", "healthkit_sentinel")
+        span.set_attribute("health.target_date", ctx.state.get("target_date", ""))
+        start = time.perf_counter()
+        await _healthkit_sentinel_fn(ctx)
+        duration_ms = (time.perf_counter() - start) * 1000
+        flags = ctx.state.get("node1_flags", {})
+        span.set_attribute("node1.cold_start", flags.get("cold_start", False))
+        span.set_attribute("node1.hrv_suppressed", str(flags.get("hrv_suppressed", "")))
+        span.set_attribute("node1.sleep_fragmented", str(flags.get("sleep_fragmented", "")))
+        span.set_attribute("node1.duration_ms", duration_ms)
+        # Emit key flag outputs as a span event for Dynatrace visibility
+        flag_summary = {k: str(v) for k, v in flags.items() if k not in ("today_values", "baseline_stats")}
+        flag_str = str(flag_summary)
+        span.add_event("agent.output", {"node1.flags": flag_str[:4096]})
+        _logger.info(f"[node1.healthkit_sentinel] OK — {flag_str[:500]}")
+
+
 # ADK FunctionNode — instantiated once, reused across runs
 healthkit_sentinel = FunctionNode(
-    func=_healthkit_sentinel_fn,
+    func=_traced_healthkit_sentinel_fn,
     name="healthkit_sentinel",
 )

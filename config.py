@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     https_proxy: str = ""
     frontend_url: str = "http://localhost:5173"
 
+    # Dynatrace / OpenTelemetry
+    dt_environment: str = ""
+    dt_api_token: str = ""
+    dt_mode: str = "on_demand"  # "always" | "on_demand" | "off"
+    oauth_client_id: str = ""
+    oauth_client_secret: str = ""
+    oauth_account_urn: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

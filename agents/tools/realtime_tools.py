@@ -2,6 +2,7 @@ import json
 from google import genai
 from config import settings
 import http_client as _http_client
+from telemetry.instrument import traced_tool
 
 _client = genai.Client(
     api_key=settings.gemini_api_key,
@@ -9,6 +10,8 @@ _client = genai.Client(
 )
 
 
+
+@traced_tool("adjust_schedule")
 async def adjust_schedule(
     user_id: str,
     current_schedule: list,

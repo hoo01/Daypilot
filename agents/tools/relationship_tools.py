@@ -6,6 +6,7 @@ from config import settings
 from db import get_db
 from agents.memory import MemoryAgent
 import http_client as _http_client
+from telemetry.instrument import traced_tool
 
 _client = genai.Client(
     api_key=settings.gemini_api_key,
@@ -23,6 +24,7 @@ def _days_away(date_str: str) -> int:
         return 0
 
 
+@traced_tool("get_relationship_context")
 async def get_relationship_context(user_id: str, lookahead_days: int = 14) -> dict:
     """
     Query the Knowledge Graph for important upcoming dates and people.

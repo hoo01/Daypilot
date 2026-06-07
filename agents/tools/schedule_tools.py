@@ -10,6 +10,7 @@ from schemas.schedule import (
     ScheduleInput, ScheduleOutput, ScheduleTask, ScheduleStrategy,
     CalendarEvent, UserPreferences,
 )
+from telemetry.instrument import traced_tool
 from schemas.health import HealthOutput
 
 
@@ -450,6 +451,7 @@ async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict)
         pass  # never block schedule generation
 
 
+@traced_tool("plan_schedule")
 async def plan_schedule(
     user_id: str,
     target_date: str = "",

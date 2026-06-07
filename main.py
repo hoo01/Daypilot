@@ -49,6 +49,9 @@ _prop = _cached_property(_patched_api_client)
 _prop.__set_name__(_GoogleLLM, "api_client")
 _GoogleLLM.api_client = _prop
 
+# Initialize telemetry early (after proxy fix so network is ready)
+import telemetry  # noqa: F401, E402
+
 import uvicorn
 from api.app import app
 

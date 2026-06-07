@@ -18,6 +18,12 @@ Sets:   ctx.route to the verdict string for conditional edge routing
 from __future__ import annotations
 
 from google.adk.workflow import FunctionNode
+from telemetry import tracer, meter, get_logger
+
+_logger = get_logger("health.node3")
+_psi_gauge = meter.create_histogram("health.psi", description="Psychological Strain Index")
+_pli_gauge = meter.create_histogram("health.pli", description="Physical Load Index")
+_verdict_counter = meter.create_counter("health.verdict", description="Verdict distribution")
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -194,8 +200,34 @@ async def _autonomic_decoupler_fn(ctx) -> None:
     ctx.route = verdict
 
 
+async def _traced_autonomic_decoupler_fn(ctx) -> None:
+    """Traced wrapper for Node 3."""
+    import time
+    with tracer.start_as_current_span("health.node3.autonomic_decoupler") as span:
+        span.set_attribute("pipeline.node", "autonomic_decoupler")
+        start = time.perf_counter()
+        await _autonomic_decoupler_fn(ctx)
+        duration_ms = (time.perf_counter() - start) * 1000
+        psi = ctx.state.get("psychological_strain_index", 0)
+        pli = ctx.state.get("physical_load_index", 0)
+        verdict = ctx.state.get("node3_verdict", "UNKNOWN")
+        span.set_attribute("node3.psi", psi)
+        span.set_attribute("node3.pli", pli)
+        span.set_attribute("node3.verdict", verdict)
+        span.set_attribute("node3.duration_ms", duration_ms)
+        _psi_gauge.record(psi)
+        _pli_gauge.record(pli)
+        _verdict_counter.add(1, {"verdict": verdict})
+        span.add_event("agent.output", {
+            "node3.verdict": verdict,
+            "node3.psi": str(psi),
+            "node3.pli": str(pli),
+        })
+        _logger.info(f"[node3.autonomic_decoupler] OK — verdict={verdict}, PSI={psi:.1f}, PLI={pli:.1f}")
+
+
 # ADK FunctionNode — instantiated once, reused across runs
 autonomic_decoupler = FunctionNode(
-    func=_autonomic_decoupler_fn,
+    func=_traced_autonomic_decoupler_fn,
     name="autonomic_decoupler",
 )
