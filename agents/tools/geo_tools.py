@@ -12,6 +12,7 @@ from urllib.parse import quote
 import httpx
 
 from config import settings
+from telemetry.instrument import traced_tool
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,7 @@ async def _call_routes_api(
 # Tool function
 # ─────────────────────────────────────────────────────────
 
+@traced_tool("get_geo_info")
 async def get_geo_info(
     current_location: str,
     events: list[dict],

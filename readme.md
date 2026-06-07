@@ -176,4 +176,18 @@ Key endpoints:
 
 ---
 
+## Observability — Dynatrace + OpenTelemetry
+
+Every agent call, LLM invocation, health pipeline node, and HTTP request is instrumented with OpenTelemetry and exported to Dynatrace. The coordinator agent can also query Dynatrace about its own performance via MCP.
+
+**What's instrumented:** HTTP middleware, all 10 agent tools (`@traced_tool`), Gemini LLM calls (`@traced_llm`), the full 4-node health pipeline, coordinator context preload, chat endpoint, and background memory consolidation.
+
+**Self-monitoring:** Set `DT_MODE=on_demand` and the coordinator can answer "how's your latency?" by querying its own traces in Dynatrace.
+
+**Claude Code integration:** The `.mcp.json` connects the Dynatrace MCP server — ask natural language questions about telemetry directly from your terminal.
+
+See **[docs/DYNATRACE.md](docs/DYNATRACE.md)** for the full guide — setup, every instrumented component, DQL query examples, and testing instructions.
+
+---
+
 *DayPilot — Google Cloud Rapid Agent Hackathon 2026*

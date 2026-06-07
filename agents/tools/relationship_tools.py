@@ -5,6 +5,7 @@ from google import genai
 from config import settings
 from db import get_db
 from agents.memory import MemoryAgent
+from telemetry.instrument import traced_tool
 
 _cache: dict[str, tuple[float, dict]] = {}
 _CACHE_TTL = 1800  # 30 minutes — upcoming events don't change within a session
@@ -17,6 +18,7 @@ def _days_away(date_str: str) -> int:
         return 0
 
 
+@traced_tool("get_relationship_context")
 async def get_relationship_context(user_id: str, lookahead_days: int = 14) -> dict:
     """
     Query the Knowledge Graph for important upcoming dates and people.

@@ -13,6 +13,12 @@ python-dotenv
 httpx
 mcp
 
+# OpenTelemetry
+opentelemetry-api>=1.25.0
+opentelemetry-sdk>=1.25.0
+opentelemetry-exporter-otlp-proto-http>=1.25.0
+opentelemetry-semantic-conventions>=0.46b0
+
 # Dev / test dependencies
 pytest>=8.0
 pytest-asyncio>=0.23

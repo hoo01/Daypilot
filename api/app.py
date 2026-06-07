@@ -10,6 +10,10 @@ from db import close_db, get_db
 from db.indexes import ensure_indexes
 from api.routes import chat, schedule, auth
 from api.routes import events, goals as goals_router, intake, scheduled as scheduled_router
+from telemetry.middleware import TelemetryMiddleware
+from telemetry import get_logger
+
+_logger = get_logger("app")
 
 
 @asynccontextmanager
@@ -28,12 +32,28 @@ async def lifespan(app: FastAPI):
     db = get_db()
     await ensure_indexes(db)
 
+    from agents.dynatrace_mcp import get_dynatrace_mcp
+
     try:
         mongo_mcp = get_mongo_mcp()
         await exit_stack.enter_async_context(mongo_mcp)
-        coordinator = build_coordinator(mcp_tools=mongo_mcp)
     except Exception:
-        coordinator = build_coordinator()
+        mongo_mcp = None
+
+    dt_mcp = None
+    try:
+        dt_mcp = get_dynatrace_mcp()
+        if dt_mcp:
+            try:
+                await exit_stack.enter_async_context(dt_mcp)
+            except TypeError:
+                pass  # MCPToolset may not need async context management
+            _logger.info("Dynatrace MCP initialized")
+    except Exception as e:
+        _logger.warning(f"Dynatrace MCP unavailable: {e}")
+        dt_mcp = None
+
+    coordinator = build_coordinator(mcp_tools=mongo_mcp, dynatrace_mcp=dt_mcp)
 
     session_service = InMemorySessionService()
     runner = Runner(
@@ -51,6 +71,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="DayPilot", version="0.1.0", lifespan=lifespan)
 
+app.add_middleware(TelemetryMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

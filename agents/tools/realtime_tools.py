@@ -3,7 +3,10 @@ from google import genai
 from config import settings
 from agents.memory import MemoryAgent
 from db import get_db
+from telemetry.instrument import traced_tool
 
+
+@traced_tool("adjust_schedule")
 async def adjust_schedule(
     user_id: str,
     current_schedule: list,
