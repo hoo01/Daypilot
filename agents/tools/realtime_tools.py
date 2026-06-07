@@ -28,7 +28,6 @@ async def adjust_schedule(
             "updated_schedule": [],
             "message": "No active schedule to adjust.",
         }
-
     prompt = f"""
 You are DayPilot's real-time schedule adjustment engine.
 The user's day has changed. Replan their schedule accordingly.

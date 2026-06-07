@@ -28,13 +28,20 @@ async def get_today_schedule(user_id: str = Query(...)) -> dict:
 @router.post("/adjust", response_model=RealtimeOutput)
 async def adjust_schedule_endpoint(body: RealtimeInput) -> RealtimeOutput:
     """Trigger a real-time schedule adjustment when something changes."""
-    result = await adjust_schedule(
-        user_id=body.user_id,
-        current_schedule=[t.model_dump() for t in body.current_schedule],
-        trigger=body.trigger,
-        trigger_detail=body.trigger_detail,
-    )
-    return RealtimeOutput(**result)
+    try:
+        result = await adjust_schedule(
+            user_id=body.user_id,
+            current_schedule=[t.model_dump() for t in body.current_schedule],
+            trigger=body.trigger,
+            trigger_detail=body.trigger_detail,
+        )
+        return RealtimeOutput(**result)
+    except Exception as e:
+        print(f"[schedule/adjust] Error for {body.user_id}: {e}")
+        return RealtimeOutput(
+            updated_schedule=[],
+            message="I'm having trouble adjusting the schedule right now. Please try again in a moment.",
+        )
 
 
 class UncompletedTask(BaseModel):
@@ -59,18 +66,7 @@ async def submit_feedback(body: FeedbackRequest) -> FeedbackResponse:
     """Receive end-of-day task feedback and update goal progress."""
     uncompleted_titles = [t.title for t in body.uncompleted_tasks]
 
-    # Update goal_state: reduce progress for any Leetcode/goal-related tasks not completed
     mem = MemoryAgent(get_db())
-    goal_state = await mem.get_goal_state(body.user_id)
-    if goal_state and goal_state.get("goals"):
-        updated = False
-        for goal in goal_state["goals"]:
-            for task in body.uncompleted_tasks:
-                if any(kw in task.title.lower() for kw in ["leetcode", "study", "practice", "workout"]):
-                    goal["progress"] = max(0, goal.get("progress", 0) - 1)
-                    updated = True
-        if updated:
-            await mem.upsert_goal_state(body.user_id, goal_state)
 
     suggested_date = (date.fromisoformat(body.date) + timedelta(days=1)).isoformat()
     count = len(uncompleted_titles)

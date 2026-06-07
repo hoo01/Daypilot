@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     coordinator_model: str = "gemini-2.5-flash"
     planning_model: str = "gemini-2.5-flash"
-    relationship_model: str = "gemini-2.5-flash"
+    relationship_model: str = "gemini-2.5-flash-lite"
 
     health_model: str = "gemini-2.5-flash"
     goal_model: str = "gemini-2.5-flash"
@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     google_maps_api_key: str = ""
 
     ingestion_model: str = "gemini-2.5-flash"
+
+    # Health-agent (previously in agents/health_agent/config.py)
+    node4_model: str = "gemini-2.5-flash"
+    memory_backend: str = "jsonl"   # "jsonl" | "bigquery"
 
     mongodb_uri: str
     mongodb_db_name: str = "daypilot"

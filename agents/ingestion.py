@@ -86,6 +86,7 @@ class IngestionAgent:
             return AuthorizedHttp(creds, http=httplib2.Http(proxy_info=proxy_info))
         return AuthorizedHttp(creds, http=httplib2.Http())
 
+
     def _fetch_google_data_sync(self, creds: Credentials, source: str) -> dict:
         now = datetime.utcnow()
         lookback_days = 90 if source == "cold_start" else 7
