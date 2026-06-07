@@ -83,7 +83,7 @@ def _merge_short_deep_work(tasks: list[ScheduleTask]) -> list[ScheduleTask]:
 # Prompt builder (adapted from Jingyuan's _build_prompt)
 # ─────────────────────────────────────────────────────────
 
-def _build_prompt(inp: ScheduleInput) -> str:
+def _build_prompt(inp: ScheduleInput, goal_context: dict | None = None) -> str:
     prefs = inp.user_preferences
     health = inp.health
     goals = inp.goals
@@ -108,6 +108,18 @@ def _build_prompt(inp: ScheduleInput) -> str:
             for t in goals.daily_sub_tasks
         )
         goal_sub_tasks_section = f"Goal sub-tasks for today:\n{lines}"
+    elif goal_context:
+        summary = goal_context.get("summary", "")
+        blocks = goal_context.get("suggested_blocks", [])
+        goal_names = [g.get("name", "") for g in goal_context.get("goals", []) if g.get("name")]
+        parts = []
+        if goal_names:
+            parts.append(f"Active goals: {', '.join(goal_names)}")
+        if blocks:
+            parts.append(f"Suggested blocks: {'; '.join(blocks)}")
+        if summary:
+            parts.append(f"Summary: {summary}")
+        goal_sub_tasks_section = "\n".join(parts) if parts else "(no goal sub-tasks for today)"
     else:
         goal_sub_tasks_section = "(no goal sub-tasks for today)"
 
@@ -173,6 +185,7 @@ Feasibility: {goal_feasibility:.2f}{f" — {goal_feasibility_note}" if goal_feas
 5. "Most Productive" maximizes goal progress; "Most Relaxed" minimizes cognitive load; "Fastest" completes must-dos in minimum time
 6. Use ONLY these task types: deep_work, routine, break, commute, exercise, study, meal, personal, preparation, sleep, calendar_event
 7. top_recommendation MUST be exactly one of: "Most Productive", "Most Relaxed", or "Fastest"
+8. Task titles MUST use the specific goal or activity name — never generic labels like "Study Session (Goal Task)" or "Deep Work Block". If the goal is Leetcode, write "Leetcode Practice". If it's writing, write "Writing Session". Use the exact activity name.
 8. CRITICAL: All start_time and end_time MUST be full ISO 8601 strings, e.g. "{inp.date}T09:00:00"
 
 ## Output Format (valid JSON only)
@@ -461,7 +474,7 @@ async def plan_schedule(
         ],
     )
 
-    prompt = _build_prompt(inp)
+    prompt = _build_prompt(inp, goal_context=goal_context)
 
     response = await _genai_client.aio.models.generate_content(
         model=settings.planning_model,

@@ -88,7 +88,6 @@ async def chat(
         ):
             if event.is_final_response() and event.content and event.content.parts:
                 reply = event.content.parts[0].text
-                break
     except Exception as e:
         print(f"[chat] LLM error for {body.user_id}: {e}")
         reply = "I'm having trouble connecting right now. Please try again in a moment."
