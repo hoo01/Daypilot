@@ -2,8 +2,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { storage } from '../utils/storage';
 
 const NAV = [
-  { path: '/today', label: 'Today', icon: '⊞' },
-  { path: '/chat',  label: 'Chat',  icon: '⊹' },
+  { path: '/today',   label: 'Today',   icon: '⊞' },
+  { path: '/chat',    label: 'Chat',    icon: '⊹' },
   { path: '/history', label: 'History', icon: '⊫', disabled: true },
 ];
 
@@ -21,10 +21,9 @@ export default function NavRail({ onOpenAgentDrawer }) {
       style={{
         width: '72px',
         borderRadius: 'var(--radius-xl)',
-        border: '1px solid rgba(255,255,255,0.66)',
-        background: 'rgba(255,255,255,0.38)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        background: 'rgba(255,255,255,0.08)',
         backdropFilter: 'var(--glass)',
-        boxShadow: 'var(--shadow-soft)',
         padding: '14px 8px',
         display: 'flex',
         flexDirection: 'column',
@@ -44,16 +43,16 @@ export default function NavRail({ onOpenAgentDrawer }) {
               width: '50px',
               height: '50px',
               borderRadius: '18px',
-              border: active ? '1px solid var(--line)' : '1px solid transparent',
-              background: active ? 'rgba(255,255,255,0.82)' : 'transparent',
-              color: '#2c3531',
+              border: active ? '1px solid rgba(255,255,255,0.22)' : '1px solid transparent',
+              background: active ? 'rgba(255,255,255,0.16)' : 'transparent',
+              color: active ? '#fff' : 'var(--muted)',
               display: 'grid',
               placeItems: 'center',
               fontSize: '18px',
               cursor: disabled ? 'default' : 'pointer',
-              opacity: disabled ? 0.38 : 1,
-              boxShadow: active ? '0 10px 22px rgba(24,30,27,0.07)' : 'none',
-              transition: '180ms ease',
+              opacity: disabled ? 0.28 : 1,
+              boxShadow: active ? '0 8px 24px rgba(0,0,0,0.20)' : 'none',
+              transition: '160ms ease',
             }}
           >
             {icon}
@@ -72,12 +71,13 @@ export default function NavRail({ onOpenAgentDrawer }) {
           borderRadius: '18px',
           border: '1px solid transparent',
           background: 'transparent',
-          color: '#2c3531',
+          color: 'var(--muted)',
           display: 'grid',
           placeItems: 'center',
           fontSize: '16px',
           cursor: 'pointer',
-          opacity: 0.5,
+          opacity: 0.65,
+          transition: '160ms ease',
         }}
       >
         ⏻

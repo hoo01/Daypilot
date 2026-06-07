@@ -27,6 +27,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     session_id: str
+    pending_proposal: dict | None = None
 
 
 async def _consolidate_memory(user_id: str, user_message: str, assistant_reply: str) -> None:
@@ -80,6 +81,9 @@ async def chat(
     )
 
     reply = ""
+    pending_proposal: dict | None = None
+    _SCHEDULE_TOOLS = {"plan_schedule", "adjust_schedule"}
+
     try:
         async for event in runner.run_async(
             user_id=body.user_id,
@@ -88,6 +92,18 @@ async def chat(
         ):
             if event.is_final_response() and event.content and event.content.parts:
                 reply = event.content.parts[0].text
+            # Capture plan_schedule / adjust_schedule results to return as pending proposal
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    fr = getattr(part, "function_response", None)
+                    if fr and getattr(fr, "name", "") in _SCHEDULE_TOOLS:
+                        raw = getattr(fr, "response", None)
+                        if isinstance(raw, dict):
+                            pending_proposal = {
+                                "type": "plan" if fr.name == "plan_schedule" else "adjust",
+                                "date": raw.get("date", ""),
+                                "data": raw,
+                            }
     except Exception as e:
         print(f"[chat] LLM error for {body.user_id}: {e}")
         reply = "I'm having trouble connecting right now. Please try again in a moment."
@@ -96,4 +112,4 @@ async def chat(
     if reply and "trouble connecting" not in reply:
         background_tasks.add_task(_consolidate_memory, body.user_id, body.message, reply)
 
-    return ChatResponse(reply=reply, session_id=session_id)
+    return ChatResponse(reply=reply, session_id=session_id, pending_proposal=pending_proposal)

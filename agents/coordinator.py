@@ -46,6 +46,8 @@ You can call additional tools when needed:
 
 Always be proactive — surface insights the user hasn't asked for yet.
 Keep responses concise and action-oriented.
+
+IMPORTANT: After calling plan_schedule or adjust_schedule, ALWAYS present the result to the user and ask for confirmation before considering it final. Say something like "Here's your proposed schedule — shall I confirm this plan?" Never tell the user the schedule has been saved without their explicit agreement.
 """
 
 

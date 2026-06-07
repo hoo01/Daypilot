@@ -3,6 +3,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from schemas import RealtimeInput, RealtimeOutput
 from agents.tools.realtime_tools import adjust_schedule
+from agents.tools.schedule_tools import _persist_schedule
 from agents.memory import MemoryAgent
 from db import get_db
 from db.collections import Collections
@@ -42,6 +43,35 @@ async def adjust_schedule_endpoint(body: RealtimeInput) -> RealtimeOutput:
             updated_schedule=[],
             message="I'm having trouble adjusting the schedule right now. Please try again in a moment.",
         )
+
+
+class ScheduleConfirmRequest(BaseModel):
+    user_id: str
+    target_date: str
+    proposal: dict
+    proposal_type: str  # "plan" | "adjust"
+
+
+@router.post("/confirm")
+async def confirm_schedule(body: ScheduleConfirmRequest) -> dict:
+    """Persist a pending schedule proposal after user confirmation."""
+    today = body.target_date or date.today().isoformat()
+    if body.proposal_type == "plan":
+        await _persist_schedule(body.user_id, today, body.proposal)
+    else:
+        tasks = body.proposal.get("updated_schedule", [])
+        db = get_db()
+        await db[Collections.DAILY_SCHEDULES].update_one(
+            {"user_id": body.user_id, "date": today},
+            {"$set": {
+                "user_id": body.user_id,
+                "date": today,
+                "tasks": tasks,
+                "strategy_name": "Adjusted",
+            }},
+            upsert=True,
+        )
+    return {"status": "confirmed"}
 
 
 class UncompletedTask(BaseModel):

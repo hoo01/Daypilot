@@ -9,9 +9,9 @@ import { api } from '../utils/api';
 export default function AgentDrawer({ open, onClose }) {
   const navigate = useNavigate();
   const { chatMessages, addMessage } = useStore();
-  const [input, setInput] = useState('');
+  const [input, setInput]     = useState('');
   const [sending, setSending] = useState(false);
-  const scrollRef = useRef(null);
+  const scrollRef             = useRef(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -22,7 +22,7 @@ export default function AgentDrawer({ open, onClose }) {
   async function send() {
     const text = input.trim();
     if (!text || sending) return;
-    const userId = storage.getUserId();
+    const userId    = storage.getUserId();
     const sessionId = storage.getSessionId();
     setInput('');
     setSending(true);
@@ -44,10 +44,9 @@ export default function AgentDrawer({ open, onClose }) {
       <div
         onClick={onClose}
         style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(242,247,241,0.24)',
-          backdropFilter: 'blur(6px)',
+          position: 'absolute', inset: 0,
+          background: 'rgba(4, 2, 14, 0.55)',
+          backdropFilter: 'blur(8px)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
           transition: '240ms ease',
@@ -60,18 +59,16 @@ export default function AgentDrawer({ open, onClose }) {
         aria-hidden={!open}
         style={{
           position: 'absolute',
-          left: '16px',
-          right: '16px',
-          bottom: '16px',
+          left: '16px', right: '16px', bottom: '16px',
           height: '44%',
-          borderRadius: '30px',
-          border: '1px solid rgba(255,255,255,0.72)',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.54), rgba(255,255,255,0.34))',
-          boxShadow: '0 24px 70px rgba(24,30,27,0.14)',
-          backdropFilter: 'blur(24px) saturate(140%)',
+          borderRadius: '26px',
+          border: '1px solid rgba(255,255,255,0.14)',
+          background: 'rgba(10, 7, 28, 0.82)',
+          backdropFilter: 'blur(28px) saturate(180%)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.50)',
           transform: open ? 'translateY(0)' : 'translateY(112%)',
           opacity: open ? 1 : 0,
-          transition: 'transform 280ms ease, opacity 280ms ease',
+          transition: 'transform 280ms ease, opacity 250ms ease',
           zIndex: 25,
           overflow: 'hidden',
           display: 'flex',
@@ -81,10 +78,8 @@ export default function AgentDrawer({ open, onClose }) {
         {/* grip */}
         <div
           style={{
-            width: '72px',
-            height: '6px',
-            borderRadius: '999px',
-            background: 'rgba(21,29,25,0.14)',
+            width: '40px', height: '4px', borderRadius: '999px',
+            background: 'rgba(255,255,255,0.18)',
             margin: '12px auto 0',
           }}
         />
@@ -92,35 +87,19 @@ export default function AgentDrawer({ open, onClose }) {
         {/* head */}
         <div
           style={{
-            padding: '18px 20px 14px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: '14px',
+            padding: '16px 20px 14px',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
           }}
         >
           <div>
-            <div
-              style={{
-                fontSize: '11px',
-                letterSpacing: '0.22em',
-                textTransform: 'uppercase',
-                color: 'var(--muted-2)',
-              }}
-            >
+            <div style={{ fontSize: '11px', letterSpacing: '0.20em', textTransform: 'uppercase', color: 'var(--muted-2)', marginBottom: '3px' }}>
               Agent mode
             </div>
-            <h3
-              style={{
-                margin: '4px 0 0',
-                fontSize: '22px',
-                fontWeight: 700,
-                letterSpacing: '-0.07em',
-              }}
-            >
+            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, letterSpacing: '-0.05em', color: '#fff' }}>
               Quick ask
             </h3>
-            <p style={{ margin: '6px 0 0', color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5 }}>
+            <p style={{ margin: '5px 0 0', color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5 }}>
               Ask DayPilot anything about your schedule.
             </p>
           </div>
@@ -128,14 +107,11 @@ export default function AgentDrawer({ open, onClose }) {
             <button
               onClick={() => { onClose(); navigate('/chat'); }}
               style={{
-                padding: '8px 12px',
-                borderRadius: '14px',
-                border: '1px solid var(--line)',
-                background: 'rgba(255,255,255,0.6)',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                color: '#31403a',
+                padding: '8px 14px', borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.14)',
+                background: 'rgba(255,255,255,0.08)',
+                fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#fff',
+                transition: '160ms ease',
               }}
             >
               Open full chat →
@@ -144,16 +120,11 @@ export default function AgentDrawer({ open, onClose }) {
               onClick={onClose}
               aria-label="Close agent drawer"
               style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '16px',
-                border: '1px solid rgba(21,29,25,0.08)',
-                background: 'rgba(255,255,255,0.6)',
-                color: '#31403a',
-                cursor: 'pointer',
-                display: 'grid',
-                placeItems: 'center',
-                fontSize: '14px',
+                width: '40px', height: '40px', borderRadius: '14px',
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.07)',
+                color: 'var(--muted)', cursor: 'pointer',
+                display: 'grid', placeItems: 'center', fontSize: '14px',
               }}
             >
               ✕
@@ -164,19 +135,11 @@ export default function AgentDrawer({ open, onClose }) {
         {/* messages */}
         <div
           ref={scrollRef}
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-            padding: '0 18px 8px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
-          }}
+          style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 18px 8px', display: 'flex', flexDirection: 'column', gap: '10px' }}
         >
           {chatMessages.length === 0 && (
             <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', marginTop: '16px' }}>
-              Start a conversation...
+              Start a conversation…
             </p>
           )}
           {chatMessages.map((msg, i) => (
@@ -185,29 +148,21 @@ export default function AgentDrawer({ open, onClose }) {
               style={{
                 maxWidth: '72%',
                 alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                padding: '11px 12px',
-                borderRadius: '18px',
+                padding: '10px 14px',
+                borderRadius: '16px',
                 fontSize: '13px',
                 lineHeight: 1.55,
-                border: '1px solid rgba(21,29,25,0.06)',
-                boxShadow: '0 10px 20px rgba(24,30,27,0.04)',
-                background:
-                  msg.role === 'user'
-                    ? 'linear-gradient(180deg, rgba(181,206,184,0.26), rgba(255,255,255,0.56))'
-                    : 'rgba(255,255,255,0.66)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                background: msg.role === 'user' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+                color: '#fff',
               }}
             >
-              <span
-                style={{
-                  display: 'block',
-                  fontSize: '11px',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted-2)',
-                  marginBottom: '6px',
-                }}
-              >
-                {msg.role === 'user' ? 'You' : 'DayPilot'}
+              <span style={{
+                display: 'block', fontSize: '10px', letterSpacing: '0.10em', textTransform: 'uppercase',
+                color: msg.role === 'user' ? 'var(--muted-2)' : 'var(--accent)',
+                marginBottom: '5px', fontWeight: 600,
+              }}>
+                {msg.role === 'user' ? 'You' : '◆ DayPilot'}
               </span>
               {msg.role === 'user' ? (
                 msg.text
@@ -215,12 +170,12 @@ export default function AgentDrawer({ open, onClose }) {
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
-                    p: ({ children }) => <p style={{ margin: '0 0 4px', lineHeight: 1.55 }}>{children}</p>,
-                    ul: ({ children }) => <ul style={{ margin: '3px 0', paddingLeft: '16px' }}>{children}</ul>,
-                    ol: ({ children }) => <ol style={{ margin: '3px 0', paddingLeft: '16px' }}>{children}</ol>,
-                    li: ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
-                    strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
-                    code: ({ children }) => <code style={{ background: 'rgba(21,29,25,0.07)', borderRadius: '4px', padding: '1px 4px', fontSize: '11px', fontFamily: 'monospace' }}>{children}</code>,
+                    p:      ({ children }) => <p style={{ margin: '0 0 4px', lineHeight: 1.55 }}>{children}</p>,
+                    ul:     ({ children }) => <ul style={{ margin: '3px 0', paddingLeft: '16px' }}>{children}</ul>,
+                    ol:     ({ children }) => <ol style={{ margin: '3px 0', paddingLeft: '16px' }}>{children}</ol>,
+                    li:     ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
+                    strong: ({ children }) => <strong style={{ fontWeight: 700, color: '#fff' }}>{children}</strong>,
+                    code:   ({ children }) => <code style={{ background: 'rgba(255,255,255,0.12)', borderRadius: '4px', padding: '1px 5px', fontSize: '11px', color: 'var(--accent-2)' }}>{children}</code>,
                   }}
                 >
                   {msg.text}
@@ -229,16 +184,8 @@ export default function AgentDrawer({ open, onClose }) {
             </div>
           ))}
           {sending && (
-            <div
-              style={{
-                alignSelf: 'flex-start',
-                color: 'var(--muted)',
-                fontSize: '12px',
-                fontStyle: 'italic',
-                padding: '8px 12px',
-              }}
-            >
-              DayPilot is responding...
+            <div style={{ alignSelf: 'flex-start', color: 'var(--muted)', fontSize: '12px', fontStyle: 'italic', padding: '6px 14px' }}>
+              ◆ DayPilot is responding…
             </div>
           )}
         </div>
@@ -246,22 +193,18 @@ export default function AgentDrawer({ open, onClose }) {
         {/* compose */}
         <div
           style={{
-            padding: '14px 16px 16px',
-            borderTop: '1px solid rgba(21,29,25,0.06)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.34))',
+            padding: '12px 16px 16px',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.02)',
           }}
         >
           <div
             style={{
-              borderRadius: '22px',
-              border: '1px solid rgba(255,255,255,0.72)',
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.68), rgba(255,255,255,0.44))',
-              boxShadow: '0 18px 38px rgba(24,30,27,0.06)',
+              borderRadius: '20px',
+              border: '1px solid rgba(255,255,255,0.14)',
+              background: 'rgba(255,255,255,0.07)',
               padding: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              backdropFilter: 'blur(18px) saturate(130%)',
+              display: 'flex', alignItems: 'center', gap: '12px',
             }}
           >
             <input
@@ -270,32 +213,22 @@ export default function AgentDrawer({ open, onClose }) {
               onKeyDown={(e) => e.key === 'Enter' && send()}
               placeholder="Ask DayPilot to replan, explain, or summarize..."
               style={{
-                flex: 1,
-                border: 0,
-                outline: 'none',
-                background: 'transparent',
-                color: 'var(--text)',
-                fontSize: '13px',
-                letterSpacing: '0.01em',
+                flex: 1, border: 0, outline: 'none',
+                background: 'transparent', color: '#fff',
+                fontSize: '13px', letterSpacing: '0.01em',
               }}
             />
             <button
               onClick={send}
               disabled={sending || !input.trim()}
               style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '16px',
-                border: 0,
-                background: 'linear-gradient(135deg, #161d1b, #36423c)',
-                color: 'white',
-                boxShadow: '0 12px 24px rgba(24,30,27,0.16)',
-                cursor: 'pointer',
-                display: 'grid',
-                placeItems: 'center',
-                fontSize: '16px',
-                flexShrink: 0,
-                opacity: sending || !input.trim() ? 0.5 : 1,
+                width: '40px', height: '40px', borderRadius: '14px',
+                border: '1px solid rgba(110,231,183,0.28)',
+                background: 'rgba(110,231,183,0.12)',
+                color: 'var(--accent)', cursor: 'pointer',
+                display: 'grid', placeItems: 'center', fontSize: '16px', flexShrink: 0,
+                opacity: sending || !input.trim() ? 0.40 : 1,
+                transition: '160ms ease',
               }}
             >
               ↑

@@ -10,7 +10,7 @@ export default function Shell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const setIsBackendDown = useStore((s) => s.setIsBackendDown);
-  const isBackendDown = useStore((s) => s.isBackendDown);
+  const isBackendDown    = useStore((s) => s.isBackendDown);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pollRef = useRef(null);
 
@@ -30,36 +30,27 @@ export default function Shell() {
   }, []);
 
   const isToday = pathname.startsWith('/today');
-  const isChat = pathname.startsWith('/chat');
-
-  const tab = isToday ? 'Today' : isChat ? 'Chat' : 'History';
+  const isChat  = pathname.startsWith('/chat');
+  const tab     = isToday ? 'Today' : isChat ? 'Chat' : 'History';
 
   const dateLabel = new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
+    weekday: 'short', month: 'short', day: 'numeric',
   }).format(new Date());
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100vh',
-        padding: '12px',
-      }}
-    >
+    <div style={{ width: '100%', height: '100vh', padding: '10px' }}>
       <BackendBanner />
 
       <div
         style={{
           height: '100%',
-          borderRadius: '34px',
+          borderRadius: '28px',
           overflow: 'hidden',
           position: 'relative',
-          border: '1px solid rgba(255,255,255,0.68)',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.38), rgba(255,255,255,0.18))',
-          backdropFilter: 'var(--glass)',
-          boxShadow: 'var(--shadow)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          background: 'rgba(8, 5, 24, 0.68)',
+          backdropFilter: 'blur(32px) saturate(160%)',
+          boxShadow: '0 32px 100px rgba(0,0,0,0.52)',
         }}
       >
         {/* topbar */}
@@ -67,12 +58,14 @@ export default function Shell() {
           style={{
             position: 'relative',
             zIndex: 5,
-            height: '64px',
+            height: '62px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '12px',
-            padding: '0 20px 0 18px',
+            padding: '0 20px',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.03)',
           }}
         >
           {/* brand */}
@@ -81,27 +74,28 @@ export default function Shell() {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              letterSpacing: '-0.05em',
               fontSize: '18px',
               fontWeight: 700,
+              letterSpacing: '-0.04em',
+              color: '#fff',
             }}
           >
             <div
               style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '14px',
+                width: '36px',
+                height: '36px',
+                borderRadius: '13px',
                 display: 'grid',
                 placeItems: 'center',
-                color: 'white',
-                background: 'linear-gradient(145deg, #141917, #2d3632)',
-                boxShadow: '0 14px 28px rgba(20,24,22,0.2)',
-                fontSize: '16px',
+                background: 'linear-gradient(135deg, rgba(110,231,183,0.22), rgba(52,211,153,0.14))',
+                border: '1px solid rgba(110,231,183,0.28)',
+                color: 'var(--accent)',
+                fontSize: '15px',
               }}
             >
               ◆
             </div>
-            <div>DayPilot</div>
+            DayPilot
           </div>
 
           {/* right side */}
@@ -113,10 +107,8 @@ export default function Shell() {
                 padding: '4px',
                 gap: '4px',
                 borderRadius: '999px',
-                border: '1px solid rgba(21,29,25,0.08)',
-                background: 'rgba(255,255,255,0.38)',
-                boxShadow: '0 8px 22px rgba(24,30,27,0.04)',
-                backdropFilter: 'blur(12px) saturate(120%)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                background: 'rgba(255,255,255,0.06)',
               }}
             >
               {['Today', 'Chat'].map((t) => (
@@ -124,18 +116,17 @@ export default function Shell() {
                   key={t}
                   onClick={() => navigate(`/${t.toLowerCase()}`)}
                   style={{
-                    border: 0,
+                    border: tab === t ? '1px solid rgba(255,255,255,0.22)' : '1px solid transparent',
                     borderRadius: '999px',
-                    background: tab === t ? 'rgba(255,255,255,0.72)' : 'transparent',
-                    padding: '7px 12px',
+                    background: tab === t ? 'rgba(255,255,255,0.16)' : 'transparent',
+                    padding: '6px 14px',
                     fontFamily: 'inherit',
                     fontSize: '12px',
                     fontWeight: 600,
-                    letterSpacing: '0.02em',
-                    color: tab === t ? 'var(--text)' : 'var(--muted)',
+                    color: tab === t ? '#fff' : 'var(--muted)',
                     cursor: 'pointer',
-                    boxShadow: tab === t ? '0 10px 20px rgba(23,31,27,0.05)' : 'none',
-                    transition: '180ms ease',
+                    transition: '160ms ease',
+                    letterSpacing: '0.02em',
                   }}
                 >
                   {t}
@@ -143,62 +134,83 @@ export default function Shell() {
               ))}
             </div>
 
-            {/* date chip */}
+            {/* date */}
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '7px 11px',
+                padding: '6px 11px',
                 borderRadius: '999px',
-                background: 'rgba(255,255,255,0.56)',
-                border: '1px solid rgba(21,29,25,0.08)',
-                color: '#2c3531',
+                background: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                color: 'var(--muted)',
                 fontSize: '12px',
                 whiteSpace: 'nowrap',
-                boxShadow: '0 8px 22px rgba(24,30,27,0.04)',
-                backdropFilter: 'blur(12px) saturate(120%)',
               }}
             >
               <span
                 style={{
-                  width: '7px',
-                  height: '7px',
+                  width: '7px', height: '7px',
                   borderRadius: '50%',
-                  background: 'linear-gradient(180deg, #d7ead9, #8fb99a)',
+                  background: 'var(--accent)',
                   flexShrink: 0,
                 }}
               />
               {dateLabel}
             </div>
 
-            {/* backend status dot — compact, only shows text if offline */}
+            {/* AI */}
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '7px 11px',
+                padding: '6px 11px',
                 borderRadius: '999px',
-                background: 'rgba(255,255,255,0.56)',
-                border: '1px solid rgba(21,29,25,0.08)',
-                color: '#2c3531',
+                background: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                color: 'var(--muted)',
                 fontSize: '12px',
                 whiteSpace: 'nowrap',
-                boxShadow: '0 8px 22px rgba(24,30,27,0.04)',
-                backdropFilter: 'blur(12px) saturate(120%)',
               }}
             >
               <span
                 style={{
-                  width: '7px',
-                  height: '7px',
+                  width: '7px', height: '7px',
                   borderRadius: '50%',
-                  background: isBackendDown ? 'var(--error)' : 'linear-gradient(180deg, #d7ead9, #8fb99a)',
+                  background: 'var(--accent)',
+                  flexShrink: 0,
+                  animation: 'pulse-dot 2.4s ease-in-out infinite',
+                }}
+              />
+              AI
+            </div>
+
+            {/* backend */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 11px',
+                borderRadius: '999px',
+                background: 'rgba(255,255,255,0.07)',
+                border: isBackendDown ? '1px solid rgba(248,113,113,0.40)' : '1px solid rgba(255,255,255,0.10)',
+                color: isBackendDown ? 'var(--error)' : 'var(--muted)',
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <span
+                style={{
+                  width: '7px', height: '7px',
+                  borderRadius: '50%',
+                  background: isBackendDown ? 'var(--error)' : 'var(--accent-3)',
                   flexShrink: 0,
                 }}
               />
-              {isBackendDown ? 'Backend Offline' : 'Backend'}
+              {isBackendDown ? 'Offline' : 'Backend'}
             </div>
           </div>
         </header>
@@ -206,12 +218,12 @@ export default function Shell() {
         {/* content */}
         <div
           style={{
-            height: 'calc(100% - 64px)',
+            height: 'calc(100% - 62px)',
             display: 'grid',
             gridTemplateColumns: '72px minmax(0, 1fr)',
             gridTemplateRows: '1fr',
             gap: '12px',
-            padding: '0 12px 12px',
+            padding: '12px',
             position: 'relative',
             zIndex: 2,
           }}
@@ -220,7 +232,6 @@ export default function Shell() {
           <Outlet context={{ openAgentDrawer: () => setDrawerOpen(true) }} />
         </div>
 
-        {/* agent drawer — lives inside shell so it can overlay the content */}
         <AgentDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       </div>
     </div>

@@ -13,10 +13,16 @@ export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { chatMessages, addMessage, setTasks } = useStore();
-  const [input, setInput] = useState('');
-  const [sending, setSending] = useState(false);
-  const scrollRef = useRef(null);
+  const [input, setInput]               = useState('');
+  const [sending, setSending]           = useState(false);
+  const [pendingProposal, setPendingProposal] = useState(null);
+  const [selectedStrategy, setSelectedStrategy] = useState(null);
+  const [proposalInput, setProposalInput]     = useState('');
+  const [confirming, setConfirming]     = useState(false);
+  const [scheduleToast, setScheduleToast]     = useState(null);
+  const scrollRef    = useRef(null);
   const triggeredRef = useRef(false);
+  const toastTimerRef = useRef(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -24,12 +30,18 @@ export default function ChatPage() {
     }
   }, [chatMessages, sending]);
 
-  // auto-send trigger=feedback on mount
+  useEffect(() => { return () => clearTimeout(toastTimerRef.current); }, []);
+
+  function showToast(message) {
+    setScheduleToast(message);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setScheduleToast(null), 3500);
+  }
+
   useEffect(() => {
     const trigger = searchParams.get('trigger');
     if (trigger === 'feedback' && !triggeredRef.current) {
       triggeredRef.current = true;
-      // strip param from URL
       navigate('/chat', { replace: true });
       sendMessage(FEEDBACK_TRIGGER_MSG);
     }
@@ -37,28 +49,18 @@ export default function ChatPage() {
 
   async function sendMessage(text) {
     if (!text || sending) return;
-    const userId = storage.getUserId();
+    const userId    = storage.getUserId();
     const sessionId = storage.getSessionId();
     addMessage({ role: 'user', text });
     setSending(true);
+    setPendingProposal(null);
     try {
       const res = await api.chat(userId, text, sessionId);
       if (!sessionId && res.session_id) storage.setSessionId(res.session_id);
       addMessage({ role: 'agent', text: res.reply });
-
-      // if agent updated the schedule, re-fetch
-      if (res.schedule_updated) {
-        try {
-          const schedule = await api.getScheduleToday(userId);
-          const list = Array.isArray(schedule) ? schedule : schedule.tasks || [];
-          const sorted = list.sort((a, b) =>
-            (a.start_time || '').localeCompare(b.start_time || '')
-          );
-          setTasks(sorted);
-          storage.setTodaySchedule(sorted);
-        } catch {
-          // non-fatal
-        }
+      if (res.pending_proposal) {
+        setPendingProposal(res.pending_proposal);
+        setSelectedStrategy(res.pending_proposal.data?.top_recommendation || null);
       }
     } catch {
       addMessage({ role: 'agent', text: 'Sorry, something went wrong. Please try again.' });
@@ -74,6 +76,50 @@ export default function ChatPage() {
     await sendMessage(text);
   }
 
+  async function handleConfirm() {
+    if (!pendingProposal) return;
+    const userId = storage.getUserId();
+    setConfirming(true);
+    const effectiveStrategy = selectedStrategy || pendingProposal.data?.top_recommendation;
+    const proposalData = effectiveStrategy && pendingProposal.data?.strategies
+      ? { ...pendingProposal.data, top_recommendation: effectiveStrategy }
+      : pendingProposal.data;
+    try {
+      await api.confirmSchedule(
+        userId,
+        pendingProposal.date || new Date().toISOString().slice(0, 10),
+        proposalData,
+        pendingProposal.type,
+      );
+      const schedule = await api.getScheduleToday(userId);
+      const list     = Array.isArray(schedule) ? schedule : schedule.tasks || [];
+      const sorted   = list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+      setTasks(sorted);
+      storage.setTodaySchedule(sorted);
+      showToast('Schedule updated for today');
+    } catch {
+      showToast('Could not save schedule — please try again.');
+    } finally {
+      setConfirming(false);
+      setPendingProposal(null);
+      setSelectedStrategy(null);
+      setProposalInput('');
+    }
+  }
+
+  function handleCancel() {
+    setPendingProposal(null);
+    setSelectedStrategy(null);
+    setProposalInput('');
+  }
+
+  async function handleProposalModify() {
+    const text = proposalInput.trim();
+    if (!text) return;
+    setProposalInput('');
+    await sendMessage(text);
+  }
+
   const dateLabel = new Intl.DateTimeFormat('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   }).format(new Date());
@@ -83,8 +129,8 @@ export default function ChatPage() {
       style={{
         height: '100%',
         borderRadius: 'var(--radius-xl)',
-        border: '1px solid rgba(255,255,255,0.66)',
-        background: 'rgba(255,255,255,0.38)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        background: 'rgba(255,255,255,0.06)',
         backdropFilter: 'var(--glass)',
         boxShadow: 'var(--shadow-soft)',
         display: 'flex',
@@ -93,33 +139,46 @@ export default function ChatPage() {
         position: 'relative',
       }}
     >
+      {/* toast */}
+      {scheduleToast && (
+        <div
+          style={{
+            position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 600,
+            background: 'rgba(10,8,30,0.92)',
+            backdropFilter: 'blur(16px)',
+            borderRadius: '999px',
+            border: '1px solid rgba(255,255,255,0.14)',
+            padding: '8px 18px',
+            display: 'flex', alignItems: 'center', gap: '10px',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.32)',
+          }}
+        >
+          <span style={{ fontSize: '13px', color: 'var(--accent)', fontWeight: 600 }}>
+            ◆ {scheduleToast}
+          </span>
+          <button
+            onClick={() => setScheduleToast(null)}
+            style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '12px', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* header */}
       <div
         style={{
           padding: '20px 24px 16px',
-          borderBottom: '1px solid var(--line)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
           flexShrink: 0,
         }}
       >
-        <div
-          style={{
-            fontSize: '11px',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            color: 'var(--muted-2)',
-            marginBottom: '4px',
-          }}
-        >
+        <div style={{ fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted-2)', marginBottom: '4px' }}>
           DayPilot Chat
         </div>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: '22px',
-            fontWeight: 700,
-            letterSpacing: '-0.05em',
-          }}
-        >
+        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '-0.04em', color: '#fff' }}>
           {dateLabel}
         </h1>
       </div>
@@ -127,24 +186,11 @@ export default function ChatPage() {
       {/* messages */}
       <div
         ref={scrollRef}
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          padding: '20px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-        }}
+        style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}
       >
         {chatMessages.length === 0 && !sending && (
-          <div
-            style={{
-              textAlign: 'center',
-              marginTop: '60px',
-            }}
-          >
-            <div style={{ fontSize: '32px', marginBottom: '12px' }}>◆</div>
+          <div style={{ textAlign: 'center', marginTop: '60px' }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.35 }}>◆</div>
             <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: 1.6 }}>
               Ask DayPilot to plan, reschedule, or explain your day.
             </p>
@@ -161,30 +207,28 @@ export default function ChatPage() {
           >
             <div
               style={{
-                padding: '12px 14px',
+                padding: '12px 16px',
                 borderRadius: '18px',
                 fontSize: '14px',
-                lineHeight: 1.55,
-                letterSpacing: '0.01em',
-                border: '1px solid rgba(21,29,25,0.06)',
-                boxShadow: '0 10px 20px rgba(24,30,27,0.04)',
+                lineHeight: 1.6,
+                border: '1px solid rgba(255,255,255,0.10)',
                 background:
                   msg.role === 'user'
-                    ? 'linear-gradient(180deg, rgba(181,206,184,0.26), rgba(255,255,255,0.56))'
-                    : 'rgba(255,255,255,0.72)',
+                    ? 'rgba(255,255,255,0.12)'
+                    : 'rgba(255,255,255,0.06)',
+                color: '#fff',
               }}
             >
-              <span
-                style={{
-                  display: 'block',
-                  fontSize: '11px',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted-2)',
-                  marginBottom: '6px',
-                }}
-              >
-                {msg.role === 'user' ? 'You' : 'DayPilot'}
+              <span style={{
+                display: 'block',
+                fontSize: '11px',
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: msg.role === 'user' ? 'var(--muted-2)' : 'var(--accent)',
+                marginBottom: '6px',
+                fontWeight: 600,
+              }}>
+                {msg.role === 'user' ? 'You' : '◆ DayPilot'}
               </span>
               {msg.role === 'user' ? (
                 msg.text
@@ -192,12 +236,16 @@ export default function ChatPage() {
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
-                    p: ({ children }) => <p style={{ margin: '0 0 6px', lineHeight: 1.6 }}>{children}</p>,
-                    ul: ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>{children}</ul>,
-                    ol: ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: '18px' }}>{children}</ol>,
-                    li: ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
-                    strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
-                    code: ({ children }) => <code style={{ background: 'rgba(21,29,25,0.07)', borderRadius: '4px', padding: '1px 4px', fontSize: '12px', fontFamily: 'monospace' }}>{children}</code>,
+                    p:      ({ children }) => <p style={{ margin: '0 0 6px', lineHeight: 1.65 }}>{children}</p>,
+                    ul:     ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>{children}</ul>,
+                    ol:     ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: '18px' }}>{children}</ol>,
+                    li:     ({ children }) => <li style={{ marginBottom: '3px' }}>{children}</li>,
+                    strong: ({ children }) => <strong style={{ fontWeight: 700, color: '#fff' }}>{children}</strong>,
+                    code:   ({ children }) => (
+                      <code style={{ background: 'rgba(255,255,255,0.12)', borderRadius: '5px', padding: '2px 6px', fontSize: '12px', color: 'var(--accent-2)' }}>
+                        {children}
+                      </code>
+                    ),
                   }}
                 >
                   {msg.text}
@@ -211,53 +259,151 @@ export default function ChatPage() {
           <div
             style={{
               alignSelf: 'flex-start',
-              padding: '10px 14px',
+              padding: '12px 16px',
               borderRadius: '18px',
-              border: '1px solid rgba(21,29,25,0.06)',
-              background: 'rgba(255,255,255,0.72)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              background: 'rgba(255,255,255,0.06)',
               fontSize: '13px',
-              color: 'var(--muted)',
-              fontStyle: 'italic',
             }}
           >
-            <span
-              style={{
-                display: 'block',
-                fontSize: '11px',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: 'var(--muted-2)',
-                marginBottom: '6px',
-              }}
-            >
-              DayPilot
+            <span style={{ display: 'block', fontSize: '11px', letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '6px', fontWeight: 600 }}>
+              ◆ DayPilot
             </span>
-            DayPilot is responding...
+            <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Thinking…</span>
           </div>
         )}
       </div>
 
-      {/* compose bar */}
+      {/* proposal bar */}
+      {pendingProposal && (
+        <div
+          style={{
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            padding: '12px 16px',
+            background: 'rgba(110,231,183,0.05)',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '10px', fontWeight: 600 }}>
+            ◆ Schedule Proposal
+          </div>
+
+          {/* Strategy selector — shown when the proposal has multiple options */}
+          {pendingProposal.data?.strategies?.length > 1 && (
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              {pendingProposal.data.strategies.map((s) => {
+                const isSelected = (selectedStrategy || pendingProposal.data.top_recommendation) === s.name;
+                const isRecommended = pendingProposal.data.top_recommendation === s.name;
+                return (
+                  <button
+                    key={s.name}
+                    onClick={() => setSelectedStrategy(s.name)}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: '10px',
+                      border: isSelected
+                        ? '1px solid rgba(110,231,183,0.55)'
+                        : '1px solid rgba(255,255,255,0.12)',
+                      background: isSelected
+                        ? 'rgba(110,231,183,0.16)'
+                        : 'rgba(255,255,255,0.05)',
+                      color: isSelected ? 'var(--accent)' : 'var(--muted)',
+                      fontSize: '12px',
+                      fontWeight: isSelected ? 700 : 400,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      transition: '120ms ease',
+                    }}
+                  >
+                    {s.name}
+                    {isRecommended && (
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '1px 5px',
+                        borderRadius: '6px',
+                        background: 'rgba(110,231,183,0.18)',
+                        color: 'var(--accent)',
+                        fontWeight: 700,
+                        letterSpacing: '0.06em',
+                      }}>
+                        TOP
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              value={proposalInput}
+              onChange={(e) => setProposalInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleProposalModify()}
+              placeholder="Add requirements or modify the plan..."
+              style={{
+                flex: 1,
+                border: '1px solid rgba(255,255,255,0.14)',
+                borderRadius: '12px',
+                padding: '9px 14px',
+                background: 'rgba(255,255,255,0.07)',
+                fontSize: '13px',
+                color: '#fff',
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={handleConfirm}
+              disabled={confirming}
+              style={{
+                padding: '9px 20px',
+                borderRadius: '12px',
+                border: '1px solid rgba(110,231,183,0.35)',
+                background: 'rgba(110,231,183,0.14)',
+                color: 'var(--accent)',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: confirming ? 'not-allowed' : 'pointer',
+                opacity: confirming ? 0.55 : 1,
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              {confirming ? 'Saving…' : `Confirm${selectedStrategy ? ` "${selectedStrategy}"` : ''}`}
+            </button>
+            <button
+              onClick={handleCancel}
+              style={{
+                padding: '9px 14px', borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'transparent', color: 'var(--muted)',
+                fontSize: '13px', cursor: 'pointer',
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* compose */}
       <div
         style={{
           padding: '14px 16px 16px',
-          background:
-            'linear-gradient(180deg, rgba(242,246,240,0), rgba(242,246,240,0.78) 18%, rgba(242,246,240,0.97))',
-          borderTop: '1px solid rgba(21,29,25,0.05)',
+          background: 'rgba(255,255,255,0.03)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
           flexShrink: 0,
         }}
       >
         <div
           style={{
             borderRadius: '22px',
-            border: '1px solid rgba(255,255,255,0.72)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.66), rgba(255,255,255,0.42))',
-            boxShadow: '0 18px 38px rgba(24,30,27,0.06)',
+            border: '1px solid rgba(255,255,255,0.14)',
+            background: 'rgba(255,255,255,0.07)',
             padding: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            backdropFilter: 'blur(18px) saturate(130%)',
+            display: 'flex', alignItems: 'center', gap: '12px',
           }}
         >
           <input
@@ -266,46 +412,29 @@ export default function ChatPage() {
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Ask DayPilot to replan, explain, or summarize..."
             style={{
-              flex: 1,
-              border: 0,
-              outline: 'none',
-              background: 'transparent',
-              color: 'var(--text)',
-              fontSize: '14px',
-              letterSpacing: '0.01em',
+              flex: 1, border: 0, outline: 'none',
+              background: 'transparent', color: '#fff',
+              fontSize: '14px', letterSpacing: '0.01em',
             }}
           />
           <button
             onClick={handleSend}
             disabled={sending || !input.trim()}
             style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '16px',
-              border: 0,
-              background: 'linear-gradient(135deg, #161d1b, #36423c)',
-              color: 'white',
-              boxShadow: '0 12px 24px rgba(24,30,27,0.16)',
+              width: '42px', height: '42px', borderRadius: '16px',
+              border: '1px solid rgba(110,231,183,0.30)',
+              background: 'rgba(110,231,183,0.14)',
+              color: 'var(--accent)',
               cursor: 'pointer',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: '16px',
-              flexShrink: 0,
-              opacity: sending || !input.trim() ? 0.5 : 1,
+              display: 'grid', placeItems: 'center', fontSize: '16px', flexShrink: 0,
+              opacity: sending || !input.trim() ? 0.4 : 1,
               transition: '160ms ease',
             }}
           >
             ↑
           </button>
         </div>
-        <p
-          style={{
-            marginTop: '8px',
-            fontSize: '11px',
-            color: 'var(--muted)',
-            textAlign: 'center',
-          }}
-        >
+        <p style={{ marginTop: '8px', fontSize: '11px', color: 'var(--muted-2)', textAlign: 'center' }}>
           Press Enter to send · Shift+Enter for new line
         </p>
       </div>

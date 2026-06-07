@@ -36,6 +36,14 @@ export const api = {
       session_id: sessionId || undefined,
     }),
 
+  confirmSchedule: (userId, targetDate, proposal, proposalType) =>
+    request('POST', '/schedule/confirm', {
+      user_id: userId,
+      target_date: targetDate,
+      proposal,
+      proposal_type: proposalType,
+    }),
+
   getAuthUrl: (userId) =>
     request('GET', `/auth/google?user_id=${encodeURIComponent(userId)}`),
 };

@@ -18,8 +18,22 @@ from schemas.health import HealthOutput
 # ─────────────────────────────────────────────────────────
 
 def _naive_dt(ts: str) -> datetime:
-    dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-    return dt.replace(tzinfo=None)
+    ts = ts.replace("_", "-").replace("Z", "+00:00").strip()
+    try:
+        return datetime.fromisoformat(ts).replace(tzinfo=None)
+    except ValueError:
+        pass
+    # Handle 12-hour formats like "7:30pm", "7:30 PM", "7:30am"
+    m = re.match(r"^(\d{1,2}):(\d{2})\s*(am|pm)$", ts.lower())
+    if m:
+        hour, minute, ampm = int(m.group(1)), int(m.group(2)), m.group(3)
+        if ampm == "pm" and hour != 12:
+            hour += 12
+        elif ampm == "am" and hour == 12:
+            hour = 0
+        today = datetime.utcnow().date()
+        return datetime(today.year, today.month, today.day, hour, minute)
+    raise ValueError(f"Cannot parse timestamp: {ts!r}")
 
 
 def _times_overlap(s1: str, e1: str, s2: str, e2: str) -> bool:
@@ -39,7 +53,15 @@ def _extract_json(raw: str) -> str:
 
 
 def _normalize_timestamp(ts: str, target_date: str) -> str:
-    if re.match(r"^\d{4}-\d{2}-\d{2}", ts) or "T" in ts:
+    ts = ts.replace("_", "-")  # Gemini occasionally uses underscores instead of dashes
+    if "T" in ts:
+        date_part, time_part = ts.split("T", 1)
+        # Only trust the date part if it's actually a valid YYYY-MM-DD value
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", date_part):
+            return ts
+        # LLM put natural language before the T (e.g. "this afternoon after 4 pmT18:00:00")
+        return f"{target_date}T{time_part}"
+    if re.match(r"^\d{4}-\d{2}-\d{2}", ts):
         return ts
     if re.match(r"^\d{2}:\d{2}(:\d{2})?$", ts):
         time_part = ts if len(ts) == 8 else ts + ":00"
@@ -391,6 +413,9 @@ def _validate_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOut
 # Tool function
 # ─────────────────────────────────────────────────────────
 
+import logging as _logging
+_log = _logging.getLogger(__name__)
+
 import http_client as _http_client
 _genai_client = genai.Client(
     api_key=settings.gemini_api_key,
@@ -441,6 +466,23 @@ async def plan_schedule(
     if not target_date:
         target_date = date.today().isoformat()
 
+    # LLM may serialize dict args as JSON strings
+    if isinstance(goal_context, str):
+        try:
+            goal_context = json.loads(goal_context)
+        except Exception:
+            goal_context = None
+    if isinstance(health_context, str):
+        try:
+            health_context = json.loads(health_context)
+        except Exception:
+            health_context = None
+    if isinstance(relationship_context, str):
+        try:
+            relationship_context = json.loads(relationship_context)
+        except Exception:
+            relationship_context = None
+
     mem = MemoryAgent(get_db())
     prefs = await mem.get_preferences(user_id)
 
@@ -466,8 +508,14 @@ async def plan_schedule(
             CalendarEvent(
                 id=str(i),
                 title=e.get("title", e.get("summary", "Event")),
-                start_time=e.get("start_time", e.get("start", target_date + "T00:00:00")),
-                end_time=e.get("end_time", e.get("end", target_date + "T01:00:00")),
+                start_time=_normalize_timestamp(
+                    e.get("start_time", e.get("start", target_date + "T00:00:00")),
+                    target_date,
+                ),
+                end_time=_normalize_timestamp(
+                    e.get("end_time", e.get("end", target_date + "T01:00:00")),
+                    target_date,
+                ),
                 location=e.get("location"),
             )
             for i, e in enumerate(calendar_events or [])
@@ -475,17 +523,17 @@ async def plan_schedule(
     )
 
     prompt = _build_prompt(inp, goal_context=goal_context)
-
-    response = await _genai_client.aio.models.generate_content(
-        model=settings.planning_model,
-        contents=prompt,
-        config=genai.types.GenerateContentConfig(
-            response_mime_type="application/json",
-            thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
-        ),
-    )
+    response = None
 
     try:
+        response = await _genai_client.aio.models.generate_content(
+            model=settings.planning_model,
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                response_mime_type="application/json",
+                thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
+            ),
+        )
         cleaned = _extract_json(response.text)
         output = ScheduleOutput(**json.loads(cleaned))
         output = _enforce_constraints(output, inp)
@@ -493,7 +541,9 @@ async def plan_schedule(
         result = output.model_dump()
         await _persist_schedule(user_id, target_date, result)
         return result
-    except Exception:
+    except Exception as _e:
+        _log.error("[plan_schedule] failed: %s", _e, exc_info=True)
+        _log.error("[plan_schedule] raw response: %r", response.text if response else "<api call never returned>")
         return {
             "date": target_date,
             "strategies": [

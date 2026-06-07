@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { storage } from '../utils/storage';
 
 const MOODS = [
-  { value: 1, label: 'drained',   icon: '○' },
-  { value: 2, label: 'low',       icon: '◔' },
-  { value: 3, label: 'okay',      icon: '◑' },
-  { value: 4, label: 'calm',      icon: '◕' },
-  { value: 5, label: 'energized', icon: '●' },
+  { value: 1, label: 'Drained',   icon: '○' },
+  { value: 2, label: 'Low',       icon: '◔' },
+  { value: 3, label: 'Okay',      icon: '◑' },
+  { value: 4, label: 'Calm',      icon: '◕' },
+  { value: 5, label: 'Energized', icon: '●' },
 ];
 
 function todayStr() {
@@ -15,10 +15,10 @@ function todayStr() {
 }
 
 export default function MoodTrack() {
-  const [log, setLog] = useState(storage.getMoodLog());
-  const today = todayStr();
-  const todayEntry = log.find((e) => e.date === today);
-  const selected = todayEntry?.value ?? null;
+  const [log, setLog]  = useState(storage.getMoodLog());
+  const today          = todayStr();
+  const todayEntry     = log.find((e) => e.date === today);
+  const selected       = todayEntry?.value ?? null;
 
   function select(mood) {
     const updated = log.filter((e) => e.date !== today);
@@ -27,18 +27,16 @@ export default function MoodTrack() {
     setLog(updated);
   }
 
-  const last7 = log.slice(-7).map((e) => ({ v: e.value }));
+  const last7        = log.slice(-7).map((e) => ({ v: e.value }));
   const hasSparkline = last7.length >= 2;
 
   return (
     <section
       style={{
         borderRadius: 'var(--radius-lg)',
-        border: '1px solid rgba(255,255,255,0.72)',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.56), rgba(255,255,255,0.30))',
-        boxShadow: '0 14px 34px rgba(24,30,27,0.05)',
-        padding: '16px',
-        backdropFilter: 'blur(18px) saturate(130%)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        background: 'rgba(255,255,255,0.08)',
+        padding: '14px',
       }}
     >
       {/* header */}
@@ -47,36 +45,29 @@ export default function MoodTrack() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-end',
-          gap: '10px',
+          gap: '8px',
           marginBottom: '12px',
         }}
       >
         <div>
-          <h3
-            style={{
-              margin: 0,
-              fontSize: '18px',
-              fontWeight: 700,
-              letterSpacing: '-0.05em',
-            }}
-          >
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, letterSpacing: '-0.03em', color: '#fff' }}>
             Mood check
           </h3>
-          <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: '12px', lineHeight: 1.5 }}>
-            One daily check-in, shown as a soft green trend.
+          <p style={{ margin: '3px 0 0', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.4 }}>
+            One daily check-in.
           </p>
         </div>
         <div
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 12px',
+            fontSize: '10px',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--muted-2)',
+            padding: '4px 9px',
             borderRadius: '999px',
-            background: 'rgba(255,255,255,0.56)',
-            border: '1px solid rgba(21,29,25,0.08)',
-            color: '#2c3531',
-            fontSize: '12px',
+            background: 'rgba(255,255,255,0.07)',
+            border: '1px solid rgba(255,255,255,0.10)',
             whiteSpace: 'nowrap',
           }}
         >
@@ -84,14 +75,9 @@ export default function MoodTrack() {
         </div>
       </div>
 
-      {/* mood selectors */}
+      {/* mood buttons */}
       <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '10px',
-          marginBottom: '14px',
-        }}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '12px' }}
         aria-label="Mood options"
       >
         {MOODS.map((mood) => {
@@ -103,20 +89,15 @@ export default function MoodTrack() {
               onClick={() => select(mood)}
               style={{
                 aspectRatio: '1',
-                borderRadius: '18px',
-                border: active ? 'none' : '1px solid rgba(21,29,25,0.06)',
-                background: active
-                  ? 'linear-gradient(180deg, rgba(211,228,214,0.88), rgba(164,199,170,0.86))'
-                  : 'rgba(255,255,255,0.56)',
-                display: 'grid',
-                placeItems: 'center',
-                color: active ? 'white' : '#7d9f87',
+                borderRadius: '14px',
+                border: active ? '1px solid rgba(110,231,183,0.40)' : '1px solid rgba(255,255,255,0.10)',
+                background: active ? 'rgba(110,231,183,0.16)' : 'rgba(255,255,255,0.06)',
+                display: 'grid', placeItems: 'center',
+                color: active ? 'var(--accent)' : 'var(--muted)',
                 fontSize: '18px',
-                boxShadow: active
-                  ? '0 12px 24px rgba(21,29,25,0.10)'
-                  : 'inset 0 1px 0 rgba(255,255,255,0.45)',
                 cursor: 'pointer',
                 transition: '160ms ease',
+                boxShadow: active ? '0 4px 16px rgba(110,231,183,0.15)' : 'none',
               }}
             >
               {mood.icon}
@@ -129,18 +110,18 @@ export default function MoodTrack() {
       {hasSparkline ? (
         <div
           style={{
-            borderRadius: '18px',
-            border: '1px solid rgba(21,29,25,0.06)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.48), rgba(237,242,231,0.68))',
-            padding: '14px 12px 10px',
+            borderRadius: '12px',
+            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.04)',
+            padding: '12px 10px 8px',
           }}
         >
-          <ResponsiveContainer width="100%" height={48}>
+          <ResponsiveContainer width="100%" height={44}>
             <LineChart data={last7}>
               <Line
                 type="monotone"
                 dataKey="v"
-                stroke="var(--accent-4)"
+                stroke="var(--accent-3)"
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
@@ -149,15 +130,7 @@ export default function MoodTrack() {
           </ResponsiveContainer>
         </div>
       ) : (
-        <p
-          style={{
-            fontSize: '12px',
-            color: 'var(--muted)',
-            fontStyle: 'italic',
-            textAlign: 'center',
-            marginTop: '4px',
-          }}
-        >
+        <p style={{ fontSize: '11px', color: 'var(--muted-2)', fontStyle: 'italic', textAlign: 'center', marginTop: '4px' }}>
           Keep checking in to see your trend.
         </p>
       )}

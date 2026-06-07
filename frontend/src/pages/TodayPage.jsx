@@ -1,110 +1,353 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { api } from '../utils/api';
 import { storage } from '../utils/storage';
 import { getDailyQuote } from '../utils/quotes';
-import TaskCard from '../components/TaskCard';
 import MoodTrack from '../components/MoodTrack';
 import Toast from '../components/Toast';
+import LiveClock from '../components/LiveClock';
+
+const HOUR_HEIGHT = 96;
+const START_HOUR  = 6;
+const END_HOUR    = 24;
+
+// Card fills per task type. Routine is deliberately quiet — it's background infrastructure.
+const TYPE_META = {
+  deep_work: {
+    textColor:  '#ffffff',
+    mutedColor: 'rgba(255,255,255,0.68)',
+    bg:         'linear-gradient(135deg, rgba(78,115,255,0.92), rgba(50,80,220,0.90))',
+    border:     'none',
+    onDark:     true,
+    dot:        '#a5b4fc',
+  },
+  routine: {
+    textColor:  'rgba(255,255,255,0.80)',
+    mutedColor: 'rgba(255,255,255,0.38)',
+    bg:         'rgba(255,255,255,0.07)',
+    border:     '1px solid rgba(255,255,255,0.09)',
+    onDark:     true,
+    dot:        '#8896aa',
+  },
+  break: {
+    textColor:  '#1a1000',
+    mutedColor: 'rgba(26,16,0,0.52)',
+    bg:         'linear-gradient(135deg, rgba(255,192,70,0.95), rgba(240,165,42,0.93))',
+    border:     'none',
+    onDark:     false,
+    dot:        '#451a03',
+  },
+  workout: {
+    textColor:  '#ffffff',
+    mutedColor: 'rgba(255,255,255,0.68)',
+    bg:         'linear-gradient(135deg, rgba(251,96,112,0.92), rgba(220,55,78,0.90))',
+    border:     'none',
+    onDark:     true,
+    dot:        '#fecdd3',
+  },
+  geo: {
+    textColor:  '#ffffff',
+    mutedColor: 'rgba(255,255,255,0.68)',
+    bg:         'linear-gradient(135deg, rgba(155,108,255,0.92), rgba(124,72,235,0.90))',
+    border:     'none',
+    onDark:     true,
+    dot:        '#e9d5ff',
+  },
+};
+const DEFAULT_META = TYPE_META.routine;
+
+// Legend dot colors for the header
+const TYPE_DOT_COLORS = {
+  deep_work: '#818cf8',
+  routine:   '#8896aa',
+  break:     '#fbbf24',
+  workout:   '#fb7185',
+  geo:       '#a78bfa',
+};
 
 const MOCK_TASKS = [
-  {
-    task_id: 'mock_1',
-    title: 'Morning reset and plan review',
-    start_time: new Date().toISOString().slice(0, 10) + 'T07:50:00',
-    end_time:   new Date().toISOString().slice(0, 10) + 'T08:30:00',
-    type: 'routine',
-    notes: 'A quiet start with health-aware pacing and low cognitive load.',
-  },
-  {
-    task_id: 'mock_2',
-    title: 'Deep work block',
-    start_time: new Date().toISOString().slice(0, 10) + 'T09:30:00',
-    end_time:   new Date().toISOString().slice(0, 10) + 'T11:00:00',
-    type: 'deep_work',
-    notes: 'Single-focus window for priority work before the first context switch.',
-  },
-  {
-    task_id: 'mock_3',
-    title: 'Go to the gym',
-    start_time: new Date().toISOString().slice(0, 10) + 'T11:15:00',
-    end_time:   new Date().toISOString().slice(0, 10) + 'T12:30:00',
-    type: 'workout',
-    notes: 'USC Viterbi → LA Fitness Downtown · 18 min drive',
-    geo_segment: {
-      origin: 'USC Viterbi',
-      destination: 'LA Fitness Downtown',
-      duration_text: '18 min drive',
-      maps_url: 'https://www.google.com/maps',
-    },
-  },
-  {
-    task_id: 'mock_4',
-    title: 'Lunch and light walk',
-    start_time: new Date().toISOString().slice(0, 10) + 'T13:30:00',
-    end_time:   new Date().toISOString().slice(0, 10) + 'T14:30:00',
-    type: 'break',
-    notes: 'Recovery window before the afternoon workload resumes.',
-  },
-  {
-    task_id: 'mock_5',
-    title: 'Follow-up and responses',
-    start_time: new Date().toISOString().slice(0, 10) + 'T15:00:00',
-    end_time:   new Date().toISOString().slice(0, 10) + 'T16:00:00',
-    type: 'routine',
-    notes: 'Short admin batch with a low-friction task stack.',
-  },
-  {
-    task_id: 'mock_6',
-    title: 'Planning check-in',
-    start_time: new Date().toISOString().slice(0, 10) + 'T17:20:00',
-    end_time:   new Date().toISOString().slice(0, 10) + 'T17:50:00',
-    type: 'routine',
-    notes: 'Let DayPilot decide whether anything should move before evening.',
-  },
-  {
-    task_id: 'mock_7',
-    title: 'Recovery and wind-down',
-    start_time: new Date().toISOString().slice(0, 10) + 'T19:00:00',
-    end_time:   new Date().toISOString().slice(0, 10) + 'T20:30:00',
-    type: 'break',
-    notes: 'Keep the evening light to protect the next day\'s energy curve.',
-  },
+  { task_id: 'mock_1', title: 'Morning reset & plan review', start_time: todayAt('07:50'), end_time: todayAt('08:30'), type: 'routine',   notes: 'Quiet start with health-aware pacing.' },
+  { task_id: 'mock_2', title: 'Deep work block',              start_time: todayAt('09:30'), end_time: todayAt('11:00'), type: 'deep_work', notes: 'Single-focus window for priority work.' },
+  { task_id: 'mock_3', title: 'Gym session',                  start_time: todayAt('11:15'), end_time: todayAt('12:30'), type: 'workout',   notes: 'USC Viterbi → LA Fitness Downtown · 18 min drive', geo_segment: { origin: 'USC Viterbi', destination: 'LA Fitness Downtown', duration_text: '18 min drive', maps_url: 'https://www.google.com/maps' } },
+  { task_id: 'mock_4', title: 'Lunch and light walk',         start_time: todayAt('13:30'), end_time: todayAt('14:30'), type: 'break',     notes: 'Recovery window before afternoon work.' },
+  { task_id: 'mock_5', title: 'Follow-up & responses',        start_time: todayAt('15:00'), end_time: todayAt('16:00'), type: 'routine',   notes: 'Short admin batch with low-friction tasks.' },
+  { task_id: 'mock_6', title: 'Planning check-in',            start_time: todayAt('17:20'), end_time: todayAt('17:50'), type: 'routine',   notes: 'Let DayPilot decide if anything should move.' },
+  { task_id: 'mock_7', title: 'Recovery & wind-down',         start_time: todayAt('19:00'), end_time: todayAt('20:30'), type: 'break',     notes: "Keep evening light to protect tomorrow's energy." },
 ];
 
+function todayAt(hhmm) {
+  return new Date().toISOString().slice(0, 10) + 'T' + hhmm + ':00';
+}
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
+function fmtHour(h) {
+  return String(h).padStart(2, '0') + ':00';
+}
+function toMinutes(isoString) {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  if (isNaN(d)) return null;
+  return d.getHours() * 60 + d.getMinutes();
+}
+function fmtTime(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d)) return '';
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function Panel({ style, children }) {
+  return (
+    <div
+      style={{
+        borderRadius: 'var(--radius-xl)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        background: 'rgba(255,255,255,0.06)',
+        backdropFilter: 'var(--glass)',
+        boxShadow: 'var(--shadow-soft)',
+        overflow: 'hidden',
+        position: 'relative',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Card({ style, children }) {
+  return (
+    <div
+      style={{
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        background: 'rgba(255,255,255,0.08)',
+        overflow: 'hidden',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function TimelineBlock({ task, done, onToggle, aiGenerated }) {
+  const [expanded, setExpanded] = useState(false);
+  const meta = TYPE_META[task.type] ?? DEFAULT_META;
+
+  const startMin = toMinutes(task.start_time || task.scheduled_time);
+  const endMin   = toMinutes(task.end_time);
+
+  if (startMin === null) return null;
+
+  const offsetMin = startMin - START_HOUR * 60;
+  if (offsetMin < 0 || offsetMin >= (END_HOUR - START_HOUR) * 60) return null;
+
+  const durationMin = endMin ? Math.max(endMin - startMin, 20) : 40;
+  const top    = offsetMin * (HOUR_HEIGHT / 60) + 3;
+  const height = Math.max(durationMin * (HOUR_HEIGHT / 60) - 6, 28);
+  const hasGeo = Boolean(task.geo_segment);
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: '58px',
+        right: '10px',
+        top: `${top}px`,
+        height: `${height}px`,
+        borderRadius: '14px',
+        background: done ? 'rgba(255,255,255,0.06)' : meta.bg,
+        border: done ? '1px solid rgba(255,255,255,0.07)' : (meta.border || 'none'),
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '0 12px',
+        cursor: hasGeo ? 'pointer' : 'default',
+        opacity: done ? 0.45 : 1,
+        transition: '150ms ease',
+        zIndex: 2,
+        overflow: 'hidden',
+        boxShadow: done || !meta.border || meta.border === 'none' ? (done ? 'none' : '0 4px 20px rgba(0,0,0,0.24)') : 'none',
+      }}
+      onClick={() => hasGeo && setExpanded((v) => !v)}
+    >
+      {/* checkbox */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
+        aria-label={done ? 'Mark incomplete' : 'Mark complete'}
+        style={{
+          flexShrink: 0,
+          width: '18px',
+          height: '18px',
+          borderRadius: '5px',
+          border: done
+            ? 'none'
+            : `2px solid ${meta.onDark ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.28)'}`,
+          background: done
+            ? (meta.onDark ? 'rgba(255,255,255,0.70)' : 'rgba(0,0,0,0.45)')
+            : 'transparent',
+          color: done
+            ? (meta.onDark ? '#4e73ff' : '#fff')
+            : 'transparent',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: '11px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          transition: '120ms ease',
+        }}
+      >
+        {done ? '✓' : ''}
+      </button>
+
+      {/* title */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span
+          style={{
+            fontSize: height < 38 ? '12px' : '13px',
+            fontWeight: 650,
+            letterSpacing: '-0.02em',
+            color: done ? meta.mutedColor : meta.textColor,
+            textDecoration: done ? 'line-through' : 'none',
+            display: 'block',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {task.title}
+          {aiGenerated && (
+            <span style={{ fontSize: '9px', marginLeft: '5px', opacity: 0.65 }}>◆</span>
+          )}
+        </span>
+        {height >= 46 && task.notes && (
+          <span
+            style={{
+              fontSize: '11px',
+              color: meta.mutedColor,
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              marginTop: '2px',
+            }}
+          >
+            {task.notes}
+          </span>
+        )}
+      </div>
+
+      {/* time pill */}
+      {height >= 36 && (
+        <div
+          style={{
+            flexShrink: 0,
+            fontSize: '10px',
+            fontWeight: 600,
+            color: meta.mutedColor,
+            whiteSpace: 'nowrap',
+            fontVariantNumeric: 'tabular-nums',
+            background: meta.onDark ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.28)',
+            padding: '3px 8px',
+            borderRadius: '999px',
+          }}
+        >
+          {fmtTime(task.start_time || task.scheduled_time)}
+          {task.end_time ? ` – ${fmtTime(task.end_time)}` : ''}
+        </div>
+      )}
+
+      {/* geo expand panel */}
+      {hasGeo && expanded && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            marginTop: '4px',
+            padding: '12px 14px',
+            borderRadius: '14px',
+            border: '1px solid rgba(255,255,255,0.14)',
+            background: 'rgba(10,8,30,0.90)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.36)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '13px', fontWeight: 650, color: '#fff', marginBottom: '3px', letterSpacing: '-0.02em' }}>
+              {task.geo_segment.origin} → {task.geo_segment.destination}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+              Est. {task.geo_segment.duration_text}
+            </div>
+          </div>
+          <button
+            onClick={() => window.open(task.geo_segment.maps_url, '_blank', 'noreferrer')}
+            style={{
+              border: '1px solid rgba(255,255,255,0.20)',
+              borderRadius: '10px',
+              padding: '7px 14px',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#fff',
+              background: 'rgba(255,255,255,0.12)',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            Navigate
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TodayPage() {
-  const navigate = useNavigate();
+  const navigate      = useNavigate();
   const { openAgentDrawer } = useOutletContext();
   const { tasks, setTasks } = useStore();
-  const [doneMap, setDoneMap] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [noSchedule, setNoSchedule] = useState(false);
-  const quote = useRef(getDailyQuote()).current;
+  const [doneMap, setDoneMap]         = useState({});
+  const [submitting, setSubmitting]   = useState(false);
+  const [toast, setToast]             = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [noSchedule, setNoSchedule]   = useState(false);
+  const [nowMin, setNowMin]           = useState(() => {
+    const n = new Date(); return n.getHours() * 60 + n.getMinutes();
+  });
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const timelineRef = useRef(null);
+  const [quote]     = useState(getDailyQuote);
 
   const lastFeedbackDate = storage.getLastFeedbackDate();
-  const feedbackDone = lastFeedbackDate === todayISO();
+  const feedbackDone     = lastFeedbackDate === todayISO();
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      const n = new Date(); setNowMin(n.getHours() * 60 + n.getMinutes());
+    }, 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const userId = storage.getUserId();
     async function load() {
       try {
         const cached = storage.getTodaySchedule();
-        if (cached) {
-          setTasks(cached);
-          setLoading(false);
-        }
-        const res = await api.getScheduleToday(userId);
-        const list = Array.isArray(res) ? res : res.tasks || [];
-        const sorted = list.sort((a, b) =>
-          (a.start_time || '').localeCompare(b.start_time || '')
-        );
+        if (cached) { setTasks(cached); setLoading(false); }
+        const res    = await api.getScheduleToday(userId);
+        const list   = Array.isArray(res) ? res : res.tasks || [];
+        const sorted = list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
         setTasks(sorted);
         storage.setTodaySchedule(sorted);
         setNoSchedule(false);
@@ -122,15 +365,19 @@ export default function TodayPage() {
     load();
   }, []);
 
-  // handle /today?user_id=xxx callback from OAuth
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const uid = params.get('user_id');
-    if (uid) {
-      storage.setUserId(uid);
-      navigate('/today', { replace: true });
-    }
+    const uid    = params.get('user_id');
+    if (uid) { storage.setUserId(uid); navigate('/today', { replace: true }); }
   }, []);
+
+  useEffect(() => {
+    if (!timelineRef.current) return;
+    const n          = new Date();
+    const currentMin = n.getHours() * 60 + n.getMinutes();
+    const offsetY    = (currentMin - START_HOUR * 60) * (HOUR_HEIGHT / 60) - 80;
+    timelineRef.current.scrollTop = Math.max(0, offsetY);
+  }, [loading]);
 
   function toggleDone(taskId) {
     setDoneMap((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
@@ -138,7 +385,7 @@ export default function TodayPage() {
 
   async function handleSubmitFeedback() {
     if (feedbackDone || submitting) return;
-    const userId = storage.getUserId();
+    const userId      = storage.getUserId();
     const uncompleted = tasks
       .filter((t) => !doneMap[t.task_id])
       .map((t) => ({ title: t.title, scheduled_time: t.start_time }));
@@ -155,367 +402,347 @@ export default function TodayPage() {
   }
 
   const displayTasks = tasks.length ? tasks : [];
-  const dateLabel = new Intl.DateTimeFormat('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-  }).format(new Date());
+  const nowLineTop   = (nowMin - START_HOUR * 60) * (HOUR_HEIGHT / 60);
+  const hours        = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 280px',
+        gridTemplateColumns: `minmax(0,1fr) ${sidebarOpen ? '228px' : '34px'}`,
         gridTemplateRows: '1fr',
         gap: '12px',
         height: '100%',
         minWidth: 0,
+        transition: 'grid-template-columns 240ms ease',
       }}
     >
-      {/* ── main column ── */}
-      <div
-        style={{
-          borderRadius: 'var(--radius-xl)',
-          border: '1px solid rgba(255,255,255,0.66)',
-          background: 'rgba(255,255,255,0.38)',
-          backdropFilter: 'var(--glass)',
-          boxShadow: 'var(--shadow-soft)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-        {/* date + quote header */}
-        <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-              gap: '12px',
-              marginBottom: '6px',
-            }}
-          >
-            <h1
-              style={{
-                fontSize: '22px',
-                fontWeight: 700,
-                letterSpacing: '-0.05em',
-                margin: 0,
-                color: 'var(--text)',
-              }}
-            >
-              {dateLabel}
-            </h1>
-            <span
-              style={{
-                fontSize: '12px',
-                color: 'var(--muted)',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Today
-            </span>
-          </div>
-          <p
-            style={{
-              fontSize: '13px',
-              color: 'var(--muted)',
-              fontStyle: 'italic',
-              lineHeight: 1.6,
-              margin: '0 0 16px',
-            }}
-          >
-            {quote}
-          </p>
+      {/* center panel */}
+      <Panel>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
 
-          {/* schedule header */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-              gap: '12px',
-              paddingBottom: '12px',
-              borderBottom: '1px solid var(--line)',
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  letterSpacing: '-0.05em',
-                }}
-              >
-                Scheduled tasks
-              </h2>
-              <span style={{ color: 'var(--muted)', fontSize: '11px' }}>
-                Sorted by time
-              </span>
-            </div>
+          {/* header */}
+          <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
             <div
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                borderRadius: '999px',
-                background: 'rgba(255,255,255,0.56)',
-                border: '1px solid rgba(21,29,25,0.08)',
-                color: '#2c3531',
-                fontSize: '12px',
-                boxShadow: '0 8px 22px rgba(24,30,27,0.04)',
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                marginBottom: '4px',
               }}
             >
-              All tasks · Today
+              <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.04em', margin: 0, color: '#fff' }}>
+                Today's Schedule
+              </h1>
+              <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                {new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date())}
+              </span>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--muted)', fontStyle: 'italic', margin: '0 0 14px', lineHeight: 1.55 }}>
+              {quote}
+            </p>
+
+            {/* legend */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '14px',
+                flexWrap: 'wrap',
+                paddingBottom: '14px',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+              }}
+            >
+              {Object.entries(TYPE_DOT_COLORS).map(([key, dotColor]) => (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'capitalize' }}>
+                    {key.replace('_', ' ')}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
 
-        {/* scrollable task list */}
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-            padding: '14px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-          }}
-        >
-          {loading ? (
-            <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', marginTop: '32px' }}>
-              Loading schedule...
-            </p>
-          ) : noSchedule ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
-              <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>
-                No schedule for today yet
-              </p>
-              <p style={{ fontSize: '13px', lineHeight: 1.6, margin: '0 0 20px' }}>
-                Chat with DayPilot to build your day plan.
-              </p>
-              <button
-                onClick={openAgentDrawer}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '14px',
-                  border: 0,
-                  background: 'linear-gradient(135deg, #161d1b, #36423c)',
-                  color: 'white',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Plan my day
-              </button>
-            </div>
-          ) : displayTasks.length === 0 ? (
-            <p style={{ color: 'var(--muted)', fontSize: '13px', textAlign: 'center', marginTop: '32px' }}>
-              No tasks scheduled.
-            </p>
-          ) : (
-            displayTasks.map((task) => (
-              <TaskCard
-                key={task.task_id}
-                task={{ ...task, done: Boolean(doneMap[task.task_id]) }}
-                onToggle={() => toggleDone(task.task_id)}
-              />
-            ))
-          )}
-        </div>
-
-        {/* bottom compose + submit */}
-        <div
-          style={{
-            padding: '14px 16px 16px',
-            background:
-              'linear-gradient(180deg, rgba(242,246,240,0), rgba(242,246,240,0.78) 18%, rgba(242,246,240,0.97))',
-            borderTop: '1px solid rgba(21,29,25,0.05)',
-            flexShrink: 0,
-          }}
-        >
-          {/* agent compose bar */}
+          {/* timeline */}
           <div
-            onClick={openAgentDrawer}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openAgentDrawer()}
-            aria-label="Open DayPilot agent mode"
+            ref={timelineRef}
+            style={{ flex: 1, minHeight: 0, overflowY: 'auto', position: 'relative', padding: '0 0 24px' }}
+          >
+            {loading ? (
+              <div style={{ padding: '40px 20px', color: 'var(--muted)', fontSize: '13px', textAlign: 'center' }}>
+                Loading schedule...
+              </div>
+            ) : noSchedule ? (
+              <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.35 }}>◆</div>
+                <p style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+                  No schedule yet
+                </p>
+                <p style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 20px' }}>
+                  Chat with DayPilot to build your day plan.
+                </p>
+                <button
+                  onClick={openAgentDrawer}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '14px',
+                    border: '1px solid rgba(110,231,183,0.35)',
+                    background: 'rgba(110,231,183,0.12)',
+                    color: 'var(--accent)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Plan my day ◆
+                </button>
+              </div>
+            ) : (
+              <div style={{ position: 'relative', height: `${(END_HOUR - START_HOUR) * HOUR_HEIGHT}px` }}>
+                {/* hour rows */}
+                {hours.map((h) => (
+                  <div
+                    key={h}
+                    style={{
+                      position: 'absolute',
+                      top: `${(h - START_HOUR) * HOUR_HEIGHT}px`,
+                      left: 0, right: 0,
+                      height: `${HOUR_HEIGHT}px`,
+                      display: 'flex', alignItems: 'flex-start',
+                    }}
+                  >
+                    <div style={{ width: '50px', paddingLeft: '14px', fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.28)', fontVariantNumeric: 'tabular-nums', flexShrink: 0, userSelect: 'none' }}>
+                      {fmtHour(h)}
+                    </div>
+                    <div style={{ flex: 1, height: '1px', marginTop: '7px', background: 'rgba(255,255,255,0.06)', marginRight: '10px' }} />
+                  </div>
+                ))}
+
+                {/* now line */}
+                {nowMin >= START_HOUR * 60 && nowMin < END_HOUR * 60 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: '50px', right: '10px',
+                      top: `${nowLineTop}px`,
+                      height: '2px',
+                      background: 'linear-gradient(90deg, var(--error), rgba(248,113,113,0))',
+                      borderRadius: '999px',
+                      zIndex: 3,
+                      animation: 'now-line-pulse 3s ease-in-out infinite',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <span style={{ position: 'absolute', left: '-4px', top: '-3px', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--error)' }} />
+                  </div>
+                )}
+
+                {/* tasks */}
+                {displayTasks.map((task) => (
+                  <TimelineBlock
+                    key={task.task_id}
+                    task={task}
+                    done={Boolean(doneMap[task.task_id])}
+                    onToggle={() => toggleDone(task.task_id)}
+                    aiGenerated
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* bottom bar */}
+          <div
             style={{
-              borderRadius: '22px',
-              border: '1px solid rgba(255,255,255,0.72)',
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.66), rgba(255,255,255,0.42))',
-              boxShadow: '0 18px 38px rgba(24,30,27,0.06)',
-              padding: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              backdropFilter: 'blur(18px) saturate(130%)',
-              cursor: 'text',
-              marginBottom: '10px',
+              padding: '12px 16px 16px',
+              borderTop: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.03)',
+              flexShrink: 0,
             }}
           >
-            <input
-              className="compose-input"
-              placeholder="Ask DayPilot to adjust, explain, or plan..."
-              readOnly
+            <div
+              onClick={openAgentDrawer}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openAgentDrawer()}
               style={{
-                flex: 1,
-                border: 0,
-                outline: 'none',
-                background: 'transparent',
-                color: 'var(--text)',
-                fontSize: '14px',
-                letterSpacing: '0.01em',
-                cursor: 'text',
-              }}
-            />
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); openAgentDrawer(); }}
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '16px',
-                border: 0,
-                background: 'linear-gradient(135deg, #161d1b, #36423c)',
-                color: 'white',
-                boxShadow: '0 12px 24px rgba(24,30,27,0.16)',
-                cursor: 'pointer',
-                display: 'grid',
-                placeItems: 'center',
-                fontSize: '16px',
-                flexShrink: 0,
+                borderRadius: '20px',
+                border: '1px solid rgba(255,255,255,0.14)',
+                background: 'rgba(255,255,255,0.07)',
+                padding: '10px 10px 10px 16px',
+                display: 'flex', alignItems: 'center', gap: '10px',
+                cursor: 'text', marginBottom: '10px',
               }}
             >
-              ↑
+              <span style={{ fontSize: '13px', color: 'var(--accent)', flexShrink: 0 }}>◆</span>
+              <input
+                className="compose-input"
+                placeholder="Ask DayPilot to reschedule, add, or explain..."
+                readOnly
+                style={{
+                  flex: 1, border: 0, outline: 'none',
+                  background: 'transparent', color: 'var(--muted)',
+                  fontSize: '13px', letterSpacing: '0.01em', cursor: 'text',
+                }}
+              />
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); openAgentDrawer(); }}
+                style={{
+                  width: '38px', height: '38px', borderRadius: '14px',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  background: 'rgba(110,231,183,0.14)',
+                  color: 'var(--accent)', cursor: 'pointer',
+                  display: 'grid', placeItems: 'center', fontSize: '15px', flexShrink: 0,
+                }}
+              >
+                ↑
+              </button>
+            </div>
+
+            <button
+              onClick={handleSubmitFeedback}
+              disabled={feedbackDone || submitting}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '16px',
+                border: feedbackDone
+                  ? '1px solid rgba(255,255,255,0.10)'
+                  : '1px solid rgba(110,231,183,0.28)',
+                background: feedbackDone
+                  ? 'rgba(255,255,255,0.05)'
+                  : 'rgba(110,231,183,0.12)',
+                color: feedbackDone ? 'var(--muted)' : 'var(--accent)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: feedbackDone || submitting ? 'not-allowed' : 'pointer',
+                opacity: submitting ? 0.65 : 1,
+                transition: '160ms ease',
+              }}
+            >
+              {feedbackDone ? '✓ Progress submitted for today' : submitting ? 'Submitting…' : "Submit today's progress"}
             </button>
           </div>
 
-          {/* submit feedback */}
-          <button
-            onClick={handleSubmitFeedback}
-            disabled={feedbackDone || submitting}
-            style={{
-              width: '100%',
-              padding: '13px',
-              borderRadius: '16px',
-              border: 0,
-              background:
-                feedbackDone
-                  ? 'rgba(21,29,25,0.08)'
-                  : 'linear-gradient(135deg, #161d1b, #36423c)',
-              color: feedbackDone ? 'var(--muted)' : 'white',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: feedbackDone || submitting ? 'not-allowed' : 'pointer',
-              boxShadow: feedbackDone ? 'none' : '0 12px 24px rgba(24,30,27,0.14)',
-              opacity: submitting ? 0.7 : 1,
-              transition: '160ms ease',
-            }}
-          >
-            {feedbackDone
-              ? '✓ Progress submitted for today'
-              : submitting
-              ? 'Submitting...'
-              : "Submit today's progress"}
-          </button>
+          {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
         </div>
+      </Panel>
 
-        {/* toast */}
-        {toast && (
-          <Toast message={toast} onDismiss={() => setToast(null)} />
-        )}
-      </div>
+      {/* right sidebar */}
+      {sidebarOpen ? (
+        <Panel>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '10px', gap: '8px' }}>
 
-      {/* ── right sidebar ── */}
-      <aside
-        style={{
-          borderRadius: 'var(--radius-xl)',
-          border: '1px solid rgba(255,255,255,0.66)',
-          background: 'rgba(255,255,255,0.38)',
-          backdropFilter: 'var(--glass)',
-          boxShadow: 'var(--shadow-soft)',
-          padding: '16px',
-          overflowY: 'auto',
-          minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-        }}
-      >
-        {/* Today at a glance */}
-        <section
-          style={{
-            borderRadius: 'var(--radius-lg)',
-            border: '1px solid rgba(255,255,255,0.72)',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.56), rgba(255,255,255,0.30))',
-            boxShadow: '0 14px 34px rgba(24,30,27,0.05)',
-            padding: '16px',
-            backdropFilter: 'blur(18px) saturate(130%)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, letterSpacing: '-0.05em' }}>
-                Today at a glance
-              </h3>
-              <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: '12px' }}>
-                Quiet signals for your day.
-              </p>
-            </div>
-          </div>
-          {[
-            { label: 'Commute risk', pct: 28, value: 'Low' },
-            { label: 'Focus window', pct: 78, value: 'Strong' },
-            { label: 'Task density', pct: 62, value: 'Medium' },
-          ].map(({ label, pct, value }) => (
-            <div
-              key={label}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-                fontSize: '12px',
-                color: '#31403a',
-                marginBottom: '10px',
-              }}
-            >
-              <span style={{ whiteSpace: 'nowrap' }}>{label}</span>
-              <div
+            {/* clock + collapse */}
+            <div style={{ display: 'flex', alignItems: 'stretch', gap: '8px', flexShrink: 0 }}>
+              <Card style={{ flex: 1, minWidth: 0 }}>
+                <LiveClock />
+              </Card>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                title="Collapse sidebar"
                 style={{
-                  flex: 1,
-                  height: '9px',
-                  borderRadius: '999px',
-                  background: 'rgba(21,29,25,0.08)',
-                  overflow: 'hidden',
-                  margin: '0 8px',
+                  width: '32px', flexShrink: 0,
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  background: 'rgba(255,255,255,0.07)',
+                  color: 'var(--muted)', cursor: 'pointer',
+                  display: 'grid', placeItems: 'center', fontSize: '16px',
                 }}
               >
-                <span
-                  style={{
-                    display: 'block',
-                    height: '100%',
-                    width: `${pct}%`,
-                    borderRadius: 'inherit',
-                    background: 'linear-gradient(90deg, #bfd5c1, #dfe7bf)',
-                  }}
-                />
-              </div>
-              <strong style={{ whiteSpace: 'nowrap' }}>{value}</strong>
+                ›
+              </button>
             </div>
-          ))}
-        </section>
 
-        {/* Mood track */}
-        <MoodTrack />
-      </aside>
+            {/* at a glance */}
+            <Card style={{ flexShrink: 0 }}>
+              <div style={{ padding: '11px 13px 12px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                  Today at a glance
+                </div>
+                {[
+                  { label: 'Commute risk', pct: 28, value: 'Low'    },
+                  { label: 'Focus window', pct: 78, value: 'Strong' },
+                  { label: 'Task density', pct: 62, value: 'Medium' },
+                ].map(({ label, pct, value }) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '11px', marginBottom: '8px' }}>
+                    <span style={{ whiteSpace: 'nowrap', width: '76px', flexShrink: 0, color: 'var(--muted)' }}>{label}</span>
+                    <div style={{ flex: 1, height: '5px', borderRadius: '999px', background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
+                      <span style={{ display: 'block', height: '100%', width: `${pct}%`, borderRadius: 'inherit', background: 'linear-gradient(90deg, var(--accent-3), var(--accent-2))' }} />
+                    </div>
+                    <strong style={{ whiteSpace: 'nowrap', width: '40px', textAlign: 'right', fontWeight: 600, color: '#fff', fontSize: '10px' }}>{value}</strong>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* health */}
+            <Card style={{ flexShrink: 0 }}>
+              <div style={{ padding: '11px 11px 10px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '9px' }}>
+                  Health
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+                  {[
+                    { label: 'Heart Rate', value: '68',    unit: 'BPM',     accent: '#f87171' },
+                    { label: 'Hydration',  value: '5 / 8', unit: 'GLASSES', accent: '#60a5fa' },
+                    { label: 'Sleep',      value: '7.5',   unit: 'HRS',     accent: '#a78bfa' },
+                    { label: 'Steps',      value: '4,230', unit: 'TODAY',   accent: 'var(--accent-3)' },
+                  ].map(({ label, value, unit, accent }) => (
+                    <div
+                      key={label}
+                      style={{
+                        padding: '9px 10px 8px',
+                        borderRadius: '12px',
+                        background: 'rgba(255,255,255,0.07)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <div style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.07em', color: 'var(--muted-2)', textTransform: 'uppercase', marginBottom: '5px' }}>
+                        {label}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
+                        <span style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.04em', color: accent, lineHeight: 1 }}>
+                          {value}
+                        </span>
+                        <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--muted-2)', letterSpacing: '0.04em' }}>
+                          {unit}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            {/* mood */}
+            <div style={{ flexShrink: 0 }}>
+              <MoodTrack />
+            </div>
+
+          </div>
+        </Panel>
+      ) : (
+        <Panel>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '12px' }}>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              title="Expand sidebar"
+              style={{
+                width: '26px', height: '26px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.14)',
+                background: 'rgba(255,255,255,0.09)',
+                color: 'var(--muted)', cursor: 'pointer',
+                display: 'grid', placeItems: 'center', fontSize: '14px',
+              }}
+            >
+              ‹
+            </button>
+          </div>
+        </Panel>
+      )}
     </div>
   );
 }
