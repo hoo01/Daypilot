@@ -129,8 +129,9 @@ function Card({ style, children }) {
   );
 }
 
-function TimelineBlock({ task, done, onToggle, aiGenerated }) {
-  const [expanded, setExpanded] = useState(false);
+const GEO_EXPANDED_HEIGHT = 88;
+
+function TimelineBlock({ task, done, onToggle, aiGenerated, expanded, onToggleExpand, topOffset = 0 }) {
   const meta = TYPE_META[task.type] ?? DEFAULT_META;
 
   const startMin = toMinutes(task.start_time || task.scheduled_time);
@@ -142,9 +143,10 @@ function TimelineBlock({ task, done, onToggle, aiGenerated }) {
   if (offsetMin < 0 || offsetMin >= (END_HOUR - START_HOUR) * 60) return null;
 
   const durationMin = endMin ? Math.max(endMin - startMin, 20) : 40;
-  const top    = offsetMin * (HOUR_HEIGHT / 60) + 3;
-  const height = Math.max(durationMin * (HOUR_HEIGHT / 60) - 6, 28);
-  const hasGeo = Boolean(task.geo_segment);
+  const top         = offsetMin * (HOUR_HEIGHT / 60) + 3 + topOffset;
+  const baseHeight  = Math.max(durationMin * (HOUR_HEIGHT / 60) - 6, 28);
+  const height      = baseHeight + (expanded ? GEO_EXPANDED_HEIGHT : 0);
+  const hasGeo      = Boolean(task.geo_segment);
 
   return (
     <div
@@ -159,149 +161,183 @@ function TimelineBlock({ task, done, onToggle, aiGenerated }) {
         background: done ? 'rgba(255,255,255,0.06)' : meta.bg,
         border: 'none',
         display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '0 12px',
+        flexDirection: 'column',
         cursor: hasGeo ? 'pointer' : 'default',
         opacity: done ? 0.45 : 1,
         zIndex: 2,
         overflow: 'hidden',
         boxShadow: done ? 'none' : '0 4px 20px rgba(0,0,0,0.28)',
       }}
-      onClick={() => hasGeo && setExpanded((v) => !v)}
+      onClick={() => hasGeo && onToggleExpand?.()}
     >
-      {/* checkbox */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
-        aria-label={done ? 'Mark incomplete' : 'Mark complete'}
-        style={{
-          flexShrink: 0,
-          width: '18px',
-          height: '18px',
-          borderRadius: '5px',
-          border: done
-            ? 'none'
-            : `2px solid ${meta.onDark ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.28)'}`,
-          background: done
-            ? (meta.onDark ? 'rgba(255,255,255,0.70)' : 'rgba(0,0,0,0.45)')
-            : 'transparent',
-          color: done
-            ? (meta.onDark ? '#4e73ff' : '#fff')
-            : 'transparent',
-          display: 'grid',
-          placeItems: 'center',
-          fontSize: '11px',
-          fontWeight: 700,
-          cursor: 'pointer',
-          transition: '120ms ease',
-        }}
-      >
-        {done ? '✓' : ''}
-      </button>
-
-      {/* title */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <span
+      {/* task row */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '0 12px',
+        height: `${baseHeight}px`,
+        flexShrink: 0,
+        overflow: 'hidden',
+      }}>
+        {/* checkbox */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
+          aria-label={done ? 'Mark incomplete' : 'Mark complete'}
           style={{
-            fontSize: height < 38 ? '12px' : '13px',
-            fontWeight: 650,
-            letterSpacing: '-0.02em',
-            color: done ? meta.mutedColor : meta.textColor,
-            textDecoration: done ? 'line-through' : 'none',
-            display: 'block',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            width: '18px',
+            height: '18px',
+            borderRadius: '5px',
+            border: done
+              ? 'none'
+              : `2px solid ${meta.onDark ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.28)'}`,
+            background: done
+              ? (meta.onDark ? 'rgba(255,255,255,0.70)' : 'rgba(0,0,0,0.45)')
+              : 'transparent',
+            color: done
+              ? (meta.onDark ? '#4e73ff' : '#fff')
+              : 'transparent',
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: '11px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: '120ms ease',
           }}
         >
-          {task.title}
-          {aiGenerated && (
-            <span style={{ fontSize: '9px', marginLeft: '5px', opacity: 0.65 }}>◆</span>
-          )}
-        </span>
-        {height >= 46 && task.notes && (
+          {done ? '✓' : ''}
+        </button>
+
+        {/* title */}
+        <div style={{ flex: 1, minWidth: 0 }}>
           <span
             style={{
-              fontSize: '11px',
-              color: meta.mutedColor,
+              fontSize: baseHeight < 38 ? '12px' : '13px',
+              fontWeight: 650,
+              letterSpacing: '-0.02em',
+              color: done ? meta.mutedColor : meta.textColor,
+              textDecoration: done ? 'line-through' : 'none',
               display: 'block',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              marginTop: '2px',
             }}
           >
-            {task.notes}
+            {task.title}
+            {aiGenerated && (
+              <span style={{ fontSize: '9px', marginLeft: '5px', opacity: 0.65 }}>◆</span>
+            )}
           </span>
+          {baseHeight >= 46 && task.notes && (
+            <span
+              style={{
+                fontSize: '11px',
+                color: meta.mutedColor,
+                display: 'block',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                marginTop: '2px',
+              }}
+            >
+              {task.notes}
+            </span>
+          )}
+        </div>
+
+        {/* time pill */}
+        {baseHeight >= 36 && (
+          <div
+            style={{
+              flexShrink: 0,
+              fontSize: '10px',
+              fontWeight: 600,
+              color: meta.mutedColor,
+              whiteSpace: 'nowrap',
+              fontVariantNumeric: 'tabular-nums',
+              background: meta.onDark ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.28)',
+              padding: '3px 8px',
+              borderRadius: '999px',
+            }}
+          >
+            {fmtTime(task.start_time || task.scheduled_time)}
+            {task.end_time ? ` – ${fmtTime(task.end_time)}` : ''}
+          </div>
         )}
       </div>
 
-      {/* time pill */}
-      {height >= 36 && (
-        <div
-          style={{
-            flexShrink: 0,
-            fontSize: '10px',
-            fontWeight: 600,
-            color: meta.mutedColor,
-            whiteSpace: 'nowrap',
-            fontVariantNumeric: 'tabular-nums',
-            background: meta.onDark ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.28)',
-            padding: '3px 8px',
-            borderRadius: '999px',
-          }}
-        >
-          {fmtTime(task.start_time || task.scheduled_time)}
-          {task.end_time ? ` – ${fmtTime(task.end_time)}` : ''}
-        </div>
-      )}
-
-      {/* geo expand panel */}
+      {/* geo section — inline inside the block */}
       {hasGeo && expanded && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            zIndex: 10,
-            marginTop: '4px',
-            padding: '12px 14px',
-            borderRadius: '14px',
-            border: '1px solid rgba(255,255,255,0.14)',
-            background: 'rgba(10,8,30,0.90)',
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.36)',
-            display: 'flex',
-            alignItems: 'center',
+        <div onClick={(e) => e.stopPropagation()} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{
+            height: '1px',
+            background: meta.onDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)',
+            margin: '0 12px',
+          }} />
+          <div style={{
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: '1fr auto',
             gap: '12px',
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '13px', fontWeight: 650, color: '#fff', marginBottom: '3px', letterSpacing: '-0.02em' }}>
-              {task.geo_segment.origin} → {task.geo_segment.destination}
+            padding: '10px 12px 12px',
+            alignItems: 'center',
+          }}>
+            <div>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 650,
+                color: meta.textColor,
+                letterSpacing: '-0.02em',
+                marginBottom: '3px',
+              }}>
+                {task.geo_segment.origin} → {task.geo_segment.destination}
+              </div>
+              <div style={{ fontSize: '11px', color: meta.mutedColor, marginBottom: '8px' }}>
+                Est. {task.geo_segment.duration_text}
+              </div>
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  padding: '2px 7px',
+                  borderRadius: '5px',
+                  background: meta.onDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.08)',
+                  color: meta.onDark ? 'rgba(255,255,255,0.80)' : 'rgba(0,0,0,0.60)',
+                  letterSpacing: '0.02em',
+                }}>Maps ready</span>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  padding: '2px 7px',
+                  borderRadius: '5px',
+                  background: meta.onDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                  color: meta.onDark ? 'rgba(255,255,255,0.48)' : 'rgba(0,0,0,0.40)',
+                  letterSpacing: '0.02em',
+                }}>Travel-aware</span>
+              </div>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-              Est. {task.geo_segment.duration_text}
-            </div>
+            <button
+              className="geo-navigate-btn"
+              onClick={() => window.open(task.geo_segment.maps_url, '_blank', 'noreferrer')}
+              style={{
+                border: `1px solid ${meta.onDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.15)'}`,
+                borderRadius: '10px',
+                padding: '7px 13px',
+                fontSize: '12px',
+                fontWeight: 650,
+                color: meta.textColor,
+                background: meta.onDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
+                cursor: 'pointer',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+                letterSpacing: '-0.01em',
+                transition: 'filter 160ms ease',
+              }}
+            >
+              Navigate ↗
+            </button>
           </div>
-          <button
-            onClick={() => window.open(task.geo_segment.maps_url, '_blank', 'noreferrer')}
-            style={{
-              border: '1px solid rgba(255,255,255,0.20)',
-              borderRadius: '10px',
-              padding: '7px 14px',
-              fontSize: '12px',
-              fontWeight: 600,
-              color: '#fff',
-              background: 'rgba(255,255,255,0.12)',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            Navigate
-          </button>
         </div>
       )}
     </div>
@@ -321,6 +357,7 @@ export default function TodayPage() {
     const n = new Date(); return n.getHours() * 60 + n.getMinutes();
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [expandedGeoTaskId, setExpandedGeoTaskId] = useState(null);
 
   const timelineRef = useRef(null);
   const [quote]     = useState(getDailyQuote);
@@ -553,15 +590,31 @@ export default function TodayPage() {
                 )}
 
                 {/* tasks */}
-                {displayTasks.map((task) => (
-                  <TimelineBlock
-                    key={task.task_id}
-                    task={task}
-                    done={Boolean(doneMap[task.task_id])}
-                    onToggle={() => toggleDone(task.task_id)}
-                    aiGenerated
-                  />
-                ))}
+                {(() => {
+                  const expandedTask = expandedGeoTaskId
+                    ? displayTasks.find(t => t.task_id === expandedGeoTaskId) ?? null
+                    : null;
+                  const expandedStartMin = expandedTask
+                    ? (toMinutes(expandedTask.start_time || expandedTask.scheduled_time) ?? -Infinity)
+                    : -Infinity;
+                  return displayTasks.map((task) => {
+                    const thisMin = toMinutes(task.start_time || task.scheduled_time) ?? 0;
+                    const topOffset = (expandedTask && task.task_id !== expandedGeoTaskId && thisMin > expandedStartMin)
+                      ? GEO_EXPANDED_HEIGHT : 0;
+                    return (
+                      <TimelineBlock
+                        key={task.task_id}
+                        task={task}
+                        done={Boolean(doneMap[task.task_id])}
+                        onToggle={() => toggleDone(task.task_id)}
+                        aiGenerated
+                        expanded={task.task_id === expandedGeoTaskId}
+                        onToggleExpand={() => setExpandedGeoTaskId(prev => prev === task.task_id ? null : task.task_id)}
+                        topOffset={topOffset}
+                      />
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>

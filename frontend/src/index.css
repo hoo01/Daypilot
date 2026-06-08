@@ -76,8 +76,18 @@ input  { font-family: inherit; }
   40%           { transform: translateY(-4px); opacity: 1;    }
 }
 
+@keyframes geo-panel-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.geo-navigate-btn:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 12px 32px rgba(124, 72, 235, 0.55) !important;
+}
+
 .timeline-block {
-  transition: transform 200ms ease, filter 200ms ease;
+  transition: transform 200ms ease, filter 200ms ease, height 220ms cubic-bezier(0.16, 1, 0.3, 1), top 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .timeline-block:hover {
   transform: translateY(-2px);
