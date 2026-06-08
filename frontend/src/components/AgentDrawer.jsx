@@ -11,7 +11,35 @@ export default function AgentDrawer({ open, onClose }) {
   const { chatMessages, addMessage } = useStore();
   const [input, setInput]     = useState('');
   const [sending, setSending] = useState(false);
+  const [drawerHeight, setDrawerHeight] = useState(null); // px; null = use default 44%
   const scrollRef             = useRef(null);
+  const drawerRef             = useRef(null);
+  const dragRef               = useRef(null);
+
+  function startResize(e) {
+    const drawerEl = drawerRef.current;
+    if (!drawerEl) return;
+    dragRef.current = {
+      startY: e.clientY,
+      startHeight: drawerEl.getBoundingClientRect().height,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function doResize(e) {
+    if (!dragRef.current) return;
+    const { startY, startHeight } = dragRef.current;
+    const parentHeight = drawerRef.current?.parentElement?.getBoundingClientRect().height ?? window.innerHeight;
+    const delta = startY - e.clientY; // drag up => taller
+    const min = parentHeight * 0.28;
+    const max = parentHeight * 0.92;
+    setDrawerHeight(Math.min(max, Math.max(min, startHeight + delta)));
+  }
+
+  function endResize(e) {
+    dragRef.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  }
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -56,11 +84,12 @@ export default function AgentDrawer({ open, onClose }) {
 
       {/* drawer */}
       <div
+        ref={drawerRef}
         aria-hidden={!open}
         style={{
           position: 'absolute',
           left: '16px', right: '16px', bottom: '16px',
-          height: '44%',
+          height: drawerHeight != null ? `${drawerHeight}px` : '44%',
           borderRadius: '26px',
           border: '1px solid rgba(255,255,255,0.14)',
           background: 'rgba(10, 7, 28, 0.82)',
@@ -75,14 +104,27 @@ export default function AgentDrawer({ open, onClose }) {
           flexDirection: 'column',
         }}
       >
-        {/* grip */}
+        {/* grip — drag up/down to resize the drawer */}
         <div
+          onPointerDown={startResize}
+          onPointerMove={doResize}
+          onPointerUp={endResize}
+          onPointerCancel={endResize}
           style={{
-            width: '40px', height: '4px', borderRadius: '999px',
-            background: 'rgba(255,255,255,0.18)',
-            margin: '12px auto 0',
+            width: '100%', flexShrink: 0,
+            padding: '10px 0 8px',
+            display: 'flex', justifyContent: 'center',
+            cursor: 'ns-resize',
+            touchAction: 'none',
           }}
-        />
+        >
+          <div
+            style={{
+              width: '40px', height: '4px', borderRadius: '999px',
+              background: 'rgba(255,255,255,0.18)',
+            }}
+          />
+        </div>
 
         {/* head */}
         <div
