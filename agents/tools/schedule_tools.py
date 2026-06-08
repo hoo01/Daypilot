@@ -64,9 +64,21 @@ def _normalize_timestamp(ts: str, target_date: str) -> str:
         return f"{target_date}T{time_part}"
     if re.match(r"^\d{4}-\d{2}-\d{2}", ts):
         return ts
-    if re.match(r"^\d{2}:\d{2}(:\d{2})?$", ts):
-        time_part = ts if len(ts) == 8 else ts + ":00"
+    if re.match(r"^\d{1,2}:\d{2}(:\d{2})?$", ts):
+        hh, _, rest = ts.partition(":")
+        time_part = f"{int(hh):02d}:{rest}"
+        if len(time_part) == 5:
+            time_part += ":00"
         return f"{target_date}T{time_part}"
+    # 12-hour formats like "2PM", "2 pm", "2:00 PM", "2:00pm"
+    m = re.match(r"^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$", ts.strip().lower())
+    if m:
+        hour, minute, ampm = int(m.group(1)), int(m.group(2) or 0), m.group(3)
+        if ampm == "pm" and hour != 12:
+            hour += 12
+        elif ampm == "am" and hour == 12:
+            hour = 0
+        return f"{target_date}T{hour:02d}:{minute:02d}:00"
     return ts
 
 
@@ -357,6 +369,18 @@ def _enforce_constraints(output: ScheduleOutput, inp: ScheduleInput) -> Schedule
                 corrected.append(t)
             tasks = corrected
 
+        # Calendar events are immutable — drop any generated task the LLM
+        # double-booked on top of one (e.g. "Personal Time" overlapping "ML class")
+        cal_tasks = [t for t in tasks if t.type == "calendar_event"]
+        if cal_tasks:
+            tasks = [
+                t for t in tasks
+                if t.type == "calendar_event" or not any(
+                    _times_overlap(t.start_time, t.end_time, c.start_time, c.end_time)
+                    for c in cal_tasks
+                )
+            ]
+
         tasks.sort(key=lambda t: t.start_time)
         fixed.append(strategy.model_copy(update={"tasks": tasks}))
 
@@ -465,6 +489,13 @@ async def plan_schedule(
     """
     Generate 3 optimized daily schedule strategies.
     Respects fixed calendar events, energy windows, goal urgency, and commute constraints.
+
+    calendar_events: list of dicts, one per user-mentioned event, each shaped EXACTLY like:
+        {"title": "ML Class", "start_time": "2026-06-08T14:00:00", "end_time": "2026-06-08T16:00:00", "location": "library"}
+    Use the user's exact wording for "title", full ISO 8601 timestamps ("YYYY-MM-DDTHH:MM:SS")
+    for "start_time"/"end_time" (resolve "2PM-4PM" to today's date + 14:00/16:00), and omit
+    "location" entirely if the user didn't give one. Missing or misnamed keys fall back to a
+    generic placeholder, so get the keys right.
     """
     if not target_date:
         target_date = date.today().isoformat()

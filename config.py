@@ -7,13 +7,13 @@ class Settings(BaseSettings):
     gemini_api_version: str = "v1"
 
     coordinator_model: str = "gemini-2.5-flash"
-    planning_model: str = "gemini-2.5-flash"
+    planning_model: str = "gemini-2.5-flash-lite"
     relationship_model: str = "gemini-2.5-flash-lite"
 
     health_model: str = "gemini-2.5-flash"
-    goal_model: str = "gemini-2.5-flash"
-    goal_reasoning_model: str = "gemini-2.5-flash"
-    goal_fast_model: str = "gemini-2.5-flash"
+    goal_model: str = "gemini-2.5-flash-lite"
+    goal_reasoning_model: str = "gemini-2.5-pro-preview"
+    goal_fast_model: str = "gemini-2.5-flash-lite"
     realtime_model: str = "gemini-2.5-flash"
     geo_model: str = "gemini-2.5-flash"
     google_maps_api_key: str = ""
