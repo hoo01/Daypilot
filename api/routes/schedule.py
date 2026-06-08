@@ -16,7 +16,7 @@ router = APIRouter(prefix="/schedule", tags=["schedule"])
 
 @router.get("/today")
 async def get_today_schedule(user_id: str = Query(...)) -> dict:
-    """Return today's persisted schedule tasks for a user."""
+    """Return today's persisted schedule tasks, enriched with geo_segment per task."""
     today = date.today().isoformat()
     db = get_db()
     doc = await db[Collections.DAILY_SCHEDULES].find_one(
@@ -26,7 +26,59 @@ async def get_today_schedule(user_id: str = Query(...)) -> dict:
     if not doc:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="No schedule for today")
-    return {"tasks": doc.get("tasks", [])}
+
+    
+    
+
+    tasks = doc.get("tasks", [])
+
+    # Default: every task has no geo_segment (guaranteed even if geo enrichment fails)
+    for t in tasks:
+        t["geo_segment"] = None
+
+    # Enrich tasks with geo_segment (origin → destination commute info)
+    try:
+        from agents.tools.geo_tools import get_geo_info
+
+        mem = MemoryAgent(db)
+        prefs = await mem.get_preferences(user_id)
+        home = (prefs or {}).get("home_address") or "home"
+
+        # Build time-ordered event list from tasks that have a location
+        located = [
+            {
+                "location": t.get("location"),
+                "start_time": t.get("start_time"),
+                "end_time": t.get("end_time"),
+                "task_id": t.get("task_id"),
+            }
+            for t in tasks
+            if t.get("location")
+        ]
+
+        if located:
+            geo = await get_geo_info(current_location=home, events=located)
+            segments = geo.get("segments", [])
+            # Map each segment back to its destination task (by order of located events)
+            for ev, seg in zip(located, segments):
+                if seg.get("mode") == "none" or not seg.get("maps_url"):
+                    continue  # same-location or no route → no segment to show
+                dur = seg.get("duration_minutes")
+                geo_segment = {
+                    "origin": seg.get("from"),
+                    "destination": seg.get("to"),
+                    "duration_text": f"{dur} min" if dur is not None else None,
+                    "maps_url": seg.get("maps_url"),
+                }
+                for t in tasks:
+                    if t.get("task_id") == ev["task_id"]:
+                        t["geo_segment"] = geo_segment
+                        break
+    except Exception as e:
+        _logger.error(f"[schedule/today] geo enrichment failed for {user_id}: {e}")
+        # geo failure must not break schedule retrieval — tasks already have geo_segment=None
+
+    return {"tasks": tasks}
 
 
 @router.post("/adjust", response_model=RealtimeOutput)

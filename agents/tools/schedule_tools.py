@@ -549,25 +549,8 @@ async def plan_schedule(
         _log.error("[plan_schedule] raw response: %r", response.text if response else "<api call never returned>")
         return {
             "date": target_date,
-            "strategies": [
-                {
-                    "name": "Most Productive",
-                    "description": "Maximizes focus time during your energy peak.",
-                    "tasks": [
-                        {
-                            "task_id": "default-1",
-                            "title": "Deep Work Block",
-                            "start_time": f"{target_date}T21:00:00",
-                            "end_time": f"{target_date}T23:00:00",
-                            "type": "deep_work",
-                            "location": "home",
-                            "notes": None,
-                        }
-                    ],
-                    "total_focus_hours": 2.0,
-                    "reasoning": "Scheduled during your focus window.",
-                }
-            ],
-            "top_recommendation": "Most Productive",
-            "warnings": [],
+            "strategies": [],
+            "top_recommendation": None,
+            "warnings": ["Schedule generation failed — please try again."],
+            "error": True,
         }

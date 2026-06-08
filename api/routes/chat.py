@@ -35,6 +35,7 @@ class ChatResponse(BaseModel):
     reply: str
     session_id: str
     pending_proposal: dict | None = None
+    schedule_updated: bool = False
 
 
 async def _consolidate_memory(user_id: str, user_message: str, assistant_reply: str) -> None:
@@ -154,4 +155,9 @@ async def chat(
         else:
             _logger.info(f"[chat] OK for {body.user_id} — {duration_ms:.0f}ms — reply: {reply[:500]}")
 
-        return ChatResponse(reply=reply, session_id=session_id, pending_proposal=pending_proposal)
+        return ChatResponse(
+            reply=reply,
+            session_id=session_id,
+            pending_proposal=pending_proposal,
+            schedule_updated=pending_proposal is not None,
+        )
