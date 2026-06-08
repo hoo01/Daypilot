@@ -12,12 +12,11 @@ const HOUR_HEIGHT = 96;
 const START_HOUR  = 6;
 const END_HOUR    = 24;
 
-// Card fills per task type. Routine is deliberately quiet — it's background infrastructure.
 const TYPE_META = {
   deep_work: {
     textColor:  '#ffffff',
     mutedColor: 'rgba(255,255,255,0.68)',
-    bg:         'linear-gradient(135deg, rgba(78,115,255,0.92), rgba(50,80,220,0.90))',
+    bg:         'linear-gradient(160deg, rgba(78,115,255,0.94), rgba(50,80,220,0.90))',
     border:     'none',
     onDark:     true,
     dot:        '#a5b4fc',
@@ -26,14 +25,14 @@ const TYPE_META = {
     textColor:  'rgba(255,255,255,0.80)',
     mutedColor: 'rgba(255,255,255,0.38)',
     bg:         'rgba(255,255,255,0.07)',
-    border:     '1px solid rgba(255,255,255,0.09)',
+    border:     'none',
     onDark:     true,
     dot:        '#8896aa',
   },
   break: {
     textColor:  '#1a1000',
     mutedColor: 'rgba(26,16,0,0.52)',
-    bg:         'linear-gradient(135deg, rgba(255,192,70,0.95), rgba(240,165,42,0.93))',
+    bg:         'linear-gradient(160deg, rgba(255,192,70,0.95), rgba(240,165,42,0.93))',
     border:     'none',
     onDark:     false,
     dot:        '#451a03',
@@ -41,7 +40,7 @@ const TYPE_META = {
   workout: {
     textColor:  '#ffffff',
     mutedColor: 'rgba(255,255,255,0.68)',
-    bg:         'linear-gradient(135deg, rgba(251,96,112,0.92), rgba(220,55,78,0.90))',
+    bg:         'linear-gradient(160deg, rgba(251,96,112,0.92), rgba(220,55,78,0.90))',
     border:     'none',
     onDark:     true,
     dot:        '#fecdd3',
@@ -49,7 +48,7 @@ const TYPE_META = {
   geo: {
     textColor:  '#ffffff',
     mutedColor: 'rgba(255,255,255,0.68)',
-    bg:         'linear-gradient(135deg, rgba(155,108,255,0.92), rgba(124,72,235,0.90))',
+    bg:         'linear-gradient(160deg, rgba(155,108,255,0.92), rgba(124,72,235,0.90))',
     border:     'none',
     onDark:     true,
     dot:        '#e9d5ff',
@@ -57,13 +56,12 @@ const TYPE_META = {
 };
 const DEFAULT_META = TYPE_META.routine;
 
-// Legend dot colors for the header
-const TYPE_DOT_COLORS = {
-  deep_work: '#818cf8',
-  routine:   '#8896aa',
-  break:     '#fbbf24',
-  workout:   '#fb7185',
-  geo:       '#a78bfa',
+const TAG_CHIP = {
+  deep_work: { bg: 'rgba(78,115,255,0.88)',  color: '#dde5ff', label: 'Deep Work' },
+  routine:   { bg: 'rgba(100,116,138,0.82)', color: '#eef0f4', label: 'Routine'   },
+  break:     { bg: 'rgba(213,152,10,0.90)',  color: '#1a1000', label: 'Break'     },
+  workout:   { bg: 'rgba(232,64,88,0.88)',   color: '#ffe0e4', label: 'Workout'   },
+  geo:       { bg: 'rgba(124,72,235,0.88)',  color: '#ede8ff', label: 'Geo'       },
 };
 
 const MOCK_TASKS = [
@@ -103,8 +101,7 @@ function Panel({ style, children }) {
     <div
       style={{
         borderRadius: 'var(--radius-xl)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        background: 'rgba(255,255,255,0.06)',
+        background: 'rgba(255,255,255,0.05)',
         backdropFilter: 'var(--glass)',
         boxShadow: 'var(--shadow-soft)',
         overflow: 'hidden',
@@ -122,8 +119,7 @@ function Card({ style, children }) {
     <div
       style={{
         borderRadius: 'var(--radius-lg)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        background: 'rgba(255,255,255,0.08)',
+        background: 'rgba(255,255,255,0.09)',
         overflow: 'hidden',
         ...style,
       }}
@@ -152,25 +148,25 @@ function TimelineBlock({ task, done, onToggle, aiGenerated }) {
 
   return (
     <div
+      className="timeline-block"
       style={{
         position: 'absolute',
         left: '58px',
         right: '10px',
         top: `${top}px`,
         height: `${height}px`,
-        borderRadius: '14px',
+        borderRadius: '12px',
         background: done ? 'rgba(255,255,255,0.06)' : meta.bg,
-        border: done ? '1px solid rgba(255,255,255,0.07)' : (meta.border || 'none'),
+        border: 'none',
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
         padding: '0 12px',
         cursor: hasGeo ? 'pointer' : 'default',
         opacity: done ? 0.45 : 1,
-        transition: '150ms ease',
         zIndex: 2,
         overflow: 'hidden',
-        boxShadow: done || !meta.border || meta.border === 'none' ? (done ? 'none' : '0 4px 20px rgba(0,0,0,0.24)') : 'none',
+        boxShadow: done ? 'none' : '0 4px 20px rgba(0,0,0,0.28)',
       }}
       onClick={() => hasGeo && setExpanded((v) => !v)}
     >
@@ -442,22 +438,31 @@ export default function TodayPage() {
               {quote}
             </p>
 
-            {/* legend */}
+            {/* legend chips */}
             <div
               style={{
                 display: 'flex',
-                gap: '14px',
+                gap: '6px',
                 flexWrap: 'wrap',
                 paddingBottom: '14px',
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
               }}
             >
-              {Object.entries(TYPE_DOT_COLORS).map(([key, dotColor]) => (
-                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-                  <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'capitalize' }}>
-                    {key.replace('_', ' ')}
-                  </span>
+              {Object.entries(TAG_CHIP).map(([key, { bg, color, label }]) => (
+                <div
+                  key={key}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '3px 9px',
+                    borderRadius: '6px',
+                    background: bg,
+                    color,
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  {label}
                 </div>
               ))}
             </div>
@@ -499,22 +504,32 @@ export default function TodayPage() {
               </div>
             ) : (
               <div style={{ position: 'relative', height: `${(END_HOUR - START_HOUR) * HOUR_HEIGHT}px` }}>
-                {/* hour rows */}
+                {/* hour labels — no grid lines */}
                 {hours.map((h) => (
                   <div
                     key={h}
                     style={{
                       position: 'absolute',
                       top: `${(h - START_HOUR) * HOUR_HEIGHT}px`,
-                      left: 0, right: 0,
+                      left: 0,
+                      width: '52px',
                       height: `${HOUR_HEIGHT}px`,
-                      display: 'flex', alignItems: 'flex-start',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      paddingTop: '2px',
                     }}
                   >
-                    <div style={{ width: '50px', paddingLeft: '14px', fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.28)', fontVariantNumeric: 'tabular-nums', flexShrink: 0, userSelect: 'none' }}>
+                    <div style={{
+                      paddingLeft: '14px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      color: 'rgba(255,255,255,0.36)',
+                      fontVariantNumeric: 'tabular-nums',
+                      userSelect: 'none',
+                      letterSpacing: '0.01em',
+                    }}>
                       {fmtHour(h)}
                     </div>
-                    <div style={{ flex: 1, height: '1px', marginTop: '7px', background: 'rgba(255,255,255,0.06)', marginRight: '10px' }} />
                   </div>
                 ))}
 
@@ -555,8 +570,8 @@ export default function TodayPage() {
           <div
             style={{
               padding: '12px 16px 16px',
-              borderTop: '1px solid rgba(255,255,255,0.08)',
-              background: 'rgba(255,255,255,0.03)',
+              background: 'rgba(5,3,20,0.55)',
+              backdropFilter: 'blur(20px)',
               flexShrink: 0,
             }}
           >
@@ -567,8 +582,9 @@ export default function TodayPage() {
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openAgentDrawer()}
               style={{
                 borderRadius: '20px',
-                border: '1px solid rgba(255,255,255,0.14)',
+                border: '1px solid rgba(255,255,255,0.18)',
                 background: 'rgba(255,255,255,0.07)',
+                backdropFilter: 'blur(20px) saturate(180%)',
                 padding: '10px 10px 10px 16px',
                 display: 'flex', alignItems: 'center', gap: '10px',
                 cursor: 'text', marginBottom: '10px',
@@ -587,10 +603,11 @@ export default function TodayPage() {
               />
               <button
                 type="button"
+                className="send-btn"
                 onClick={(e) => { e.stopPropagation(); openAgentDrawer(); }}
                 style={{
                   width: '38px', height: '38px', borderRadius: '14px',
-                  border: '1px solid rgba(255,255,255,0.18)',
+                  border: '1px solid rgba(110,231,183,0.28)',
                   background: 'rgba(110,231,183,0.14)',
                   color: 'var(--accent)', cursor: 'pointer',
                   display: 'grid', placeItems: 'center', fontSize: '15px', flexShrink: 0,
@@ -601,24 +618,23 @@ export default function TodayPage() {
             </div>
 
             <button
+              className="submit-btn"
               onClick={handleSubmitFeedback}
               disabled={feedbackDone || submitting}
               style={{
                 width: '100%',
                 padding: '12px',
                 borderRadius: '16px',
-                border: feedbackDone
-                  ? '1px solid rgba(255,255,255,0.10)'
-                  : '1px solid rgba(110,231,183,0.28)',
+                border: 'none',
                 background: feedbackDone
-                  ? 'rgba(255,255,255,0.05)'
-                  : 'rgba(110,231,183,0.12)',
-                color: feedbackDone ? 'var(--muted)' : 'var(--accent)',
+                  ? 'rgba(255,255,255,0.07)'
+                  : 'linear-gradient(135deg, rgba(16,185,129,0.90) 0%, rgba(99,102,241,0.80) 100%)',
+                color: feedbackDone ? 'var(--muted)' : '#ffffff',
                 fontSize: '13px',
-                fontWeight: 600,
+                fontWeight: 700,
+                letterSpacing: '0.02em',
                 cursor: feedbackDone || submitting ? 'not-allowed' : 'pointer',
                 opacity: submitting ? 0.65 : 1,
-                transition: '160ms ease',
               }}
             >
               {feedbackDone ? '✓ Progress submitted for today' : submitting ? 'Submitting…' : "Submit today's progress"}
@@ -632,28 +648,45 @@ export default function TodayPage() {
       {/* right sidebar */}
       {sidebarOpen ? (
         <Panel>
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '10px', gap: '8px' }}>
+          {/* collapse toggle — absolute top-left, flush with panel edge */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            title="Collapse sidebar"
+            style={{
+              position: 'absolute',
+              top: '10px',
+              left: '10px',
+              zIndex: 10,
+              width: '26px',
+              height: '26px',
+              borderRadius: '9px',
+              border: 'none',
+              background: 'rgba(255,255,255,0.10)',
+              color: 'var(--muted)',
+              cursor: 'pointer',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: '16px',
+              transition: '160ms ease',
+            }}
+          >
+            ›
+          </button>
 
-            {/* clock + collapse */}
-            <div style={{ display: 'flex', alignItems: 'stretch', gap: '8px', flexShrink: 0 }}>
-              <Card style={{ flex: 1, minWidth: 0 }}>
-                <LiveClock />
-              </Card>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                title="Collapse sidebar"
-                style={{
-                  width: '32px', flexShrink: 0,
-                  borderRadius: 'var(--radius-lg)',
-                  border: '1px solid rgba(255,255,255,0.10)',
-                  background: 'rgba(255,255,255,0.07)',
-                  color: 'var(--muted)', cursor: 'pointer',
-                  display: 'grid', placeItems: 'center', fontSize: '16px',
-                }}
-              >
-                ›
-              </button>
-            </div>
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '10px',
+            paddingTop: '44px',
+            gap: '8px',
+          }}>
+
+            {/* clock */}
+            <Card style={{ flexShrink: 0 }}>
+              <LiveClock />
+            </Card>
 
             {/* at a glance */}
             <Card style={{ flexShrink: 0 }}>
@@ -671,7 +704,7 @@ export default function TodayPage() {
                     <div style={{ flex: 1, height: '5px', borderRadius: '999px', background: 'rgba(255,255,255,0.10)', overflow: 'hidden' }}>
                       <span style={{ display: 'block', height: '100%', width: `${pct}%`, borderRadius: 'inherit', background: 'linear-gradient(90deg, var(--accent-3), var(--accent-2))' }} />
                     </div>
-                    <strong style={{ whiteSpace: 'nowrap', width: '40px', textAlign: 'right', fontWeight: 600, color: '#fff', fontSize: '10px' }}>{value}</strong>
+                    <strong style={{ whiteSpace: 'nowrap', width: '40px', textAlign: 'right', fontWeight: 600, color: '#fff', fontSize: '10px', fontVariantNumeric: 'tabular-nums' }}>{value}</strong>
                   </div>
                 ))}
               </div>
@@ -695,15 +728,14 @@ export default function TodayPage() {
                       style={{
                         padding: '9px 10px 8px',
                         borderRadius: '12px',
-                        background: 'rgba(255,255,255,0.07)',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(255,255,255,0.10)',
                       }}
                     >
                       <div style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.07em', color: 'var(--muted-2)', textTransform: 'uppercase', marginBottom: '5px' }}>
                         {label}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
-                        <span style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.04em', color: accent, lineHeight: 1 }}>
+                        <span style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.04em', color: accent, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                           {value}
                         </span>
                         <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--muted-2)', letterSpacing: '0.04em' }}>
@@ -716,9 +748,9 @@ export default function TodayPage() {
               </div>
             </Card>
 
-            {/* mood */}
-            <div style={{ flexShrink: 0 }}>
-              <MoodTrack />
+            {/* mood — fills remaining sidebar height */}
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <MoodTrack style={{ height: '100%' }} />
             </div>
 
           </div>
@@ -731,11 +763,12 @@ export default function TodayPage() {
               title="Expand sidebar"
               style={{
                 width: '26px', height: '26px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255,255,255,0.14)',
+                borderRadius: '9px',
+                border: 'none',
                 background: 'rgba(255,255,255,0.09)',
                 color: 'var(--muted)', cursor: 'pointer',
                 display: 'grid', placeItems: 'center', fontSize: '14px',
+                transition: '160ms ease',
               }}
             >
               ‹

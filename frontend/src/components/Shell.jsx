@@ -47,7 +47,6 @@ export default function Shell() {
           borderRadius: '28px',
           overflow: 'hidden',
           position: 'relative',
-          border: '1px solid rgba(255,255,255,0.10)',
           background: 'rgba(8, 5, 24, 0.68)',
           backdropFilter: 'blur(32px) saturate(160%)',
           boxShadow: '0 32px 100px rgba(0,0,0,0.52)',
@@ -64,8 +63,9 @@ export default function Shell() {
             justifyContent: 'space-between',
             gap: '12px',
             padding: '0 20px',
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
-            background: 'rgba(255,255,255,0.03)',
+            boxShadow: '0 1px 0 rgba(255,255,255,0.06)',
+            background: 'rgba(255,255,255,0.04)',
+            backdropFilter: 'blur(20px) saturate(160%)',
           }}
         >
           {/* brand */}
@@ -151,7 +151,7 @@ export default function Shell() {
             >
               <span
                 style={{
-                  width: '7px', height: '7px',
+                  width: '8px', height: '8px',
                   borderRadius: '50%',
                   background: 'var(--accent)',
                   flexShrink: 0,
@@ -177,7 +177,7 @@ export default function Shell() {
             >
               <span
                 style={{
-                  width: '7px', height: '7px',
+                  width: '8px', height: '8px',
                   borderRadius: '50%',
                   background: 'var(--accent)',
                   flexShrink: 0,
@@ -204,10 +204,11 @@ export default function Shell() {
             >
               <span
                 style={{
-                  width: '7px', height: '7px',
+                  width: '8px', height: '8px',
                   borderRadius: '50%',
                   background: isBackendDown ? 'var(--error)' : 'var(--accent-3)',
                   flexShrink: 0,
+                  animation: !isBackendDown ? 'pulse-dot 2.8s ease-in-out infinite' : 'none',
                 }}
               />
               {isBackendDown ? 'Offline' : 'Backend'}

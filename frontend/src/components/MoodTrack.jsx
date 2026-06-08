@@ -14,7 +14,7 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function MoodTrack() {
+export default function MoodTrack({ style }) {
   const [log, setLog]  = useState(storage.getMoodLog());
   const today          = todayStr();
   const todayEntry     = log.find((e) => e.date === today);
@@ -34,9 +34,10 @@ export default function MoodTrack() {
     <section
       style={{
         borderRadius: 'var(--radius-lg)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        background: 'rgba(255,255,255,0.08)',
+        background: 'rgba(255,255,255,0.09)',
         padding: '14px',
+        boxSizing: 'border-box',
+        ...style,
       }}
     >
       {/* header */}

@@ -119,7 +119,11 @@ async def chat(
                 new_message=content,
             ):
                 if event.is_final_response() and event.content and event.content.parts:
-                    reply = event.content.parts[0].text
+                    # parts[0].text can be None when the part is a function call, so scan all parts
+                    for part in event.content.parts:
+                        if getattr(part, "text", None):
+                            reply = part.text
+                            break
                 # Capture plan_schedule / adjust_schedule results to return as pending proposal
                 if event.content and event.content.parts:
                     for part in event.content.parts:
@@ -135,6 +139,9 @@ async def chat(
             llm_ms = (time.perf_counter() - llm_start) * 1000
             _chat_llm_duration.record(llm_ms, {"user.id": body.user_id})
             span.set_attribute("chat.llm_duration_ms", llm_ms)
+            if not reply:
+                _logger.warning(f"[chat] Empty reply for {body.user_id} — no text found in final response events")
+                reply = "I wasn't able to generate a response. Please try again."
         except Exception as e:
             span.record_exception(e)
             _logger.error(f"LLM error for {body.user_id}: {e}")
