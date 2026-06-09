@@ -450,7 +450,9 @@ _genai_client = genai.Client(
 
 
 async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict) -> None:
-    """Save the top-recommended strategy's tasks to daily_schedules collection."""
+    """Save all strategies to daily_schedules. If a confirmed plan already exists for
+    today, only update all_strategies + generated_at so the active plan is preserved."""
+    from datetime import datetime as _datetime
     try:
         top_name = schedule_dict.get("top_recommendation", "")
         strategies = schedule_dict.get("strategies", [])
@@ -460,8 +462,22 @@ async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict)
         )
         if not strategy:
             return
-        tasks = strategy.get("tasks", [])
         db = get_db()
+        now_iso = _datetime.utcnow().isoformat()
+
+        existing = await db[Collections.DAILY_SCHEDULES].find_one(
+            {"user_id": user_id, "date": target_date}, {"confirmed": 1}
+        )
+        if existing and existing.get("confirmed"):
+            # A plan is already confirmed — only refresh the proposal pool so the
+            # proposal bar can show updated strategies without clobbering active tasks.
+            await db[Collections.DAILY_SCHEDULES].update_one(
+                {"user_id": user_id, "date": target_date},
+                {"$set": {"all_strategies": strategies, "generated_at": now_iso}},
+            )
+            return
+
+        tasks = strategy.get("tasks", [])
         await db[Collections.DAILY_SCHEDULES].update_one(
             {"user_id": user_id, "date": target_date},
             {"$set": {
@@ -469,11 +485,50 @@ async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict)
                 "date": target_date,
                 "tasks": tasks,
                 "strategy_name": strategy.get("name", ""),
+                "all_strategies": strategies,
+                "confirmed": False,
+                "generated_at": now_iso,
             }},
             upsert=True,
         )
     except Exception:
         pass  # never block schedule generation
+
+
+@traced_tool("confirm_schedule")
+async def confirm_schedule(user_id: str, strategy_name: str, date: str = "") -> dict:
+    """
+    Save the user-confirmed schedule strategy as the active plan.
+    Call this when the user explicitly confirms which plan they want
+    (e.g., "yes confirm", "let's go with most relaxed", "I want the fastest plan").
+    strategy_name: exactly "Most Productive", "Most Relaxed", or "Fastest"
+    """
+    from datetime import date as _date
+    if not date:
+        date = _date.today().isoformat()
+
+    try:
+        db = get_db()
+        record = await db[Collections.DAILY_SCHEDULES].find_one(
+            {"user_id": user_id, "date": date}
+        )
+        if not record:
+            return {"success": False, "message": "No schedule found for today — call plan_schedule first."}
+
+        all_strategies = record.get("all_strategies", [])
+        strategy = next((s for s in all_strategies if s.get("name") == strategy_name), None)
+        if not strategy:
+            available = [s.get("name") for s in all_strategies]
+            return {"success": False, "message": f"Strategy '{strategy_name}' not found. Available: {available}"}
+
+        tasks = strategy.get("tasks", [])
+        await db[Collections.DAILY_SCHEDULES].update_one(
+            {"user_id": user_id, "date": date},
+            {"$set": {"tasks": tasks, "strategy_name": strategy_name, "confirmed": True}},
+        )
+        return {"success": True, "strategy_name": strategy_name, "task_count": len(tasks)}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
 @traced_tool("plan_schedule")

@@ -132,6 +132,8 @@ export default function ChatPage() {
       const sorted   = list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
       setTasks(sorted);
       storage.setTodaySchedule(sorted);
+      // Reset submission state so user can re-submit progress for the newly confirmed plan
+      storage.setLastFeedbackDate(null);
       showToast('Schedule updated for today');
     } catch {
       showToast('Could not save schedule — please try again.');

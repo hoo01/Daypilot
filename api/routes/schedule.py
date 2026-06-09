@@ -3,7 +3,6 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from schemas import RealtimeInput, RealtimeOutput
 from agents.tools.realtime_tools import adjust_schedule
-from agents.tools.schedule_tools import _persist_schedule
 from agents.memory import MemoryAgent
 from db import get_db
 from db.collections import Collections
@@ -111,11 +110,31 @@ class ScheduleConfirmRequest(BaseModel):
 async def confirm_schedule(body: ScheduleConfirmRequest) -> dict:
     """Persist a pending schedule proposal after user confirmation."""
     today = body.target_date or date.today().isoformat()
+    db = get_db()
     if body.proposal_type == "plan":
-        await _persist_schedule(body.user_id, today, body.proposal)
+        strategies = body.proposal.get("strategies", [])
+        top_name = body.proposal.get("top_recommendation", "")
+        strategy = next(
+            (s for s in strategies if s.get("name") == top_name),
+            strategies[0] if strategies else None,
+        )
+        if not strategy:
+            return {"status": "error", "detail": "strategy not found"}
+        tasks = strategy.get("tasks", [])
+        await db[Collections.DAILY_SCHEDULES].update_one(
+            {"user_id": body.user_id, "date": today},
+            {"$set": {
+                "user_id": body.user_id,
+                "date": today,
+                "tasks": tasks,
+                "strategy_name": top_name,
+                "all_strategies": strategies,
+                "confirmed": True,
+            }},
+            upsert=True,
+        )
     else:
         tasks = body.proposal.get("updated_schedule", [])
-        db = get_db()
         await db[Collections.DAILY_SCHEDULES].update_one(
             {"user_id": body.user_id, "date": today},
             {"$set": {
@@ -123,6 +142,7 @@ async def confirm_schedule(body: ScheduleConfirmRequest) -> dict:
                 "date": today,
                 "tasks": tasks,
                 "strategy_name": "Adjusted",
+                "confirmed": True,
             }},
             upsert=True,
         )

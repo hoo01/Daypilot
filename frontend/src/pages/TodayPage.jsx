@@ -78,7 +78,8 @@ function todayAt(hhmm) {
   return new Date().toISOString().slice(0, 10) + 'T' + hhmm + ':00';
 }
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 function fmtHour(h) {
   return String(h).padStart(2, '0') + ':00';
@@ -421,6 +422,7 @@ export default function TodayPage() {
     try {
       const res = await api.submitFeedback(userId, todayISO(), uncompleted);
       storage.setLastFeedbackDate(todayISO());
+      storage.setTodaySchedule(null);
       setToast(res.message || 'Progress submitted!');
     } catch {
       setToast('Could not submit. Please try again.');
@@ -508,6 +510,31 @@ export default function TodayPage() {
             {loading ? (
               <div style={{ padding: '40px 20px', color: 'var(--muted)', fontSize: '13px', textAlign: 'center' }}>
                 Loading schedule...
+              </div>
+            ) : feedbackDone ? (
+              <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.55 }}>✓</div>
+                <p style={{ fontSize: '15px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+                  Day complete
+                </p>
+                <p style={{ fontSize: '13px', color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 20px' }}>
+                  Great work today. Chat with DayPilot to plan tomorrow.
+                </p>
+                <button
+                  onClick={openAgentDrawer}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '14px',
+                    border: '1px solid rgba(110,231,183,0.35)',
+                    background: 'rgba(110,231,183,0.12)',
+                    color: 'var(--accent)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Plan tomorrow ◆
+                </button>
               </div>
             ) : noSchedule ? (
               <div style={{ padding: '60px 20px', textAlign: 'center' }}>

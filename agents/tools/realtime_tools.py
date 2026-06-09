@@ -1,13 +1,44 @@
 import json
+from datetime import date as _date
 from google import genai
 from config import settings
 import http_client as _http_client
+from db import get_db
+from db.collections import Collections
 from telemetry.instrument import traced_tool
 
 _client = genai.Client(
     api_key=settings.gemini_api_key,
     http_options=genai.types.HttpOptions(httpx_async_client=_http_client.shared_async_client()),
 )
+
+
+@traced_tool("get_today_schedule")
+async def get_today_schedule(user_id: str, date: str = "") -> dict:
+    """
+    Retrieve the user's currently active/confirmed schedule for today.
+    Returns the task list and strategy name. Call this BEFORE adjust_schedule
+    to get the current_schedule argument.
+    """
+    if not date:
+        date = _date.today().isoformat()
+
+    try:
+        db = get_db()
+        record = await db[Collections.DAILY_SCHEDULES].find_one(
+            {"user_id": user_id, "date": date}
+        )
+        if not record:
+            return {"found": False, "tasks": [], "strategy_name": None, "date": date}
+        return {
+            "found": True,
+            "tasks": record.get("tasks", []),
+            "strategy_name": record.get("strategy_name"),
+            "confirmed": record.get("confirmed", False),
+            "date": date,
+        }
+    except Exception as e:
+        return {"found": False, "tasks": [], "strategy_name": None, "date": date, "error": str(e)}
 
 
 
