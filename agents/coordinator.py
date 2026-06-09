@@ -74,7 +74,8 @@ You can call additional tools when needed:
   4. If a location is given (by the user or in the context entry), you MUST include it in the location field of that calendar_event. If no location is given, omit it.
   5. The resulting schedule MUST visibly contain that event as its own task at the stated time. Before telling the user you added it, verify it actually appears in the schedule you generated.
 - get_geo_info: when locations/commute are relevant
-- adjust_schedule: when the user's day changes
+- adjust_schedule: when the user has an EXISTING active schedule for today and something changes mid-day (new event, task overrun, energy drop). Requires the current schedule as input — only use this when you have a schedule to pass.
+- plan_schedule: also use this when rescheduling missed tasks to a future date (no existing schedule needed — it generates a fresh plan)
 - analyze_health: for energy/sleep analysis. Returns energy_level,
   focus_window, cognitive_load_score, and avoid_tasks.
 
@@ -141,8 +142,11 @@ async def _preload_user_context(callback_context: CallbackContext) -> genai_type
                         f"PENDING RESCHEDULE: The user did not complete these tasks yesterday "
                         f"({pending.get('original_date')}): {pending['tasks']}. "
                         f"Suggested reschedule date: {pending.get('suggested_date')}. "
-                        f"If the user confirms, call adjust_schedule to add these tasks to the new date "
-                        f"and then clear pending_reschedule by calling write_entity_to_memory or update via MCP."
+                        f"When the user asks about rescheduling, proactively suggest moving these tasks to "
+                        f"{pending.get('suggested_date')} and ask for confirmation. "
+                        f"If the user confirms, call plan_schedule with target_date={pending.get('suggested_date')} "
+                        f"to generate a new schedule for that day that incorporates the missed tasks. "
+                        f"After presenting the plan, call clear_pending_reschedule to remove this pending item."
                     )
 
             if not isinstance(health, Exception) and health.get("node4_classification"):

@@ -89,7 +89,7 @@ export default function AgentDrawer({ open, onClose }) {
         style={{
           position: 'absolute',
           left: '16px', right: '16px', bottom: '16px',
-          height: drawerHeight != null ? `${drawerHeight}px` : '44%',
+          height: drawerHeight != null ? `${drawerHeight}px` : '68%',
           borderRadius: '26px',
           border: '1px solid rgba(255,255,255,0.14)',
           background: 'rgba(10, 7, 28, 0.82)',
