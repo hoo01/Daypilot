@@ -10,7 +10,7 @@ import LiveClock from '../components/LiveClock';
 
 const HOUR_HEIGHT = 96;
 const START_HOUR  = 6;
-const END_HOUR    = 24;
+const END_HOUR    = 26;
 
 const TYPE_META = {
   deep_work: {
@@ -22,12 +22,12 @@ const TYPE_META = {
     dot:        '#a5b4fc',
   },
   routine: {
-    textColor:  'rgba(255,255,255,0.80)',
-    mutedColor: 'rgba(255,255,255,0.38)',
-    bg:         'rgba(255,255,255,0.07)',
+    textColor:  '#e2e8f0',
+    mutedColor: 'rgba(226,232,240,0.52)',
+    bg:         'linear-gradient(160deg, rgba(100,116,139,0.82), rgba(71,85,105,0.80))',
     border:     'none',
     onDark:     true,
-    dot:        '#8896aa',
+    dot:        '#94a3b8',
   },
   break: {
     textColor:  '#1a1000',
@@ -406,10 +406,7 @@ export default function TodayPage() {
 
   useEffect(() => {
     if (!timelineRef.current) return;
-    const n          = new Date();
-    const currentMin = n.getHours() * 60 + n.getMinutes();
-    const offsetY    = (currentMin - START_HOUR * 60) * (HOUR_HEIGHT / 60) - 80;
-    timelineRef.current.scrollTop = Math.max(0, offsetY);
+    timelineRef.current.scrollTop = 0;
   }, [loading]);
 
   function toggleDone(taskId) {
