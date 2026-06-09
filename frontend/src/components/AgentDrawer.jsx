@@ -12,6 +12,7 @@ export default function AgentDrawer({ open, onClose }) {
   const [input, setInput]     = useState('');
   const [sending, setSending] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState(null); // px; null = use default 44%
+  const [loadingStep, setLoadingStep]   = useState(0);
   const scrollRef             = useRef(null);
   const drawerRef             = useRef(null);
   const dragRef               = useRef(null);
@@ -40,6 +41,20 @@ export default function AgentDrawer({ open, onClose }) {
     dragRef.current = null;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
   }
+
+  const LOADING_STEPS = [
+    'Loading your context…',
+    'Checking your goals…',
+    'Reading your calendar…',
+    'Analyzing your energy…',
+    'Thinking about your day…',
+  ];
+
+  useEffect(() => {
+    if (!sending) { setLoadingStep(0); return; }
+    const id = setInterval(() => setLoadingStep((s) => (s + 1) % LOADING_STEPS.length), 2500);
+    return () => clearInterval(id);
+  }, [sending]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -236,18 +251,23 @@ export default function AgentDrawer({ open, onClose }) {
               <span style={{ display: 'block', fontSize: '10px', letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '7px', fontWeight: 600 }}>
                 ◆ DayPilot
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                {[0, 160, 320].map((delay) => (
-                  <span
-                    key={delay}
-                    style={{
-                      width: '5px', height: '5px', borderRadius: '50%',
-                      background: 'var(--accent)',
-                      display: 'inline-block',
-                      animation: `thinking-bounce 1.2s ease-in-out ${delay}ms infinite`,
-                    }}
-                  />
-                ))}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' }}>
+                  {LOADING_STEPS[loadingStep]}
+                </span>
+                <span style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  {[0, 160, 320].map((delay) => (
+                    <span
+                      key={delay}
+                      style={{
+                        width: '5px', height: '5px', borderRadius: '50%',
+                        background: 'var(--accent)',
+                        display: 'inline-block',
+                        animation: `thinking-bounce 1.2s ease-in-out ${delay}ms infinite`,
+                      }}
+                    />
+                  ))}
+                </span>
               </span>
             </div>
           )}
