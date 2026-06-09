@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { margin: 0; background: #0d0b1e; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, sans-serif; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 700 420" width="700" height="420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <polygon points="0,0 7,2.5 0,5" fill="rgba(255,255,255,0.3)"/>
+    </marker>
+    <marker id="ag" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+      <polygon points="0,0 7,2.5 0,5" fill="#6ee7b7"/>
+    </marker>
+  </defs>
+
+  <!-- FastAPI -->
+  <rect x="250" y="20" width="200" height="44" rx="10" fill="#1a1630" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+  <text x="350" y="47" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="13" font-weight="700">FastAPI  /chat/</text>
+
+  <line x1="350" y1="64" x2="350" y2="86" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- Coordinator -->
+  <rect x="220" y="90" width="260" height="52" rx="12" fill="#1c1a32" stroke="#6ee7b7" stroke-width="2"/>
+  <text x="350" y="112" text-anchor="middle" fill="#6ee7b7" font-size="14" font-weight="800">Coordinator</text>
+  <text x="350" y="130" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="10.5">Gemini 2.5 Flash · Google ADK</text>
+
+  <!-- preload label -->
+  <text x="350" y="164" text-anchor="middle" fill="rgba(110,231,183,0.4)" font-size="10" font-style="italic">before_agent_callback — parallel preload</text>
+
+  <!-- 3 preload arrows -->
+  <line x1="210" y1="142" x2="130" y2="182" stroke="#6ee7b7" stroke-width="1.3" stroke-opacity="0.5" marker-end="url(#ag)"/>
+  <line x1="350" y1="142" x2="350" y2="182" stroke="#6ee7b7" stroke-width="1.3" stroke-opacity="0.5" marker-end="url(#ag)"/>
+  <line x1="490" y1="142" x2="570" y2="182" stroke="#6ee7b7" stroke-width="1.3" stroke-opacity="0.5" marker-end="url(#ag)"/>
+
+  <!-- Preload boxes -->
+  <rect x="44"  y="186" width="170" height="44" rx="9" fill="#141228" stroke="#6ee7b7" stroke-width="1.3" stroke-opacity="0.6"/>
+  <text x="129" y="204" text-anchor="middle" fill="#6ee7b7" font-size="12" font-weight="700">track_goals</text>
+  <text x="129" y="221" text-anchor="middle" fill="rgba(255,255,255,0.28)" font-size="10">Goal progress</text>
+
+  <rect x="265" y="186" width="170" height="44" rx="9" fill="#141228" stroke="#6ee7b7" stroke-width="1.3" stroke-opacity="0.6"/>
+  <text x="350" y="203" text-anchor="middle" fill="#6ee7b7" font-size="12" font-weight="700">get_relationship_context</text>
+  <text x="350" y="221" text-anchor="middle" fill="rgba(255,255,255,0.28)" font-size="10">Events · Suggestions</text>
+
+  <rect x="486" y="186" width="170" height="44" rx="9" fill="#141228" stroke="#6ee7b7" stroke-width="1.3" stroke-opacity="0.6"/>
+  <text x="571" y="204" text-anchor="middle" fill="#6ee7b7" font-size="12" font-weight="700">analyze_health</text>
+  <text x="571" y="221" text-anchor="middle" fill="rgba(255,255,255,0.28)" font-size="10">Energy · Focus window</text>
+
+  <!-- on-demand label -->
+  <text x="350" y="268" text-anchor="middle" fill="rgba(255,255,255,0.20)" font-size="10" font-style="italic">on-demand tools</text>
+
+  <!-- 3 on-demand arrows -->
+  <line x1="290" y1="252" x2="175" y2="283" stroke="rgba(255,255,255,0.22)" stroke-width="1.3" marker-end="url(#a)"/>
+  <line x1="350" y1="252" x2="350" y2="283" stroke="rgba(255,255,255,0.22)" stroke-width="1.3" marker-end="url(#a)"/>
+  <line x1="410" y1="252" x2="525" y2="283" stroke="rgba(255,255,255,0.22)" stroke-width="1.3" marker-end="url(#a)"/>
+
+  <!-- Separator line from coordinator bottom -->
+  <line x1="350" y1="142" x2="350" y2="252" stroke="rgba(255,255,255,0.10)" stroke-width="1" stroke-dasharray="4 3"/>
+
+  <!-- On-demand tool boxes -->
+  <rect x="72"  y="287" width="205" height="44" rx="9" fill="#141228" stroke="#a78bfa" stroke-width="1.3" stroke-opacity="0.6"/>
+  <text x="175" y="305" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="700">plan / adjust_schedule</text>
+  <text x="175" y="322" text-anchor="middle" fill="rgba(255,255,255,0.28)" font-size="10">Multi-strategy schedule JSON</text>
+
+  <rect x="290" y="287" width="120" height="44" rx="9" fill="#141228" stroke="#a78bfa" stroke-width="1.3" stroke-opacity="0.6"/>
+  <text x="350" y="305" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="700">get_geo_info</text>
+  <text x="350" y="322" text-anchor="middle" fill="rgba(255,255,255,0.28)" font-size="10">Routes API</text>
+
+  <rect x="423" y="287" width="205" height="44" rx="9" fill="#141228" stroke="#fbbf24" stroke-width="1.3" stroke-opacity="0.6"/>
+  <text x="525" y="305" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">MongoDB MCP</text>
+  <text x="525" y="322" text-anchor="middle" fill="rgba(255,255,255,0.28)" font-size="10">Knowledge Graph · Memory</text>
+
+  <!-- footer -->
+  <text x="350" y="400" text-anchor="middle" fill="rgba(255,255,255,0.10)" font-size="10" letter-spacing="1.5">DAYPILOT · COORDINATOR STRUCTURE</text>
+</svg>
+</body>
+</html>
