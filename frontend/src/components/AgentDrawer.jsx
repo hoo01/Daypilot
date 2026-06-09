@@ -8,9 +8,8 @@ import { api } from '../utils/api';
 
 export default function AgentDrawer({ open, onClose }) {
   const navigate = useNavigate();
-  const { chatMessages, addMessage } = useStore();
+  const { chatMessages, addMessage, isSending, setIsSending } = useStore();
   const [input, setInput]     = useState('');
-  const [sending, setSending] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState(null); // px; null = use default 44%
   const [loadingStep, setLoadingStep]   = useState(0);
   const scrollRef             = useRef(null);
@@ -51,24 +50,24 @@ export default function AgentDrawer({ open, onClose }) {
   ];
 
   useEffect(() => {
-    if (!sending) { setLoadingStep(0); return; }
+    if (!isSending) { setLoadingStep(0); return; }
     const id = setInterval(() => setLoadingStep((s) => (s + 1) % LOADING_STEPS.length), 2500);
     return () => clearInterval(id);
-  }, [sending]);
+  }, [isSending]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatMessages, open, sending]);
+  }, [chatMessages, open, isSending]);
 
   async function send() {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || isSending) return;
     const userId    = storage.getUserId();
     const sessionId = storage.getSessionId();
     setInput('');
-    setSending(true);
+    setIsSending(true);
     addMessage({ role: 'user', text });
     try {
       const res = await api.chat(userId, text, sessionId);
@@ -77,7 +76,7 @@ export default function AgentDrawer({ open, onClose }) {
     } catch {
       addMessage({ role: 'agent', text: 'Sorry, something went wrong. Try again.' });
     } finally {
-      setSending(false);
+      setIsSending(false);
     }
   }
 
@@ -101,18 +100,15 @@ export default function AgentDrawer({ open, onClose }) {
       <div
         ref={drawerRef}
         aria-hidden={!open}
+        className={`agent-drawer${isSending ? ' thinking' : ''}`}
         style={{
           position: 'absolute',
           left: '16px', right: '16px', bottom: '16px',
           height: drawerHeight != null ? `${drawerHeight}px` : '68%',
           borderRadius: '26px',
-          border: '1px solid rgba(255,255,255,0.14)',
-          background: 'rgba(10, 7, 28, 0.82)',
-          backdropFilter: 'blur(28px) saturate(180%)',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.50)',
           transform: open ? 'translateY(0)' : 'translateY(112%)',
           opacity: open ? 1 : 0,
-          transition: 'transform 280ms ease, opacity 250ms ease',
+          transition: 'transform 280ms ease, opacity 250ms ease, border-color 350ms ease, box-shadow 350ms ease',
           zIndex: 25,
           overflow: 'hidden',
           display: 'flex',
@@ -240,14 +236,17 @@ export default function AgentDrawer({ open, onClose }) {
               )}
             </div>
           ))}
-          {sending && (
-            <div style={{
-              alignSelf: 'flex-start',
-              padding: '10px 14px',
-              borderRadius: '16px',
-              border: '1px solid rgba(110,231,183,0.18)',
-              background: 'rgba(110,231,183,0.06)',
-            }}>
+          {isSending && (
+            <div
+              className="thinking-bubble"
+              style={{
+                alignSelf: 'flex-start',
+                padding: '10px 14px',
+                borderRadius: '16px',
+                border: '1px solid rgba(110,231,183,0.18)',
+                background: 'rgba(110,231,183,0.06)',
+              }}
+            >
               <span style={{ display: 'block', fontSize: '10px', letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '7px', fontWeight: 600 }}>
                 ◆ DayPilot
               </span>
@@ -303,14 +302,14 @@ export default function AgentDrawer({ open, onClose }) {
             />
             <button
               onClick={send}
-              disabled={sending || !input.trim()}
+              disabled={isSending || !input.trim()}
               style={{
                 width: '40px', height: '40px', borderRadius: '14px',
                 border: '1px solid rgba(110,231,183,0.28)',
                 background: 'rgba(110,231,183,0.12)',
                 color: 'var(--accent)', cursor: 'pointer',
                 display: 'grid', placeItems: 'center', fontSize: '16px', flexShrink: 0,
-                opacity: sending || !input.trim() ? 0.40 : 1,
+                opacity: isSending || !input.trim() ? 0.40 : 1,
                 transition: '160ms ease',
               }}
             >

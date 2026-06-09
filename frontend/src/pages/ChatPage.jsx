@@ -12,9 +12,8 @@ const FEEDBACK_TRIGGER_MSG =
 export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { chatMessages, addMessage, setTasks } = useStore();
+  const { chatMessages, addMessage, setTasks, isSending, setIsSending } = useStore();
   const [input, setInput]               = useState('');
-  const [sending, setSending]           = useState(false);
   const [loadingStep, setLoadingStep]   = useState(0);
   const [pendingProposal, setPendingProposal] = useState(null);
   const [selectedStrategy, setSelectedStrategy] = useState(null);
@@ -34,16 +33,16 @@ export default function ChatPage() {
   ];
 
   useEffect(() => {
-    if (!sending) { setLoadingStep(0); return; }
+    if (!isSending) { setLoadingStep(0); return; }
     const id = setInterval(() => setLoadingStep((s) => (s + 1) % LOADING_STEPS.length), 2500);
     return () => clearInterval(id);
-  }, [sending]);
+  }, [isSending]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatMessages, sending]);
+  }, [chatMessages, isSending]);
 
   useEffect(() => { return () => clearTimeout(toastTimerRef.current); }, []);
 
@@ -63,9 +62,9 @@ export default function ChatPage() {
     if (trigger === 'proactive' && !triggeredRef.current) {
       triggeredRef.current = true;
       navigate('/chat', { replace: true });
-      setSending(true);
+      setIsSending(true);
       setTimeout(() => {
-        setSending(false);
+        setIsSending(false);
         addMessage({
           role: 'agent',
           text: "Looks like you're still home — did dinner with Mia get rescheduled? Want me to find another time this week?",
@@ -77,7 +76,7 @@ export default function ChatPage() {
   const AFFIRM_RE = /^(yes|yeah|yep|yup|ok|okay|sure|confirm|go ahead|do it|sounds good|great|perfect|let'?s do it|y)\s*[!.]?$/i;
 
   async function sendMessage(text) {
-    if (!text || sending) return;
+    if (!text || isSending) return;
 
     // When a proposal is waiting and the user affirms, confirm directly instead of re-asking the LLM
     if (pendingProposal && AFFIRM_RE.test(text.trim())) {
@@ -89,7 +88,7 @@ export default function ChatPage() {
     const userId    = storage.getUserId();
     const sessionId = storage.getSessionId();
     addMessage({ role: 'user', text });
-    setSending(true);
+    setIsSending(true);
     setPendingProposal(null);
     try {
       const res = await api.chat(userId, text, sessionId);
@@ -102,7 +101,7 @@ export default function ChatPage() {
     } catch {
       addMessage({ role: 'agent', text: 'Sorry, something went wrong. Please try again.' });
     } finally {
-      setSending(false);
+      setIsSending(false);
     }
   }
 
@@ -163,13 +162,11 @@ export default function ChatPage() {
 
   return (
     <div
+      className="floating-panel"
       style={{
         height: '100%',
         borderRadius: 'var(--radius-xl)',
-        border: '1px solid rgba(255,255,255,0.10)',
         background: 'rgba(255,255,255,0.06)',
-        backdropFilter: 'var(--glass)',
-        boxShadow: 'var(--shadow-soft)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -225,7 +222,7 @@ export default function ChatPage() {
         ref={scrollRef}
         style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}
       >
-        {chatMessages.length === 0 && !sending && (
+        {chatMessages.length === 0 && !isSending && (
           <div style={{ textAlign: 'center', marginTop: '60px' }}>
             <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.35 }}>◆</div>
             <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: 1.6 }}>
@@ -292,8 +289,9 @@ export default function ChatPage() {
           </div>
         ))}
 
-        {sending && (
+        {isSending && (
           <div
+            className="thinking-bubble"
             style={{
               alignSelf: 'flex-start',
               padding: '12px 16px',
@@ -473,7 +471,7 @@ export default function ChatPage() {
           />
           <button
             onClick={handleSend}
-            disabled={sending || !input.trim()}
+            disabled={isSending || !input.trim()}
             style={{
               width: '42px', height: '42px', borderRadius: '16px',
               border: '1px solid rgba(110,231,183,0.30)',
@@ -481,7 +479,7 @@ export default function ChatPage() {
               color: 'var(--accent)',
               cursor: 'pointer',
               display: 'grid', placeItems: 'center', fontSize: '16px', flexShrink: 0,
-              opacity: sending || !input.trim() ? 0.4 : 1,
+              opacity: isSending || !input.trim() ? 0.4 : 1,
               transition: '160ms ease',
             }}
           >

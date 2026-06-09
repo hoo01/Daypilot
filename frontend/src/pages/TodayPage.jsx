@@ -99,11 +99,9 @@ function fmtTime(isoString) {
 function Panel({ style, children }) {
   return (
     <div
+      className="floating-panel"
       style={{
         borderRadius: 'var(--radius-xl)',
-        background: 'rgba(255,255,255,0.05)',
-        backdropFilter: 'var(--glass)',
-        boxShadow: 'var(--shadow-soft)',
         overflow: 'hidden',
         position: 'relative',
         ...style,
