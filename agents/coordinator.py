@@ -69,10 +69,16 @@ You can call additional tools when needed:
   generates detailed schedule options with health/goal/geo context.
   CRITICAL rules for calendar_events:
   1. Whenever the user mentions a specific event (e.g. "doctor appointment 3-4pm", "ML class at the library"), you MUST pass it as a SEPARATE calendar_event entry in the calendar_events argument — never merge it into a generic study/personal/break block.
-  2. ALSO check <user_context> for "Upcoming events" happening TODAY (days_away: 0) — even if the user did NOT mention them in this message (e.g. user just says "plan my day"). Any such event with a stated time MUST also be passed as its own calendar_event entry. This is the core "DayPilot already knows" behavior — never silently drop a known event from today's plan just because the user didn't restate it.
-  3. Use the exact title from the user's wording or the context entry (e.g. "Doctor Appointment", "ML Class"). Never use generic labels like "Event".
-  4. If a location is given (by the user or in the context entry), you MUST include it in the location field of that calendar_event. If no location is given, omit it.
-  5. The resulting schedule MUST visibly contain that event as its own task at the stated time. Before telling the user you added it, verify it actually appears in the schedule you generated.
+  2. Whenever the user says they want to finish, complete, or work on a NAMED task (e.g. "I want to finish assignment7", "I need to do the lab report"), treat that task as a NEW calendar_event — do NOT assume it is the same as any existing goal. Use the user's exact wording as the title. Translate vague time expressions to concrete times on today's date:
+     - "this morning" → 08:00–12:00
+     - "this afternoon" → 12:00–17:00
+     - "tonight" / "this evening" → 18:00–22:00
+     - "now" / unspecified → current hour + 2 hours
+     If no duration is given, default to 2 hours. Pass the result as a calendar_event entry.
+  3. ALSO check <user_context> for "Upcoming events" happening TODAY (days_away: 0) — even if the user did NOT mention them in this message (e.g. user just says "plan my day"). Any such event with a stated time MUST also be passed as its own calendar_event entry. This is the core "DayPilot already knows" behavior — never silently drop a known event from today's plan just because the user didn't restate it.
+  4. Use the exact title from the user's wording or the context entry (e.g. "Doctor Appointment", "ML Class"). Never use generic labels like "Event".
+  5. If a location is given (by the user or in the context entry), you MUST include it in the location field of that calendar_event. If no location is given, omit it.
+  6. The resulting schedule MUST visibly contain that event as its own task at the stated time. Before telling the user you added it, verify it actually appears in the schedule you generated.
 - get_geo_info: when locations/commute are relevant
 - adjust_schedule: when the user has an EXISTING active schedule for today and something changes mid-day (new event, task overrun, energy drop). Requires the current schedule as input — only use this when you have a schedule to pass.
 - plan_schedule: also use this when rescheduling missed tasks to a future date (no existing schedule needed — it generates a fresh plan)
