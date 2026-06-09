@@ -194,3 +194,77 @@ input  { font-family: inherit; }
     0 4px 32px rgba(110, 231, 183, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
+
+/* ─── Floating panel (TodayPage panels, ChatPage container) ── */
+.floating-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: var(--shadow-soft);
+  transition: border-color 0.35s ease, box-shadow 0.35s ease;
+}
+.floating-panel:hover {
+  border-color: rgba(110, 231, 183, 0.22);
+  box-shadow:
+    var(--shadow-soft),
+    0 0 0 1px rgba(110, 231, 183, 0.15),
+    0 0 28px rgba(110, 231, 183, 0.08);
+}
+
+/* ─── Agent drawer base + hover glow ─────────────────────── */
+.agent-drawer {
+  background: rgba(10, 7, 28, 0.82);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.50);
+}
+.agent-drawer:not(.thinking):hover {
+  border-color: rgba(110, 231, 183, 0.28);
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.50),
+    0 0 0 1px rgba(110, 231, 183, 0.22),
+    0 0 40px rgba(110, 231, 183, 0.14);
+}
+
+/* ─── Breathing glow: drawer thinking state ───────────────── */
+@keyframes accentBreath {
+  0%, 100% {
+    box-shadow:
+      0 32px 80px rgba(0, 0, 0, 0.50),
+      0 0 0 1px rgba(110, 231, 183, 0.22),
+      0 0 18px rgba(110, 231, 183, 0.07);
+    border-color: rgba(110, 231, 183, 0.22);
+  }
+  50% {
+    box-shadow:
+      0 32px 80px rgba(0, 0, 0, 0.50),
+      0 0 0 1px rgba(110, 231, 183, 0.60),
+      0 0 40px rgba(110, 231, 183, 0.22),
+      0 0 70px rgba(110, 231, 183, 0.08);
+    border-color: rgba(110, 231, 183, 0.50);
+  }
+}
+
+.agent-drawer.thinking {
+  animation: accentBreath 2.8s ease-in-out infinite;
+}
+
+/* ─── Breathing glow: thinking bubble ────────────────────── */
+@keyframes bubbleBreath {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(110, 231, 183, 0.15),
+      0 2px 12px rgba(110, 231, 183, 0.06);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(110, 231, 183, 0.55),
+      0 0 28px rgba(110, 231, 183, 0.22);
+  }
+}
+
+.thinking-bubble {
+  animation: bubbleBreath 2.8s ease-in-out infinite;
+}
