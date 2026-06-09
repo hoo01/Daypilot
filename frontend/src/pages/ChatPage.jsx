@@ -15,6 +15,7 @@ export default function ChatPage() {
   const { chatMessages, addMessage, setTasks } = useStore();
   const [input, setInput]               = useState('');
   const [sending, setSending]           = useState(false);
+  const [loadingStep, setLoadingStep]   = useState(0);
   const [pendingProposal, setPendingProposal] = useState(null);
   const [selectedStrategy, setSelectedStrategy] = useState(null);
   const [proposalInput, setProposalInput]     = useState('');
@@ -23,6 +24,20 @@ export default function ChatPage() {
   const scrollRef    = useRef(null);
   const triggeredRef = useRef(false);
   const toastTimerRef = useRef(null);
+
+  const LOADING_STEPS = [
+    'Loading your context…',
+    'Checking your goals…',
+    'Reading your calendar…',
+    'Analyzing your energy…',
+    'Thinking about your day…',
+  ];
+
+  useEffect(() => {
+    if (!sending) { setLoadingStep(0); return; }
+    const id = setInterval(() => setLoadingStep((s) => (s + 1) % LOADING_STEPS.length), 2500);
+    return () => clearInterval(id);
+  }, [sending]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -44,6 +59,18 @@ export default function ChatPage() {
       triggeredRef.current = true;
       navigate('/chat', { replace: true });
       sendMessage(FEEDBACK_TRIGGER_MSG);
+    }
+    if (trigger === 'proactive' && !triggeredRef.current) {
+      triggeredRef.current = true;
+      navigate('/chat', { replace: true });
+      setSending(true);
+      setTimeout(() => {
+        setSending(false);
+        addMessage({
+          role: 'agent',
+          text: "Looks like you're still home — did dinner with Mia get rescheduled? Want me to find another time this week?",
+        });
+      }, 2200);
     }
   }, []);
 
@@ -279,18 +306,23 @@ export default function ChatPage() {
             <span style={{ display: 'block', fontSize: '11px', letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '8px', fontWeight: 600 }}>
               ◆ DayPilot
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              {[0, 160, 320].map((delay) => (
-                <span
-                  key={delay}
-                  style={{
-                    width: '6px', height: '6px', borderRadius: '50%',
-                    background: 'var(--accent)',
-                    display: 'inline-block',
-                    animation: `thinking-bounce 1.2s ease-in-out ${delay}ms infinite`,
-                  }}
-                />
-              ))}
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic', transition: 'opacity 400ms ease' }}>
+                {LOADING_STEPS[loadingStep]}
+              </span>
+              <span style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                {[0, 160, 320].map((delay) => (
+                  <span
+                    key={delay}
+                    style={{
+                      width: '5px', height: '5px', borderRadius: '50%',
+                      background: 'var(--accent)',
+                      display: 'inline-block',
+                      animation: `thinking-bounce 1.2s ease-in-out ${delay}ms infinite`,
+                    }}
+                  />
+                ))}
+              </span>
             </span>
           </div>
         )}
