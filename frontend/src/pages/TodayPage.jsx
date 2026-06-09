@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import { api } from '../utils/api';
 import { storage } from '../utils/storage';
 import { getDailyQuote } from '../utils/quotes';
-import MoodTrack from '../components/MoodTrack';
+import MapCommute from '../components/MapCommute';
 import Toast from '../components/Toast';
 import LiveClock from '../components/LiveClock';
 
@@ -16,40 +16,40 @@ const TYPE_META = {
   deep_work: {
     textColor:  '#ffffff',
     mutedColor: 'rgba(255,255,255,0.68)',
-    bg:         'linear-gradient(160deg, rgba(78,115,255,0.94), rgba(50,80,220,0.90))',
-    border:     'none',
+    bg:         'linear-gradient(160deg, rgba(78,115,255,0.78), rgba(50,80,220,0.72))',
+    border:     '1px solid rgba(130,160,255,0.24)',
     onDark:     true,
     dot:        '#a5b4fc',
   },
   routine: {
-    textColor:  '#e2e8f0',
-    mutedColor: 'rgba(226,232,240,0.52)',
-    bg:         'linear-gradient(160deg, rgba(100,116,139,0.82), rgba(71,85,105,0.80))',
-    border:     'none',
+    textColor:  '#c8d8f0',
+    mutedColor: 'rgba(200,216,240,0.52)',
+    bg:         'linear-gradient(160deg, rgba(36,50,80,0.82), rgba(24,36,66,0.78))',
+    border:     '1px solid rgba(255,255,255,0.09)',
     onDark:     true,
-    dot:        '#94a3b8',
+    dot:        '#6e86b4',
   },
   break: {
     textColor:  '#1a1000',
     mutedColor: 'rgba(26,16,0,0.52)',
-    bg:         'linear-gradient(160deg, rgba(255,192,70,0.95), rgba(240,165,42,0.93))',
-    border:     'none',
+    bg:         'linear-gradient(160deg, rgba(255,192,70,0.88), rgba(240,165,42,0.84))',
+    border:     '1px solid rgba(255,200,90,0.28)',
     onDark:     false,
     dot:        '#451a03',
   },
   workout: {
     textColor:  '#ffffff',
     mutedColor: 'rgba(255,255,255,0.68)',
-    bg:         'linear-gradient(160deg, rgba(251,96,112,0.92), rgba(220,55,78,0.90))',
-    border:     'none',
+    bg:         'linear-gradient(160deg, rgba(251,96,112,0.82), rgba(220,55,78,0.78))',
+    border:     '1px solid rgba(255,130,140,0.24)',
     onDark:     true,
     dot:        '#fecdd3',
   },
   geo: {
     textColor:  '#ffffff',
     mutedColor: 'rgba(255,255,255,0.68)',
-    bg:         'linear-gradient(160deg, rgba(155,108,255,0.92), rgba(124,72,235,0.90))',
-    border:     'none',
+    bg:         'linear-gradient(160deg, rgba(155,108,255,0.82), rgba(124,72,235,0.78))',
+    border:     '1px solid rgba(185,145,255,0.24)',
     onDark:     true,
     dot:        '#e9d5ff',
   },
@@ -116,9 +116,10 @@ function Panel({ style, children }) {
 function Card({ style, children }) {
   return (
     <div
+      className="sidebar-card"
       style={{
         borderRadius: 'var(--radius-lg)',
-        background: 'rgba(255,255,255,0.09)',
+        background: 'rgba(255,255,255,0.05)',
         overflow: 'hidden',
         ...style,
       }}
@@ -130,7 +131,38 @@ function Card({ style, children }) {
 
 const GEO_EXPANDED_HEIGHT = 88;
 
-function TimelineBlock({ task, done, onToggle, aiGenerated, expanded, onToggleExpand, topOffset = 0 }) {
+function assignColumns(tasks) {
+  const assignments = new Map();
+  const valid = tasks.filter(t => toMinutes(t.start_time || t.scheduled_time) !== null);
+  const sorted = [...valid].sort((a, b) =>
+    (toMinutes(a.start_time || a.scheduled_time) ?? 0) - (toMinutes(b.start_time || b.scheduled_time) ?? 0)
+  );
+  const colEnds = [];
+  for (const task of sorted) {
+    const s = toMinutes(task.start_time || task.scheduled_time) ?? 0;
+    const e = toMinutes(task.end_time) ?? (s + 40);
+    let col = colEnds.findIndex(end => end <= s);
+    if (col === -1) col = colEnds.length;
+    colEnds[col] = e;
+    assignments.set(task.task_id, { col, totalCols: 1 });
+  }
+  for (const task of sorted) {
+    const s = toMinutes(task.start_time || task.scheduled_time) ?? 0;
+    const e = toMinutes(task.end_time) ?? (s + 40);
+    let maxCol = assignments.get(task.task_id)?.col ?? 0;
+    for (const other of sorted) {
+      if (other.task_id === task.task_id) continue;
+      const os = toMinutes(other.start_time || other.scheduled_time) ?? 0;
+      const oe = toMinutes(other.end_time) ?? (os + 40);
+      if (os < e && oe > s) maxCol = Math.max(maxCol, assignments.get(other.task_id)?.col ?? 0);
+    }
+    const info = assignments.get(task.task_id);
+    if (info) info.totalCols = maxCol + 1;
+  }
+  return assignments;
+}
+
+function TimelineBlock({ task, done, onToggle, aiGenerated, expanded, onToggleExpand, topOffset = 0, col = 0, totalCols = 1 }) {
   const meta = TYPE_META[task.type] ?? DEFAULT_META;
 
   const startMin = toMinutes(task.start_time || task.scheduled_time);
@@ -147,25 +179,37 @@ function TimelineBlock({ task, done, onToggle, aiGenerated, expanded, onToggleEx
   const height      = baseHeight + (expanded ? GEO_EXPANDED_HEIGHT : 0);
   const hasGeo      = Boolean(task.geo_segment);
 
+  const GAP = 3;
+  const totalGap = (totalCols - 1) * GAP;
+  const colBase = `(100% - ${68 + totalGap}px) / ${totalCols}`;
+  const blockLeft = totalCols <= 1 || col === 0
+    ? '58px'
+    : `calc(58px + ${col} * (${colBase} + ${GAP}px))`;
+  const blockRight = totalCols <= 1 || col === totalCols - 1
+    ? '10px'
+    : `calc(10px + ${totalCols - 1 - col} * (${colBase} + ${GAP}px))`;
+
   return (
     <div
       className="timeline-block"
       style={{
         position: 'absolute',
-        left: '58px',
-        right: '10px',
+        left: blockLeft,
+        right: blockRight,
         top: `${top}px`,
         height: `${height}px`,
         borderRadius: '12px',
-        background: done ? 'rgba(255,255,255,0.06)' : meta.bg,
-        border: 'none',
+        background: done ? 'rgba(255,255,255,0.04)' : meta.bg,
+        border: done ? '1px solid rgba(255,255,255,0.07)' : meta.border,
+        backdropFilter: 'blur(8px) saturate(130%)',
+        WebkitBackdropFilter: 'blur(8px) saturate(130%)',
         display: 'flex',
         flexDirection: 'column',
         cursor: hasGeo ? 'pointer' : 'default',
-        opacity: done ? 0.45 : 1,
+        opacity: done ? 0.42 : 1,
         zIndex: 2,
         overflow: 'hidden',
-        boxShadow: done ? 'none' : '0 4px 20px rgba(0,0,0,0.28)',
+        boxShadow: done ? 'none' : '0 4px 22px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.12)',
       }}
       onClick={() => hasGeo && onToggleExpand?.()}
     >
@@ -461,7 +505,7 @@ export default function TodayPage() {
                 marginBottom: '4px',
               }}
             >
-              <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.04em', margin: 0, color: '#fff' }}>
+              <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '0.04em', margin: 0, color: '#fff' }}>
                 Today's Schedule
               </h1>
               <span style={{ fontSize: '11px', color: 'var(--muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
@@ -619,10 +663,12 @@ export default function TodayPage() {
                   const expandedStartMin = expandedTask
                     ? (toMinutes(expandedTask.start_time || expandedTask.scheduled_time) ?? -Infinity)
                     : -Infinity;
+                  const colAssignments = assignColumns(displayTasks);
                   return displayTasks.map((task) => {
                     const thisMin = toMinutes(task.start_time || task.scheduled_time) ?? 0;
                     const topOffset = (expandedTask && task.task_id !== expandedGeoTaskId && thisMin > expandedStartMin)
                       ? GEO_EXPANDED_HEIGHT : 0;
+                    const colInfo = colAssignments.get(task.task_id);
                     return (
                       <TimelineBlock
                         key={task.task_id}
@@ -633,6 +679,8 @@ export default function TodayPage() {
                         expanded={task.task_id === expandedGeoTaskId}
                         onToggleExpand={() => setExpandedGeoTaskId(prev => prev === task.task_id ? null : task.task_id)}
                         topOffset={topOffset}
+                        col={colInfo?.col ?? 0}
+                        totalCols={colInfo?.totalCols ?? 1}
                       />
                     );
                   });
@@ -793,29 +841,77 @@ export default function TodayPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
                   {[
-                    { label: 'Heart Rate', value: '68',    unit: 'BPM',     accent: '#f87171' },
-                    { label: 'Hydration',  value: '5 / 8', unit: 'GLASSES', accent: '#60a5fa' },
-                    { label: 'Sleep',      value: '7.5',   unit: 'HRS',     accent: '#a78bfa' },
-                    { label: 'Steps',      value: '4,230', unit: 'TODAY',   accent: 'var(--accent-3)' },
-                  ].map(({ label, value, unit, accent }) => (
+                    {
+                      label: 'Sleep', value: '7.5', unit: 'h', sub: '-0.5h vs avg',
+                      accent: '#a78bfa', bg: 'rgba(167,139,250,0.10)', border: 'rgba(167,139,250,0.22)',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                          <path d="M3 8a5 5 0 0 0 9.93 1A5.5 5.5 0 0 1 7 3.07 5 5 0 0 0 3 8z" stroke="#a78bfa" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      ),
+                    },
+                    {
+                      label: 'Energy', value: '72', unit: '/100', sub: 'Moderate',
+                      accent: '#6ee7b7', bg: 'rgba(110,231,183,0.10)', border: 'rgba(110,231,183,0.28)',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                          <circle cx="8" cy="8" r="5.5" stroke="#6ee7b7" strokeWidth="1.3"/>
+                          <circle cx="8" cy="8" r="3" stroke="#6ee7b7" strokeWidth="1.3"/>
+                          <circle cx="8" cy="8" r="1" fill="#6ee7b7"/>
+                        </svg>
+                      ),
+                    },
+                    {
+                      label: 'Focus', value: '9PM', unit: '', sub: 'to 1AM · best time',
+                      accent: '#60a5fa', bg: 'rgba(96,165,250,0.08)', border: 'rgba(96,165,250,0.20)',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                          <path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2z" stroke="#60a5fa" strokeWidth="1.3"/>
+                          <path d="M5 8l2 2 4-4" stroke="#60a5fa" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      ),
+                    },
+                    {
+                      label: 'Tasks', value: '3', unit: '/10', sub: 'This week',
+                      accent: '#fb923c', bg: 'rgba(251,146,60,0.08)', border: 'rgba(251,146,60,0.20)',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                          <circle cx="8" cy="8" r="3" stroke="#fb923c" strokeWidth="1.3"/>
+                          <path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="#fb923c" strokeWidth="1.3" strokeLinecap="round"/>
+                        </svg>
+                      ),
+                    },
+                  ].map(({ label, value, unit, sub, accent, bg, border, icon }) => (
                     <div
                       key={label}
+                      className="health-card"
                       style={{
-                        padding: '9px 10px 8px',
+                        padding: '9px 9px 8px',
                         borderRadius: '12px',
-                        background: 'rgba(255,255,255,0.10)',
+                        background: bg,
+                        border: `1px solid ${border}`,
+                        backdropFilter: 'blur(10px) saturate(150%)',
+                        WebkitBackdropFilter: 'blur(10px) saturate(150%)',
                       }}
                     >
-                      <div style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.07em', color: 'var(--muted-2)', textTransform: 'uppercase', marginBottom: '5px' }}>
-                        {label}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em', color: accent, textTransform: 'uppercase' }}>
+                          {label}
+                        </div>
+                        {icon}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
-                        <span style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.04em', color: accent, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+                        <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.03em', color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                           {value}
                         </span>
-                        <span style={{ fontSize: '9px', fontWeight: 600, color: 'var(--muted-2)', letterSpacing: '0.04em' }}>
-                          {unit}
-                        </span>
+                        {unit && (
+                          <span style={{ fontSize: '9px', fontWeight: 600, color: accent, letterSpacing: '0.04em' }}>
+                            {unit}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '9px', color: 'var(--muted-2)', marginTop: '3px', lineHeight: 1.3 }}>
+                        {sub}
                       </div>
                     </div>
                   ))}
@@ -823,9 +919,9 @@ export default function TodayPage() {
               </div>
             </Card>
 
-            {/* mood — fills remaining sidebar height */}
+            {/* map & commute */}
             <div style={{ flex: 1, minHeight: 0 }}>
-              <MoodTrack style={{ height: '100%' }} />
+              <MapCommute tasks={displayTasks} style={{ height: '100%' }} />
             </div>
 
           </div>

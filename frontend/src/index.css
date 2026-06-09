@@ -268,3 +268,150 @@ input  { font-family: inherit; }
 .thinking-bubble {
   animation: bubbleBreath 2.8s ease-in-out infinite;
 }
+
+/* ─── Strategy card selected glow (per-color breathing) ──── */
+@keyframes strat-glow-green {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(110,231,183,0.38),
+      0 4px 28px rgba(110,231,183,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(110,231,183,0.62),
+      0 8px 40px rgba(110,231,183,0.26),
+      inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+}
+@keyframes strat-glow-purple {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(167,139,250,0.38),
+      0 4px 28px rgba(167,139,250,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(167,139,250,0.62),
+      0 8px 40px rgba(167,139,250,0.26),
+      inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+}
+@keyframes strat-glow-amber {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(245,158,11,0.38),
+      0 4px 28px rgba(245,158,11,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(245,158,11,0.62),
+      0 8px 40px rgba(245,158,11,0.26),
+      inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+}
+
+.strat-card-selected-green  { animation: strat-glow-green  2.6s ease-in-out infinite; }
+.strat-card-selected-purple { animation: strat-glow-purple 2.6s ease-in-out infinite; }
+.strat-card-selected-amber  { animation: strat-glow-amber  2.6s ease-in-out infinite; }
+
+/* ─── Strategy card base hover (non-selected state) ──────── */
+.strat-base-green,
+.strat-base-purple,
+.strat-base-amber {
+  transition: box-shadow 220ms ease, border-color 180ms ease, background 160ms ease;
+}
+.strat-base-green:not(.strat-card-selected-green):hover {
+  box-shadow: 0 0 0 1px rgba(110,231,183,0.45), 0 6px 32px rgba(110,231,183,0.18), inset 0 1px 0 rgba(255,255,255,0.09);
+}
+.strat-base-purple:not(.strat-card-selected-purple):hover {
+  box-shadow: 0 0 0 1px rgba(167,139,250,0.45), 0 6px 32px rgba(167,139,250,0.18), inset 0 1px 0 rgba(255,255,255,0.09);
+}
+.strat-base-amber:not(.strat-card-selected-amber):hover {
+  box-shadow: 0 0 0 1px rgba(245,158,11,0.45),  0 6px 32px rgba(245,158,11,0.18),  inset 0 1px 0 rgba(255,255,255,0.09);
+}
+
+/* ─── Sidebar cards glass + hover ────────────────────────── */
+.sidebar-card {
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  border: 1px solid rgba(255,255,255,0.10);
+  transition: border-color 240ms ease, box-shadow 240ms ease;
+}
+.sidebar-card:hover {
+  border-color: rgba(110,231,183,0.24);
+  box-shadow:
+    0 0 0 1px rgba(110,231,183,0.12),
+    0 6px 32px rgba(0,0,0,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* ─── Health metric card hover ────────────────────────────── */
+.health-card {
+  transition: filter 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+.health-card:hover {
+  filter: brightness(1.14);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.28);
+}
+
+/* ─── Compose area hover + focus-within glow ─────────────── */
+.compose-area {
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.compose-area:hover,
+.compose-area:focus-within {
+  border-color: rgba(110,231,183,0.34) !important;
+  box-shadow: 0 0 0 1px rgba(110,231,183,0.14), 0 4px 24px rgba(110,231,183,0.06);
+}
+
+/* ─── Proposal modify input hover + focus ─────────────────── */
+.proposal-input {
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.proposal-input:hover,
+.proposal-input:focus {
+  border-color: rgba(255,255,255,0.30) !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.09) !important;
+  outline: none;
+}
+
+/* ─── Cancel button hover ─────────────────────────────────── */
+.cancel-btn {
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.cancel-btn:hover {
+  background: rgba(255,255,255,0.11) !important;
+  border-color: rgba(255,255,255,0.26) !important;
+  color: #fff !important;
+}
+
+/* ─── Choose Plan button hover ────────────────────────────── */
+.choose-plan-btn {
+  transition: filter 180ms ease, box-shadow 180ms ease !important;
+}
+.choose-plan-btn:hover:not(:disabled) {
+  filter: brightness(1.14);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.28) !important;
+}
+
+/* ─── Message bubble hover ────────────────────────────────── */
+.msg-bubble {
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.msg-bubble:hover {
+  border-color: rgba(255,255,255,0.20) !important;
+}
+
+/* ─── Toast notification ──────────────────────── */
+@keyframes toast-up {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  16%  { opacity: 1; transform: translateX(-50%) translateY(0);    }
+  72%  { opacity: 1; transform: translateX(-50%) translateY(0);    }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+}
+.toast-up {
+  animation: toast-up 3.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

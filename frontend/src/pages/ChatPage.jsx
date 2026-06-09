@@ -9,17 +9,118 @@ import { storage } from '../utils/storage';
 const FEEDBACK_TRIGGER_MSG =
   "I just submitted today's progress. What do you suggest for rescheduling?";
 
+// ─── Strategy visual config ───────────────────────────────────────────────
+const STRATEGY_CONFIG = {
+  'Fastest': {
+    color: '#f59e0b',
+    bg: 'rgba(245,158,11,0.08)',
+    border: 'rgba(245,158,11,0.22)',
+    selectedBorder: 'rgba(245,158,11,0.55)',
+    selectedBg: 'rgba(245,158,11,0.13)',
+    btnBg: 'rgba(245,158,11,0.14)',
+    icon: 'lightning',
+    baseClass: 'strat-base-amber',
+    glowClass: 'strat-card-selected-amber',
+  },
+  'Most Productive': {
+    color: '#6ee7b7',
+    bg: 'rgba(110,231,183,0.06)',
+    border: 'rgba(110,231,183,0.20)',
+    selectedBorder: 'rgba(110,231,183,0.55)',
+    selectedBg: 'rgba(110,231,183,0.11)',
+    btnBg: 'rgba(110,231,183,0.14)',
+    icon: 'target',
+    baseClass: 'strat-base-green',
+    glowClass: 'strat-card-selected-green',
+  },
+  'Most Relaxed': {
+    color: '#a78bfa',
+    bg: 'rgba(167,139,250,0.06)',
+    border: 'rgba(167,139,250,0.20)',
+    selectedBorder: 'rgba(167,139,250,0.55)',
+    selectedBg: 'rgba(167,139,250,0.11)',
+    btnBg: 'rgba(167,139,250,0.14)',
+    icon: 'smile',
+    baseClass: 'strat-base-purple',
+    glowClass: 'strat-card-selected-purple',
+  },
+};
+
+function getStratCfg(name) {
+  return STRATEGY_CONFIG[name] || STRATEGY_CONFIG['Most Productive'];
+}
+
+function fmtTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+function fmtHours(h) {
+  if (!h) return '—';
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  if (!hrs) return `${mins}m`;
+  if (!mins) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+}
+
+function taskTone(type) {
+  const map = {
+    deep_work: { bg: 'rgba(110,231,183,0.16)', color: '#6ee7b7' },
+    break:     { bg: 'rgba(167,139,250,0.16)', color: '#a78bfa' },
+    health:    { bg: 'rgba(251,146,60,0.16)',  color: '#fb923c' },
+    social:    { bg: 'rgba(248,113,113,0.16)', color: '#f87171' },
+    class:     { bg: 'rgba(96,165,250,0.16)',  color: '#60a5fa' },
+  };
+  return map[type] || { bg: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.58)' };
+}
+
+// ─── Inline SVG icons (no emoji, themed) ─────────────────────────────────
+function Icon({ type, size = 14, color = 'currentColor' }) {
+  const s = { display: 'block', flexShrink: 0 };
+  if (type === 'lightning') return (
+    <svg style={s} width={size} height={size} viewBox="0 0 16 16" fill={color}>
+      <path d="M9.5 1.5L3.5 9h5l-2 5.5L13.5 7H8.5L9.5 1.5z"/>
+    </svg>
+  );
+  if (type === 'target') return (
+    <svg style={s} width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.4"/>
+      <circle cx="8" cy="8" r="3.5" stroke={color} strokeWidth="1.4"/>
+      <circle cx="8" cy="8" r="1.5" fill={color}/>
+    </svg>
+  );
+  if (type === 'smile') return (
+    <svg style={s} width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.4"/>
+      <path d="M5.5 9.5c.5 1 1.4 1.5 2.5 1.5s2-.5 2.5-1.5" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="5.8" cy="7" r="0.9" fill={color}/>
+      <circle cx="10.2" cy="7" r="0.9" fill={color}/>
+    </svg>
+  );
+  if (type === 'check') return (
+    <svg style={s} width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.4"/>
+      <path d="M5.5 8l2 2 3-3.5" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+  return null;
+}
+
+// ─── Main component ───────────────────────────────────────────────────────
 export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { chatMessages, addMessage, setTasks, isSending, setIsSending } = useStore();
-  const [input, setInput]               = useState('');
-  const [loadingStep, setLoadingStep]   = useState(0);
+  const [input, setInput]                   = useState('');
+  const [loadingStep, setLoadingStep]       = useState(0);
   const [pendingProposal, setPendingProposal] = useState(null);
   const [selectedStrategy, setSelectedStrategy] = useState(null);
-  const [proposalInput, setProposalInput]     = useState('');
-  const [confirming, setConfirming]     = useState(false);
-  const [scheduleToast, setScheduleToast]     = useState(null);
+  const [proposalInput, setProposalInput]   = useState('');
+  const [confirming, setConfirming]         = useState(false);
+  const [scheduleToast, setScheduleToast]   = useState(null);
+  const [toastKey, setToastKey]             = useState(0);
   const scrollRef    = useRef(null);
   const triggeredRef = useRef(false);
   const toastTimerRef = useRef(null);
@@ -48,6 +149,7 @@ export default function ChatPage() {
 
   function showToast(message) {
     setScheduleToast(message);
+    setToastKey((k) => k + 1);
     clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setScheduleToast(null), 3500);
   }
@@ -78,7 +180,6 @@ export default function ChatPage() {
   async function sendMessage(text) {
     if (!text || isSending) return;
 
-    // When a proposal is waiting and the user affirms, confirm directly instead of re-asking the LLM
     if (pendingProposal && AFFIRM_RE.test(text.trim())) {
       addMessage({ role: 'user', text });
       await handleConfirm();
@@ -112,11 +213,13 @@ export default function ChatPage() {
     await sendMessage(text);
   }
 
-  async function handleConfirm() {
-    if (!pendingProposal) return;
+  // strategyName: optional — when called from "Choose Plan" buttons on panels
+  async function handleConfirm(strategyName) {
+    if (!pendingProposal || confirming) return;
     const userId = storage.getUserId();
+    const effectiveStrategy = strategyName || selectedStrategy || pendingProposal.data?.top_recommendation;
+    if (strategyName) setSelectedStrategy(strategyName);
     setConfirming(true);
-    const effectiveStrategy = selectedStrategy || pendingProposal.data?.top_recommendation;
     const proposalData = effectiveStrategy && pendingProposal.data?.strategies
       ? { ...pendingProposal.data, top_recommendation: effectiveStrategy }
       : pendingProposal.data;
@@ -132,9 +235,14 @@ export default function ChatPage() {
       const sorted   = list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
       setTasks(sorted);
       storage.setTodaySchedule(sorted);
-      // Reset submission state so user can re-submit progress for the newly confirmed plan
       storage.setLastFeedbackDate(null);
       showToast('Schedule updated for today');
+      // Fixed confirmation message — no LLM call needed
+      const label = effectiveStrategy || 'your new';
+      addMessage({
+        role: 'agent',
+        text: `Done — the **${label}** plan is locked in for today. Head to **Today** to see your updated schedule.`,
+      });
     } catch {
       showToast('Could not save schedule — please try again.');
     } finally {
@@ -162,6 +270,9 @@ export default function ChatPage() {
     weekday: 'long', month: 'long', day: 'numeric',
   }).format(new Date());
 
+  const strategies = pendingProposal?.data?.strategies;
+  const isMultiStrategy = strategies?.length > 1;
+
   return (
     <div
       className="floating-panel"
@@ -175,35 +286,36 @@ export default function ChatPage() {
         position: 'relative',
       }}
     >
-      {/* toast */}
+      {/* ── Toast: slides up from below, auto-fades ──────────────── */}
       {scheduleToast && (
         <div
+          key={toastKey}
+          className="toast-up"
           style={{
-            position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)',
+            position: 'absolute',
+            top: '20px',
+            left: '50%',
             zIndex: 600,
             background: 'rgba(10,8,30,0.92)',
-            backdropFilter: 'blur(16px)',
+            backdropFilter: 'blur(18px)',
             borderRadius: '999px',
-            border: '1px solid rgba(255,255,255,0.14)',
-            padding: '8px 18px',
-            display: 'flex', alignItems: 'center', gap: '10px',
+            border: '1px solid rgba(110,231,183,0.28)',
+            padding: '7px 16px 7px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
             whiteSpace: 'nowrap',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.32)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.36), 0 0 0 1px rgba(110,231,183,0.12)',
           }}
         >
+          <Icon type="check" size={15} color="var(--accent)" />
           <span style={{ fontSize: '13px', color: 'var(--accent)', fontWeight: 600 }}>
-            ◆ {scheduleToast}
+            {scheduleToast}
           </span>
-          <button
-            onClick={() => setScheduleToast(null)}
-            style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '12px', cursor: 'pointer', padding: 0, lineHeight: 1 }}
-          >
-            ✕
-          </button>
         </div>
       )}
 
-      {/* header */}
+      {/* ── Header ───────────────────────────────────────────────── */}
       <div
         style={{
           padding: '20px 24px 16px',
@@ -214,12 +326,12 @@ export default function ChatPage() {
         <div style={{ fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted-2)', marginBottom: '4px' }}>
           DayPilot Chat
         </div>
-        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '-0.04em', color: '#fff' }}>
+        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '0.04em', color: '#fff' }}>
           {dateLabel}
         </h1>
       </div>
 
-      {/* messages */}
+      {/* ── Messages ─────────────────────────────────────────────── */}
       <div
         ref={scrollRef}
         style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}
@@ -242,6 +354,7 @@ export default function ChatPage() {
             }}
           >
             <div
+              className="msg-bubble"
               style={{
                 padding: '12px 16px',
                 borderRadius: '18px',
@@ -328,26 +441,190 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* proposal bar */}
+      {/* ── Proposal section ─────────────────────────────────────── */}
       {pendingProposal && (
         <div
           style={{
             borderTop: '1px solid rgba(255,255,255,0.08)',
-            padding: '12px 16px',
-            background: 'rgba(110,231,183,0.05)',
+            padding: '16px 18px',
+            background: 'rgba(7,5,26,0.60)',
+            backdropFilter: 'blur(20px) saturate(160%)',
             flexShrink: 0,
           }}
         >
-          <div style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: '10px', fontWeight: 600 }}>
-            ◆ Schedule Proposal
+          {/* Section label */}
+          <div style={{
+            fontSize: '10px',
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: 'var(--muted-2)',
+            marginBottom: '12px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}>
+            <span style={{ color: 'var(--accent)', opacity: 0.7 }}>◆</span>
+            Schedule Proposal
           </div>
 
-          {/* Strategy selector — shown when the proposal has multiple options */}
-          {pendingProposal.data?.strategies?.length > 1 && (
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-              {pendingProposal.data.strategies.map((s) => {
-                const isSelected = (selectedStrategy || pendingProposal.data.top_recommendation) === s.name;
-                const isRecommended = pendingProposal.data.top_recommendation === s.name;
+          {/* ── 3-panel grid ────────────────────────────────────── */}
+          {isMultiStrategy ? (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '10px',
+              marginBottom: '12px',
+            }}>
+              {strategies.map((s) => {
+                const cfg = getStratCfg(s.name);
+                const isSelected = (selectedStrategy || pendingProposal.data?.top_recommendation) === s.name;
+                const isRecommended = pendingProposal.data?.top_recommendation === s.name;
+                const isConfirmingThis = confirming && (selectedStrategy === s.name || (!selectedStrategy && isRecommended));
+
+                return (
+                  <div
+                    key={s.name}
+                    onClick={() => setSelectedStrategy(s.name)}
+                    className={`${cfg.baseClass}${isSelected ? ` ${cfg.glowClass}` : ''}`}
+                    style={{
+                      borderRadius: '16px',
+                      border: `1px solid ${isSelected ? cfg.selectedBorder : cfg.border}`,
+                      background: isSelected ? cfg.selectedBg : cfg.bg,
+                      backdropFilter: 'blur(16px) saturate(160%)',
+                      WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+                      padding: '14px 14px 12px',
+                      cursor: 'pointer',
+                      transition: 'border-color 160ms ease, background 160ms ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    {/* Panel header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minHeight: '20px' }}>
+                      <Icon type={cfg.icon} size={16} color={cfg.color} />
+                      <span style={{
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        color: cfg.color,
+                        letterSpacing: '0.01em',
+                      }}>
+                        {s.name}
+                      </span>
+                      {isRecommended && (
+                        <span style={{
+                          marginLeft: 'auto',
+                          fontSize: '8px',
+                          padding: '1px 6px',
+                          borderRadius: '999px',
+                          background: cfg.selectedBg,
+                          color: cfg.color,
+                          fontWeight: 700,
+                          letterSpacing: '0.08em',
+                          border: `1px solid ${cfg.border}`,
+                          whiteSpace: 'nowrap',
+                        }}>
+                          TOP
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Description */}
+                    {s.description && (
+                      <p style={{
+                        fontSize: '11px',
+                        color: 'var(--muted)',
+                        margin: 0,
+                        lineHeight: 1.45,
+                      }}>
+                        {s.description}
+                      </p>
+                    )}
+
+                    {/* Total time */}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: 700, color: cfg.color, letterSpacing: '-0.02em' }}>
+                        {fmtHours(s.total_focus_hours)}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--muted-2)' }}>scheduled</span>
+                    </div>
+
+                    {/* Task list */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '3px',
+                      maxHeight: '130px',
+                      overflowY: 'auto',
+                    }}>
+                      {s.tasks?.map((task, ti) => {
+                        const tone = taskTone(task.type);
+                        return (
+                          <div key={ti} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '11px',
+                          }}>
+                            <span style={{
+                              color: 'var(--muted-2)',
+                              fontVariantNumeric: 'tabular-nums',
+                              minWidth: '32px',
+                              flexShrink: 0,
+                            }}>
+                              {fmtTime(task.start_time)}
+                            </span>
+                            <span style={{
+                              padding: '2px 7px',
+                              borderRadius: '5px',
+                              background: tone.bg,
+                              color: tone.color,
+                              fontWeight: 500,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '100%',
+                            }}>
+                              {task.title}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Choose Plan button */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleConfirm(s.name); }}
+                      disabled={confirming}
+                      className="choose-plan-btn"
+                      style={{
+                        marginTop: '2px',
+                        padding: '8px 0',
+                        borderRadius: '10px',
+                        border: `1px solid ${isSelected ? cfg.selectedBorder : cfg.border}`,
+                        background: isSelected ? cfg.btnBg : 'rgba(255,255,255,0.04)',
+                        color: cfg.color,
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: confirming ? 'not-allowed' : 'pointer',
+                        opacity: confirming ? 0.55 : 1,
+                        width: '100%',
+                        letterSpacing: '0.01em',
+                      }}
+                    >
+                      {isConfirmingThis ? 'Saving…' : 'Choose Plan'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Single-strategy fallback: original pill buttons */
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+              {(pendingProposal.data?.strategies || []).map((s) => {
+                const isSelected = (selectedStrategy || pendingProposal.data?.top_recommendation) === s.name;
+                const isRecommended = pendingProposal.data?.top_recommendation === s.name;
                 return (
                   <button
                     key={s.name}
@@ -355,12 +632,8 @@ export default function ChatPage() {
                     style={{
                       padding: '7px 14px',
                       borderRadius: '10px',
-                      border: isSelected
-                        ? '1px solid rgba(110,231,183,0.55)'
-                        : '1px solid rgba(255,255,255,0.12)',
-                      background: isSelected
-                        ? 'rgba(110,231,183,0.16)'
-                        : 'rgba(255,255,255,0.05)',
+                      border: isSelected ? '1px solid rgba(110,231,183,0.55)' : '1px solid rgba(255,255,255,0.12)',
+                      background: isSelected ? 'rgba(110,231,183,0.16)' : 'rgba(255,255,255,0.05)',
                       color: isSelected ? 'var(--accent)' : 'var(--muted)',
                       fontSize: '12px',
                       fontWeight: isSelected ? 700 : 400,
@@ -391,12 +664,14 @@ export default function ChatPage() {
             </div>
           )}
 
+          {/* Modify input + actions */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <input
               value={proposalInput}
               onChange={(e) => setProposalInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleProposalModify()}
-              placeholder="Add requirements or modify the plan..."
+              placeholder="Ask to adjust, add requirements, or modify…"
+              className="proposal-input"
               style={{
                 flex: 1,
                 border: '1px solid rgba(255,255,255,0.14)',
@@ -408,32 +683,41 @@ export default function ChatPage() {
                 outline: 'none',
               }}
             />
-            <button
-              onClick={handleConfirm}
-              disabled={confirming}
-              style={{
-                padding: '9px 20px',
-                borderRadius: '12px',
-                border: '1px solid rgba(110,231,183,0.35)',
-                background: 'rgba(110,231,183,0.14)',
-                color: 'var(--accent)',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: confirming ? 'not-allowed' : 'pointer',
-                opacity: confirming ? 0.55 : 1,
-                whiteSpace: 'nowrap', flexShrink: 0,
-              }}
-            >
-              {confirming ? 'Saving…' : `Confirm${selectedStrategy ? ` "${selectedStrategy}"` : ''}`}
-            </button>
+            {/* Show global Confirm only when it's a single strategy */}
+            {!isMultiStrategy && (
+              <button
+                onClick={() => handleConfirm()}
+                disabled={confirming}
+                style={{
+                  padding: '9px 20px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(110,231,183,0.35)',
+                  background: 'rgba(110,231,183,0.14)',
+                  color: 'var(--accent)',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: confirming ? 'not-allowed' : 'pointer',
+                  opacity: confirming ? 0.55 : 1,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {confirming ? 'Saving…' : `Confirm${selectedStrategy ? ` "${selectedStrategy}"` : ''}`}
+              </button>
+            )}
             <button
               onClick={handleCancel}
+              className="cancel-btn"
               style={{
-                padding: '9px 14px', borderRadius: '12px',
+                padding: '9px 14px',
+                borderRadius: '12px',
                 border: '1px solid rgba(255,255,255,0.12)',
-                background: 'transparent', color: 'var(--muted)',
-                fontSize: '13px', cursor: 'pointer',
-                whiteSpace: 'nowrap', flexShrink: 0,
+                background: 'transparent',
+                color: 'var(--muted)',
+                fontSize: '13px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
               Cancel
@@ -442,7 +726,7 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* compose */}
+      {/* ── Compose ──────────────────────────────────────────────── */}
       <div
         style={{
           padding: '14px 16px 16px',
@@ -452,12 +736,15 @@ export default function ChatPage() {
         }}
       >
         <div
+          className="compose-area"
           style={{
             borderRadius: '22px',
             border: '1px solid rgba(255,255,255,0.14)',
             background: 'rgba(255,255,255,0.07)',
             padding: '12px',
-            display: 'flex', alignItems: 'center', gap: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
           }}
         >
           <input
@@ -466,21 +753,30 @@ export default function ChatPage() {
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Ask DayPilot to replan, explain, or summarize..."
             style={{
-              flex: 1, border: 0, outline: 'none',
-              background: 'transparent', color: '#fff',
-              fontSize: '14px', letterSpacing: '0.01em',
+              flex: 1,
+              border: 0,
+              outline: 'none',
+              background: 'transparent',
+              color: '#fff',
+              fontSize: '14px',
+              letterSpacing: '0.01em',
             }}
           />
           <button
             onClick={handleSend}
             disabled={isSending || !input.trim()}
             style={{
-              width: '42px', height: '42px', borderRadius: '16px',
+              width: '42px',
+              height: '42px',
+              borderRadius: '16px',
               border: '1px solid rgba(110,231,183,0.30)',
               background: 'rgba(110,231,183,0.14)',
               color: 'var(--accent)',
               cursor: 'pointer',
-              display: 'grid', placeItems: 'center', fontSize: '16px', flexShrink: 0,
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: '16px',
+              flexShrink: 0,
               opacity: isSending || !input.trim() ? 0.4 : 1,
               transition: '160ms ease',
             }}

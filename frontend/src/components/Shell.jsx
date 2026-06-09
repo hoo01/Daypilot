@@ -76,7 +76,7 @@ export default function Shell() {
               gap: '12px',
               fontSize: '18px',
               fontWeight: 700,
-              letterSpacing: '-0.04em',
+              letterSpacing: '0.06em',
               color: '#fff',
             }}
           >

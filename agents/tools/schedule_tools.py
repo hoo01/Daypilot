@@ -223,6 +223,7 @@ Feasibility: {goal_feasibility:.2f}{f" — {goal_feasibility_note}" if goal_feas
 8. Task titles MUST use the specific goal or activity name — never generic labels like "Study Session (Goal Task)" or "Deep Work Block". If the goal is Leetcode, write "Leetcode Practice". If it's writing, write "Writing Session". Use the exact activity name.
 9. Calendar event titles MUST be copied verbatim from the calendar_events input. Never rename them to generic labels like "Event", "Appointment", or "Meeting".
 10. CRITICAL: All start_time and end_time MUST be full ISO 8601 strings, e.g. "{inp.date}T09:00:00"
+11. NO OVERLAPPING TASKS: Tasks must be strictly sequential. Each task's start_time must be >= the previous task's end_time. No two tasks may occupy the same time slot, even partially. Verify every task pair before outputting.
 
 ## Output Format (valid JSON only)
 {{
@@ -387,6 +388,60 @@ def _enforce_constraints(output: ScheduleOutput, inp: ScheduleInput) -> Schedule
     return output.model_copy(update={"strategies": fixed})
 
 
+def _resolve_overlaps(tasks: list[ScheduleTask]) -> list[ScheduleTask]:
+    """
+    Ensure no two tasks overlap.  When a conflict is found, the earlier task's
+    end_time is trimmed to the later task's start_time.  If trimming would leave
+    a task shorter than MIN_DURATION_MIN it is dropped instead.
+
+    Tie-breaking when two tasks share the same start_time: the LONGER task is
+    sorted first so that it gets trimmed/dropped in favour of the shorter,
+    more-specific task — which is usually the correct one.
+    """
+    MIN_DURATION_MIN = 15
+
+    def _sort_key(t: ScheduleTask):
+        try:
+            s = _naive_dt(t.start_time)
+            dur = (_naive_dt(t.end_time) - s).total_seconds()
+        except Exception:
+            return (datetime.max, 0.0)
+        return (s, -dur)   # asc start, desc duration
+
+    sorted_tasks = sorted(tasks, key=_sort_key)
+    result: list[ScheduleTask] = []
+
+    for task in sorted_tasks:
+        if not result:
+            result.append(task)
+            continue
+
+        prev = result[-1]
+        try:
+            prev_end   = _naive_dt(prev.end_time)
+            curr_start = _naive_dt(task.start_time)
+        except Exception:
+            result.append(task)
+            continue
+
+        if prev_end > curr_start:
+            # Overlap: trim the earlier task's end to the current task's start
+            try:
+                prev_start = _naive_dt(prev.start_time)
+                new_dur_min = (curr_start - prev_start).total_seconds() / 60
+            except Exception:
+                new_dur_min = MIN_DURATION_MIN
+
+            if new_dur_min >= MIN_DURATION_MIN:
+                result[-1] = prev.model_copy(update={"end_time": task.start_time})
+            else:
+                result.pop()   # too short after trimming — remove it
+
+        result.append(task)
+
+    return result
+
+
 def _validate_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOutput:
     import re as _re
     warnings: list[str] = []
@@ -395,6 +450,7 @@ def _validate_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOut
     for strategy in output.strategies:
         tasks = _normalize_tasks(strategy.tasks, inp.date)
         tasks = _merge_short_deep_work(tasks)
+        tasks = _resolve_overlaps(tasks)
 
         # Detect calendar overlaps
         cal = [t for t in tasks if t.type == "calendar_event"]
