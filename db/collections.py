@@ -9,3 +9,4 @@ class Collections:
     INTAKE_SESSIONS = "intake_sessions"
     WEEKLY_MEMORY_WRITES = "weekly_memory_writes"
     DAILY_SCHEDULES = "daily_schedules"
+    CALENDAR_CACHE = "calendar_cache"

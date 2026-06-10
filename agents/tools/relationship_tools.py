@@ -39,13 +39,17 @@ async def get_relationship_context(user_id: str, lookahead_days: int = 14) -> di
 
     mem = MemoryAgent(get_db())
     upcoming = await mem.query_upcoming(user_id, days=lookahead_days)
+    today_calendar_events = await mem.get_today_calendar_events(user_id)
 
     if not upcoming:
-        return {
+        result = {
             "upcoming_events": [],
             "proactive_suggestions": [],
             "important_people": [],
+            "today_calendar_events": today_calendar_events,
         }
+        _cache[cache_key] = (now, result)
+        return result
 
     events_with_days = [
         {"event": e.event, "date": e.date, "days_away": _days_away(e.date)}
@@ -94,6 +98,7 @@ Example output:
         "upcoming_events": events_with_days,
         "proactive_suggestions": suggestions,
         "important_people": [],
+        "today_calendar_events": today_calendar_events,
     }
     _cache[cache_key] = (now, result)
     return result
