@@ -6,7 +6,7 @@ import { api } from '../utils/api';
 
 export default function AgentDrawer({ open, onClose }) {
   const navigate = useNavigate();
-  const { chatMessages, addMessage, isSending, setIsSending } = useStore();
+  const { chatMessages, addMessage, isSending, setIsSending, refreshSchedule } = useStore();
   const [drawerHeight, setDrawerHeight] = useState(null); // px; null = use default 44%
   const [loadingStep, setLoadingStep]   = useState(0);
   const scrollRef             = useRef(null);
@@ -71,6 +71,7 @@ export default function AgentDrawer({ open, onClose }) {
       const res = await api.chat(userId, text, sessionId);
       if (!sessionId && res.session_id) storage.setSessionId(res.session_id);
       addMessage({ role: 'agent', text: res.reply });
+      if (res.schedule_updated) refreshSchedule(userId);
     } catch {
       addMessage({ role: 'agent', text: 'Sorry, something went wrong. Try again.' });
     } finally {

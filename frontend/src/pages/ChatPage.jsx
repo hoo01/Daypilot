@@ -10,7 +10,7 @@ const FEEDBACK_TRIGGER_MSG =
 export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { chatMessages, addMessage, setTasks, isSending, setIsSending } = useStore();
+  const { chatMessages, addMessage, refreshSchedule, isSending, setIsSending } = useStore();
   const [loadingStep, setLoadingStep]   = useState(0);
   const [pendingProposal, setPendingProposal] = useState(null);
   const [selectedStrategy, setSelectedStrategy] = useState(null);
@@ -96,6 +96,7 @@ export default function ChatPage() {
         setPendingProposal(res.pending_proposal);
         setSelectedStrategy(res.pending_proposal.data?.top_recommendation || null);
       }
+      if (res.schedule_updated) refreshSchedule(userId);
     } catch {
       addMessage({ role: 'agent', text: 'Sorry, something went wrong. Please try again.' });
     } finally {
@@ -125,11 +126,7 @@ export default function ChatPage() {
         proposalData,
         pendingProposal.type,
       );
-      const schedule = await api.getScheduleToday(userId);
-      const list     = Array.isArray(schedule) ? schedule : schedule.tasks || [];
-      const sorted   = list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
-      setTasks(sorted);
-      storage.setTodaySchedule(sorted);
+      await refreshSchedule(userId);
       showToast('Schedule updated for today');
     } catch {
       showToast('Could not save schedule — please try again.');
