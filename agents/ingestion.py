@@ -91,6 +91,7 @@ class IngestionAgent:
                 "title": e.get("summary") or "Event",
                 "start_time": start_naive,
                 "end_time": end_naive,
+                "location": e.get("location") or None,
             })
         return today_events
 
@@ -142,6 +143,7 @@ class IngestionAgent:
                     "end": (e.get("end") or {}).get("dateTime")
                         or (e.get("end") or {}).get("date"),
                     "attendees": [a.get("email") for a in e.get("attendees", [])],
+                    "location": e.get("location", ""),
                     "is_recurring": bool(e.get("recurrence") or e.get("recurringEventId")),
                 }
                 for e in events_resp.get("items", [])
