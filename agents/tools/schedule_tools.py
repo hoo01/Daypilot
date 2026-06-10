@@ -497,7 +497,7 @@ async def plan_schedule(
     "location" entirely if the user didn't give one. Missing or misnamed keys fall back to a
     generic placeholder, so get the keys right.
     """
-    if not target_date:
+    if not target_date or target_date.strip().lower() == "today":
         target_date = date.today().isoformat()
 
     # LLM may serialize dict args as JSON strings

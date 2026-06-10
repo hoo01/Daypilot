@@ -1,3 +1,4 @@
+启动 .\start-dev.ps1
 ## Demo 脚本
 
 ### [0:00–0:12] Hook
