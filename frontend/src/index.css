@@ -81,6 +81,15 @@ input  { font-family: inherit; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes sidebar-card-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar-card-in {
+  animation: sidebar-card-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .geo-navigate-btn:hover {
   filter: brightness(1.12);
   box-shadow: 0 12px 32px rgba(124, 72, 235, 0.55) !important;
