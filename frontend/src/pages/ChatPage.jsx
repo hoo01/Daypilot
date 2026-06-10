@@ -111,7 +111,6 @@ export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { chatMessages, addMessage, refreshSchedule, isSending, setIsSending } = useStore();
-  const [input, setInput]                   = useState('');
   const [loadingStep, setLoadingStep]       = useState(0);
   const [pendingProposal, setPendingProposal] = useState(null);
   const [selectedStrategy, setSelectedStrategy] = useState(null);
@@ -750,7 +749,7 @@ export default function ChatPage() {
               color: 'var(--accent)',
               cursor: 'pointer',
               display: 'grid', placeItems: 'center', fontSize: '16px', flexShrink: 0,
-              opacity: isSending || !input.trim() ? 0.4 : 1,
+              opacity: isSending ? 0.4 : 1,
               transition: '160ms ease',
             }}
           >
