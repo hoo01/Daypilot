@@ -64,19 +64,6 @@ const TAG_CHIP = {
   geo:       { bg: 'rgba(124,72,235,0.88)',  color: '#ede8ff', label: 'Geo'       },
 };
 
-const MOCK_TASKS = [
-  { task_id: 'mock_1', title: 'Morning reset & plan review', start_time: todayAt('07:50'), end_time: todayAt('08:30'), type: 'routine',   notes: 'Quiet start with health-aware pacing.' },
-  { task_id: 'mock_2', title: 'Deep work block',              start_time: todayAt('09:30'), end_time: todayAt('11:00'), type: 'deep_work', notes: 'Single-focus window for priority work.' },
-  { task_id: 'mock_3', title: 'Gym session',                  start_time: todayAt('11:15'), end_time: todayAt('12:30'), type: 'workout',   notes: 'USC Viterbi → LA Fitness Downtown · 18 min drive', geo_segment: { origin: 'USC Viterbi', destination: 'LA Fitness Downtown', duration_text: '18 min drive', maps_url: 'https://www.google.com/maps' } },
-  { task_id: 'mock_4', title: 'Lunch and light walk',         start_time: todayAt('13:30'), end_time: todayAt('14:30'), type: 'break',     notes: 'Recovery window before afternoon work.' },
-  { task_id: 'mock_5', title: 'Follow-up & responses',        start_time: todayAt('15:00'), end_time: todayAt('16:00'), type: 'routine',   notes: 'Short admin batch with low-friction tasks.' },
-  { task_id: 'mock_6', title: 'Planning check-in',            start_time: todayAt('17:20'), end_time: todayAt('17:50'), type: 'routine',   notes: 'Let DayPilot decide if anything should move.' },
-  { task_id: 'mock_7', title: 'Recovery & wind-down',         start_time: todayAt('19:00'), end_time: todayAt('20:30'), type: 'break',     notes: "Keep evening light to protect tomorrow's energy." },
-];
-
-function todayAt(hhmm) {
-  return new Date().toISOString().slice(0, 10) + 'T' + hhmm + ':00';
-}
 function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -113,10 +100,10 @@ function Panel({ style, children }) {
   );
 }
 
-function Card({ style, children }) {
+function Card({ style, className, children }) {
   return (
     <div
-      className="sidebar-card"
+      className={className}
       style={{
         borderRadius: 'var(--radius-lg)',
         background: 'rgba(255,255,255,0.05)',
@@ -390,12 +377,11 @@ function TimelineBlock({ task, done, onToggle, aiGenerated, expanded, onToggleEx
 export default function TodayPage() {
   const navigate      = useNavigate();
   const { openAgentDrawer } = useOutletContext();
-  const { tasks, setTasks } = useStore();
+  const { tasks, noSchedule, refreshSchedule } = useStore();
   const [doneMap, setDoneMap]         = useState({});
   const [submitting, setSubmitting]   = useState(false);
   const [toast, setToast]             = useState(null);
   const [loading, setLoading]         = useState(true);
-  const [noSchedule, setNoSchedule]   = useState(false);
   const [nowMin, setNowMin]           = useState(() => {
     const n = new Date(); return n.getHours() * 60 + n.getMinutes();
   });
@@ -417,28 +403,9 @@ export default function TodayPage() {
 
   useEffect(() => {
     const userId = storage.getUserId();
-    async function load() {
-      try {
-        const cached = storage.getTodaySchedule();
-        if (cached) { setTasks(cached); setLoading(false); }
-        const res    = await api.getScheduleToday(userId);
-        const list   = Array.isArray(res) ? res : res.tasks || [];
-        const sorted = list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
-        setTasks(sorted);
-        storage.setTodaySchedule(sorted);
-        setNoSchedule(false);
-      } catch (err) {
-        if (err?.status === 404) {
-          setNoSchedule(true);
-          storage.setTodaySchedule(null);
-        } else if (!tasks.length) {
-          setTasks(MOCK_TASKS);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+    const cached = storage.getTodaySchedule();
+    if (cached) { useStore.setState({ tasks: cached }); setLoading(false); }
+    refreshSchedule(userId).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -812,7 +779,7 @@ export default function TodayPage() {
             </Card>
 
             {/* at a glance */}
-            <Card style={{ flexShrink: 0 }}>
+            <Card className="sidebar-card-in" style={{ flexShrink: 0, animationDelay: '0.05s' }}>
               <div style={{ padding: '11px 13px 12px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
                   Today at a glance
@@ -834,7 +801,7 @@ export default function TodayPage() {
             </Card>
 
             {/* health */}
-            <Card style={{ flexShrink: 0 }}>
+            <Card className="sidebar-card-in" style={{ flexShrink: 0, animationDelay: '0.18s' }}>
               <div style={{ padding: '11px 11px 10px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '9px' }}>
                   Health
@@ -920,7 +887,7 @@ export default function TodayPage() {
             </Card>
 
             {/* map & commute */}
-            <div style={{ flex: 1, minHeight: 0 }}>
+            <div className="sidebar-card-in" style={{ flex: 1, minHeight: 0, animationDelay: '0.31s' }}>
               <MapCommute tasks={displayTasks} style={{ height: '100%' }} />
             </div>
 

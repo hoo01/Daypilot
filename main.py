@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ADK expects GOOGLE_API_KEY — always use GEMINI_API_KEY from .env
+# ADK expects GOOGLE_API_KEY 閳?always use GEMINI_API_KEY from .env
 os.environ["GOOGLE_API_KEY"] = os.environ.get("GEMINI_API_KEY", "")
 
 # Ensure HTTPS_PROXY is visible to the process (falls back to .env setting)
@@ -21,7 +21,7 @@ import google.genai._api_client as _genai_api_client
 _genai_api_client.has_aiohttp = False
 
 # Fix 2: patch google-adk's GoogleLLM.api_client to inject our shared httpx client
-# (explicit proxy= arg, no custom SSLContext → bypasses the bug entirely).
+# (explicit proxy= arg, no custom SSLContext 閳?bypasses the bug entirely).
 from functools import cached_property as _cached_property
 from google.adk.models.google_llm import Gemini as _GoogleLLM
 from google.genai import types as _genai_types
@@ -56,4 +56,4 @@ import uvicorn
 from api.app import app
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

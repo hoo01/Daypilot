@@ -1,7 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useStore } from '../store/useStore';
 import { api } from '../utils/api';
 import { storage } from '../utils/storage';
@@ -112,7 +110,7 @@ function Icon({ type, size = 14, color = 'currentColor' }) {
 export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { chatMessages, addMessage, setTasks, isSending, setIsSending } = useStore();
+  const { chatMessages, addMessage, refreshSchedule, isSending, setIsSending } = useStore();
   const [input, setInput]                   = useState('');
   const [loadingStep, setLoadingStep]       = useState(0);
   const [pendingProposal, setPendingProposal] = useState(null);
@@ -124,6 +122,7 @@ export default function ChatPage() {
   const scrollRef    = useRef(null);
   const triggeredRef = useRef(false);
   const toastTimerRef = useRef(null);
+  const inputRef     = useRef(null);
 
   const LOADING_STEPS = [
     'Loading your context…',
@@ -199,6 +198,7 @@ export default function ChatPage() {
         setPendingProposal(res.pending_proposal);
         setSelectedStrategy(res.pending_proposal.data?.top_recommendation || null);
       }
+      if (res.schedule_updated) refreshSchedule(userId);
     } catch {
       addMessage({ role: 'agent', text: 'Sorry, something went wrong. Please try again.' });
     } finally {
@@ -207,9 +207,9 @@ export default function ChatPage() {
   }
 
   async function handleSend() {
-    const text = input.trim();
+    const text = inputRef.current?.value.trim();
     if (!text) return;
-    setInput('');
+    inputRef.current.value = '';
     await sendMessage(text);
   }
 
@@ -230,11 +230,7 @@ export default function ChatPage() {
         proposalData,
         pendingProposal.type,
       );
-      const schedule = await api.getScheduleToday(userId);
-      const list     = Array.isArray(schedule) ? schedule : schedule.tasks || [];
-      const sorted   = list.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
-      setTasks(sorted);
-      storage.setTodaySchedule(sorted);
+      await refreshSchedule(userId);
       storage.setLastFeedbackDate(null);
       showToast('Schedule updated for today');
       // Fixed confirmation message — no LLM call needed
@@ -379,27 +375,7 @@ export default function ChatPage() {
               }}>
                 {msg.role === 'user' ? 'You' : '◆ DayPilot'}
               </span>
-              {msg.role === 'user' ? (
-                msg.text
-              ) : (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    p:      ({ children }) => <p style={{ margin: '0 0 6px', lineHeight: 1.65 }}>{children}</p>,
-                    ul:     ({ children }) => <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>{children}</ul>,
-                    ol:     ({ children }) => <ol style={{ margin: '4px 0', paddingLeft: '18px' }}>{children}</ol>,
-                    li:     ({ children }) => <li style={{ marginBottom: '3px' }}>{children}</li>,
-                    strong: ({ children }) => <strong style={{ fontWeight: 700, color: '#fff' }}>{children}</strong>,
-                    code:   ({ children }) => (
-                      <code style={{ background: 'rgba(255,255,255,0.12)', borderRadius: '5px', padding: '2px 6px', fontSize: '12px', color: 'var(--accent-2)' }}>
-                        {children}
-                      </code>
-                    ),
-                  }}
-                >
-                  {msg.text}
-                </ReactMarkdown>
-              )}
+              <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>
             </div>
           </div>
         ))}
@@ -748,8 +724,8 @@ export default function ChatPage() {
           }}
         >
           <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            ref={inputRef}
+            defaultValue=""
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Ask DayPilot to replan, explain, or summarize..."
             style={{
@@ -764,7 +740,7 @@ export default function ChatPage() {
           />
           <button
             onClick={handleSend}
-            disabled={isSending || !input.trim()}
+            disabled={isSending}
             style={{
               width: '42px',
               height: '42px',
@@ -773,10 +749,7 @@ export default function ChatPage() {
               background: 'rgba(110,231,183,0.14)',
               color: 'var(--accent)',
               cursor: 'pointer',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: '16px',
-              flexShrink: 0,
+              display: 'grid', placeItems: 'center', fontSize: '16px', flexShrink: 0,
               opacity: isSending || !input.trim() ? 0.4 : 1,
               transition: '160ms ease',
             }}

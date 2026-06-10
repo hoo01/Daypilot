@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from google import genai
 from config import settings
 from db import get_db
@@ -178,7 +178,21 @@ def _build_prompt(inp: ScheduleInput, goal_context: dict | None = None) -> str:
         ) or "(none)"
     )
 
-    now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    now_dt = datetime.now()
+    now_iso = now_dt.strftime("%Y-%m-%dT%H:%M:%S")
+    is_today = inp.date == date.today().isoformat()
+    tomorrow_date = (date.fromisoformat(inp.date) + timedelta(days=1)).isoformat()
+    current_time_section = (
+        f"Current local time: {now_dt.strftime('%H:%M')} (the schedule is being generated RIGHT NOW). "
+        f"Any task whose entire window is before {now_dt.strftime('%H:%M')} on {inp.date} has ALREADY HAPPENED — "
+        f"do not schedule it. If the focus window or sleep schedule extends past midnight into the early "
+        f"hours of the NEXT calendar day, those tasks belong to {tomorrow_date} (e.g. \"00:00\"-\"02:00\" "
+        f"after midnight tonight is \"{tomorrow_date}T00:00:00\"-\"{tomorrow_date}T02:00:00\", NOT "
+        f"\"{inp.date}T00:00:00\", because {inp.date}'s midnight-to-morning window is already in the past."
+        if is_today
+        else f"Current local time: {now_dt.strftime('%H:%M')} on {date.today().isoformat()} "
+             f"(this schedule is for a FUTURE date, {inp.date}, so plan the full day normally)"
+    )
 
     return f"""You are DayPilot's Schedule Planning Agent.
 
@@ -191,6 +205,7 @@ Generate exactly 3 daily schedule strategies for a student.
 
 ## User Context
 Date: {inp.date}
+{current_time_section}
 Preferred work hours: {pref_work}
 Commute time: {pref_commute} minutes
 Break frequency: every {pref_break} minutes
@@ -215,15 +230,18 @@ Feasibility: {goal_feasibility:.2f}{f" — {goal_feasibility_note}" if goal_feas
 ## Rules
 1. Calendar events are IMMUTABLE — never move, shift, or rename them
 2. Schedule deep work during the user's focus window
-3. Each strategy must cover the full day from wake-up to sleep
+3. If Date is today (see "Current local time" above), the schedule covers ONLY from the
+   current local time through bedtime — do NOT include tasks or calendar events whose
+   end_time is before the current local time. If Date is a future date, cover the full
+   day from wake-up to sleep.
 4. Include at least 2 breaks per strategy
-5. "Most Productive" maximizes goal progress; "Most Relaxed" minimizes cognitive load; "Fastest" completes must-dos in minimum time
-6. Use ONLY these task types: deep_work, routine, break, commute, exercise, study, meal, personal, preparation, sleep, calendar_event
-7. top_recommendation MUST be exactly one of: "Most Productive", "Most Relaxed", or "Fastest"
-8. Task titles MUST use the specific goal or activity name — never generic labels like "Study Session (Goal Task)" or "Deep Work Block". If the goal is Leetcode, write "Leetcode Practice". If it's writing, write "Writing Session". Use the exact activity name.
-9. Calendar event titles MUST be copied verbatim from the calendar_events input. Never rename them to generic labels like "Event", "Appointment", or "Meeting".
-10. CRITICAL: All start_time and end_time MUST be full ISO 8601 strings, e.g. "{inp.date}T09:00:00"
-11. NO OVERLAPPING TASKS: Tasks must be strictly sequential. Each task's start_time must be >= the previous task's end_time. No two tasks may occupy the same time slot, even partially. Verify every task pair before outputting.
+5. NO OVERLAPPING TASKS: All tasks within a strategy MUST be sorted in chronological order by start_time. Each task's start_time must be >= the previous task's end_time. No two tasks may occupy the same time slot, even partially. Verify every task pair before outputting.
+6. "Most Productive" maximizes goal progress; "Most Relaxed" minimizes cognitive load; "Fastest" completes must-dos in minimum time
+7. Use ONLY these task types: deep_work, routine, break, commute, exercise, study, meal, personal, preparation, sleep, calendar_event
+8. top_recommendation MUST be exactly one of: "Most Productive", "Most Relaxed", or "Fastest"
+9. Task titles MUST use the specific goal or activity name — never generic labels like "Study Session (Goal Task)" or "Deep Work Block". If the goal is Leetcode, write "Leetcode Practice". If it's writing, write "Writing Session". Use the exact activity name.
+10. Calendar event titles MUST be copied verbatim from the calendar_events input. Never rename them to generic labels like "Event", "Appointment", or "Meeting".
+11. CRITICAL: All start_time and end_time MUST be full ISO 8601 strings, e.g. "{inp.date}T09:00:00"
 
 ## Output Format (valid JSON only)
 {{
@@ -608,7 +626,7 @@ async def plan_schedule(
     "location" entirely if the user didn't give one. Missing or misnamed keys fall back to a
     generic placeholder, so get the keys right.
     """
-    if not target_date:
+    if not target_date or target_date.strip().lower() == "today":
         target_date = date.today().isoformat()
 
     # LLM may serialize dict args as JSON strings

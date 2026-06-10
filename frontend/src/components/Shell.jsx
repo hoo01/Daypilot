@@ -47,8 +47,8 @@ export default function Shell() {
           borderRadius: '28px',
           overflow: 'hidden',
           position: 'relative',
-          background: 'rgba(8, 5, 24, 0.68)',
-          backdropFilter: 'blur(32px) saturate(160%)',
+          background: 'rgba(8, 5, 24, 0.82)',
+          backdropFilter: 'blur(12px) saturate(130%)',
           boxShadow: '0 32px 100px rgba(0,0,0,0.52)',
         }}
       >
@@ -65,7 +65,7 @@ export default function Shell() {
             padding: '0 20px',
             boxShadow: '0 1px 0 rgba(255,255,255,0.06)',
             background: 'rgba(255,255,255,0.04)',
-            backdropFilter: 'blur(20px) saturate(160%)',
+            backdropFilter: 'blur(8px) saturate(130%)',
           }}
         >
           {/* brand */}

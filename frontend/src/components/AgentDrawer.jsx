@@ -1,20 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useStore } from '../store/useStore';
 import { storage } from '../utils/storage';
 import { api } from '../utils/api';
 
 export default function AgentDrawer({ open, onClose }) {
   const navigate = useNavigate();
-  const { chatMessages, addMessage, isSending, setIsSending } = useStore();
-  const [input, setInput]     = useState('');
+  const { chatMessages, addMessage, isSending, setIsSending, refreshSchedule } = useStore();
   const [drawerHeight, setDrawerHeight] = useState(null); // px; null = use default 44%
   const [loadingStep, setLoadingStep]   = useState(0);
   const scrollRef             = useRef(null);
   const drawerRef             = useRef(null);
   const dragRef               = useRef(null);
+  const inputRef              = useRef(null);
 
   function startResize(e) {
     const drawerEl = drawerRef.current;
@@ -62,17 +60,18 @@ export default function AgentDrawer({ open, onClose }) {
   }, [chatMessages, open, isSending]);
 
   async function send() {
-    const text = input.trim();
+    const text = inputRef.current?.value.trim();
     if (!text || isSending) return;
     const userId    = storage.getUserId();
     const sessionId = storage.getSessionId();
-    setInput('');
+    inputRef.current.value = '';
     setIsSending(true);
     addMessage({ role: 'user', text });
     try {
       const res = await api.chat(userId, text, sessionId);
       if (!sessionId && res.session_id) storage.setSessionId(res.session_id);
       addMessage({ role: 'agent', text: res.reply });
+      if (res.schedule_updated) refreshSchedule(userId);
     } catch {
       addMessage({ role: 'agent', text: 'Sorry, something went wrong. Try again.' });
     } finally {
@@ -87,8 +86,7 @@ export default function AgentDrawer({ open, onClose }) {
         onClick={onClose}
         style={{
           position: 'absolute', inset: 0,
-          background: 'rgba(4, 2, 14, 0.55)',
-          backdropFilter: 'blur(8px)',
+          background: 'rgba(4, 2, 14, 0.65)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
           transition: '240ms ease',
@@ -217,23 +215,7 @@ export default function AgentDrawer({ open, onClose }) {
               }}>
                 {msg.role === 'user' ? 'You' : '◆ DayPilot'}
               </span>
-              {msg.role === 'user' ? (
-                msg.text
-              ) : (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    p:      ({ children }) => <p style={{ margin: '0 0 4px', lineHeight: 1.55 }}>{children}</p>,
-                    ul:     ({ children }) => <ul style={{ margin: '3px 0', paddingLeft: '16px' }}>{children}</ul>,
-                    ol:     ({ children }) => <ol style={{ margin: '3px 0', paddingLeft: '16px' }}>{children}</ol>,
-                    li:     ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
-                    strong: ({ children }) => <strong style={{ fontWeight: 700, color: '#fff' }}>{children}</strong>,
-                    code:   ({ children }) => <code style={{ background: 'rgba(255,255,255,0.12)', borderRadius: '4px', padding: '1px 5px', fontSize: '11px', color: 'var(--accent-2)' }}>{children}</code>,
-                  }}
-                >
-                  {msg.text}
-                </ReactMarkdown>
-              )}
+              <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>
             </div>
           ))}
           {isSending && (
@@ -290,8 +272,8 @@ export default function AgentDrawer({ open, onClose }) {
             }}
           >
             <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
+              ref={inputRef}
+              defaultValue=""
               onKeyDown={(e) => e.key === 'Enter' && send()}
               placeholder="Ask DayPilot to replan, explain, or summarize..."
               style={{
@@ -302,14 +284,14 @@ export default function AgentDrawer({ open, onClose }) {
             />
             <button
               onClick={send}
-              disabled={isSending || !input.trim()}
+              disabled={isSending}
               style={{
                 width: '40px', height: '40px', borderRadius: '14px',
                 border: '1px solid rgba(110,231,183,0.28)',
                 background: 'rgba(110,231,183,0.12)',
                 color: 'var(--accent)', cursor: 'pointer',
                 display: 'grid', placeItems: 'center', fontSize: '16px', flexShrink: 0,
-                opacity: isSending || !input.trim() ? 0.40 : 1,
+                opacity: isSending ? 0.40 : 1,
                 transition: '160ms ease',
               }}
             >
