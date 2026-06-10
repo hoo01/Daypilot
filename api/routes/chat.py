@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timedelta
 from uuid import uuid4
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from google import genai
 from api.dependencies import get_runner
 from agents.memory import MemoryAgent
 from db import get_db
+from db.collections import Collections
 from config import settings
 import http_client
 from telemetry import tracer, meter, get_logger
@@ -130,6 +132,12 @@ async def chat(
                         fr = getattr(part, "function_response", None)
                         if fr and getattr(fr, "name", "") in _SCHEDULE_TOOLS:
                             raw = getattr(fr, "response", None)
+                            # ADK may return a proto Struct instead of a plain dict
+                            if raw is not None and not isinstance(raw, dict):
+                                try:
+                                    raw = dict(raw)
+                                except Exception:
+                                    raw = None
                             if isinstance(raw, dict):
                                 pending_proposal = {
                                     "type": "plan" if fr.name == "plan_schedule" else "adjust",
@@ -139,6 +147,41 @@ async def chat(
             llm_ms = (time.perf_counter() - llm_start) * 1000
             _chat_llm_duration.record(llm_ms, {"user.id": body.user_id})
             span.set_attribute("chat.llm_duration_ms", llm_ms)
+
+            # Fallback: if event-based detection missed a plan_schedule call
+            # (e.g. LLM reproduced the schedule from context without re-calling the tool,
+            # or ADK emitted the function_response in an unexpected event structure),
+            # check the DB for a record generated within the last 45 seconds.
+            if not pending_proposal:
+                try:
+                    today = datetime.utcnow().date().isoformat()
+                    cutoff = (datetime.utcnow() - timedelta(seconds=45)).isoformat()
+                    db = get_db()
+                    record = await db[Collections.DAILY_SCHEDULES].find_one(
+                        {
+                            "user_id": body.user_id,
+                            "date": today,
+                            "confirmed": False,
+                            "generated_at": {"$gt": cutoff},
+                        }
+                    )
+                    if record and record.get("all_strategies"):
+                        pending_proposal = {
+                            "type": "plan",
+                            "date": record["date"],
+                            "data": {
+                                "strategies": record["all_strategies"],
+                                "top_recommendation": record.get("strategy_name", ""),
+                                "date": record["date"],
+                            },
+                        }
+                        _logger.info(
+                            f"[chat] DB fallback: recovered pending_proposal for {body.user_id} "
+                            f"(generated_at={record.get('generated_at')})"
+                        )
+                except Exception as _fb_err:
+                    _logger.warning(f"[chat] DB fallback check failed: {_fb_err}")
+
             if not reply:
                 _logger.warning(f"[chat] Empty reply for {body.user_id} — no text found in final response events")
                 reply = "I wasn't able to generate a response. Please try again."

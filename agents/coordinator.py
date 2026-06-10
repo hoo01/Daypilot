@@ -26,8 +26,10 @@ from agents.tools import (
     track_goals,
     get_relationship_context,
     plan_schedule,
+    confirm_schedule,
     get_geo_info,
     adjust_schedule,
+    get_today_schedule,
 )
 
 INSTRUCTION = """
@@ -56,6 +58,10 @@ Triggers: ONLY explicit asks like "plan my day", "build/generate my schedule", "
 schedule look like today" (i.e. the user is asking FOR a schedule artifact, not just an opinion
 on focus).
 Action: Call plan_schedule and present the resulting strategies.
+CRITICAL: NEVER write out a timed schedule list from memory or context. Every schedule you
+present MUST come directly from a fresh plan_schedule or adjust_schedule tool call. If you
+find yourself writing "9:00 AM - 10:00 AM: ..." without having just called a tool, STOP and
+call the tool instead.
 
 Why this distinction matters: plan_schedule is slow (it generates a full multi-strategy JSON
 schedule) and produces a wall of text. Calling it for an open question like "what should I focus
@@ -81,7 +87,9 @@ You can call additional tools when needed:
   5. If a location is given (by the user or in the context entry), you MUST include it in the location field of that calendar_event. If no location is given, omit it.
   6. The resulting schedule MUST visibly contain that event as its own task at the stated time. Before telling the user you added it, verify it actually appears in the schedule you generated.
 - get_geo_info: when locations/commute are relevant
-- adjust_schedule: when the user has an EXISTING active schedule for today and something changes mid-day (new event, task overrun, energy drop). Requires the current schedule as input — only use this when you have a schedule to pass.
+- confirm_schedule: MUST call this immediately when the user confirms which strategy they want (e.g., "yes", "confirm", "let's go with most relaxed", "I'll take the fastest plan"). Pass strategy_name as exactly "Most Productive", "Most Relaxed", or "Fastest". This persists their choice so mid-day adjustments can reference it.
+- get_today_schedule: call this to retrieve the user's currently confirmed schedule tasks. ALWAYS call this BEFORE adjust_schedule — use the returned tasks as the current_schedule argument.
+- adjust_schedule: when the user has an EXISTING confirmed schedule for today and something changes mid-day (new event, task overrun, energy drop). ALWAYS call get_today_schedule first to get the tasks. If get_today_schedule returns found=False, use plan_schedule instead to generate a fresh plan.
 - plan_schedule: also use this when rescheduling missed tasks to a future date (no existing schedule needed — it generates a fresh plan)
 - analyze_health: for energy/sleep analysis. Returns energy_level,
   focus_window, cognitive_load_score, and avoid_tasks.
@@ -95,7 +103,7 @@ You also have access to Dynatrace observability tools for self-monitoring:
 Always be proactive — surface insights the user hasn't asked for yet.
 Keep responses concise and action-oriented.
 
-IMPORTANT: After calling plan_schedule or adjust_schedule, ALWAYS present the result to the user and ask for confirmation before considering it final. Say something like "Here's your proposed schedule — shall I confirm this plan?" Never tell the user the schedule has been saved without their explicit agreement. NEVER claim you added or changed something unless it actually appears in the schedule you just generated — do not describe events or tasks that are not present in the tool output.
+IMPORTANT: After calling plan_schedule or adjust_schedule, ALWAYS present the result to the user and ask for confirmation before considering it final. Say something like "Here's your proposed schedule — shall I confirm this plan?" When the user confirms a specific strategy, immediately call confirm_schedule with the strategy name they chose. Never tell the user the schedule has been saved without their explicit agreement. NEVER claim you added or changed something unless it actually appears in the schedule you just generated — do not describe events or tasks that are not present in the tool output.
 """
 
 
@@ -222,8 +230,10 @@ def build_coordinator(mcp_tools=None, dynatrace_mcp=None, goal_tracking_root=Non
         track_goals,
         get_relationship_context,
         plan_schedule,
+        confirm_schedule,
         get_geo_info,
         adjust_schedule,
+        get_today_schedule,
     ]
     if mcp_tools:
         tools.append(mcp_tools)

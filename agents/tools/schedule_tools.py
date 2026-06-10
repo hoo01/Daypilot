@@ -235,8 +235,7 @@ Feasibility: {goal_feasibility:.2f}{f" — {goal_feasibility_note}" if goal_feas
    end_time is before the current local time. If Date is a future date, cover the full
    day from wake-up to sleep.
 4. Include at least 2 breaks per strategy
-5. All tasks within a strategy MUST be sorted in chronological order by start_time, and
-   MUST NOT overlap each other
+5. NO OVERLAPPING TASKS: All tasks within a strategy MUST be sorted in chronological order by start_time. Each task's start_time must be >= the previous task's end_time. No two tasks may occupy the same time slot, even partially. Verify every task pair before outputting.
 6. "Most Productive" maximizes goal progress; "Most Relaxed" minimizes cognitive load; "Fastest" completes must-dos in minimum time
 7. Use ONLY these task types: deep_work, routine, break, commute, exercise, study, meal, personal, preparation, sleep, calendar_event
 8. top_recommendation MUST be exactly one of: "Most Productive", "Most Relaxed", or "Fastest"
@@ -407,6 +406,60 @@ def _enforce_constraints(output: ScheduleOutput, inp: ScheduleInput) -> Schedule
     return output.model_copy(update={"strategies": fixed})
 
 
+def _resolve_overlaps(tasks: list[ScheduleTask]) -> list[ScheduleTask]:
+    """
+    Ensure no two tasks overlap.  When a conflict is found, the earlier task's
+    end_time is trimmed to the later task's start_time.  If trimming would leave
+    a task shorter than MIN_DURATION_MIN it is dropped instead.
+
+    Tie-breaking when two tasks share the same start_time: the LONGER task is
+    sorted first so that it gets trimmed/dropped in favour of the shorter,
+    more-specific task — which is usually the correct one.
+    """
+    MIN_DURATION_MIN = 15
+
+    def _sort_key(t: ScheduleTask):
+        try:
+            s = _naive_dt(t.start_time)
+            dur = (_naive_dt(t.end_time) - s).total_seconds()
+        except Exception:
+            return (datetime.max, 0.0)
+        return (s, -dur)   # asc start, desc duration
+
+    sorted_tasks = sorted(tasks, key=_sort_key)
+    result: list[ScheduleTask] = []
+
+    for task in sorted_tasks:
+        if not result:
+            result.append(task)
+            continue
+
+        prev = result[-1]
+        try:
+            prev_end   = _naive_dt(prev.end_time)
+            curr_start = _naive_dt(task.start_time)
+        except Exception:
+            result.append(task)
+            continue
+
+        if prev_end > curr_start:
+            # Overlap: trim the earlier task's end to the current task's start
+            try:
+                prev_start = _naive_dt(prev.start_time)
+                new_dur_min = (curr_start - prev_start).total_seconds() / 60
+            except Exception:
+                new_dur_min = MIN_DURATION_MIN
+
+            if new_dur_min >= MIN_DURATION_MIN:
+                result[-1] = prev.model_copy(update={"end_time": task.start_time})
+            else:
+                result.pop()   # too short after trimming — remove it
+
+        result.append(task)
+
+    return result
+
+
 def _validate_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOutput:
     import re as _re
     warnings: list[str] = []
@@ -415,6 +468,7 @@ def _validate_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOut
     for strategy in output.strategies:
         tasks = _normalize_tasks(strategy.tasks, inp.date)
         tasks = _merge_short_deep_work(tasks)
+        tasks = _resolve_overlaps(tasks)
 
         # Detect calendar overlaps
         cal = [t for t in tasks if t.type == "calendar_event"]
@@ -470,7 +524,9 @@ _genai_client = genai.Client(
 
 
 async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict) -> None:
-    """Save the top-recommended strategy's tasks to daily_schedules collection."""
+    """Save all strategies to daily_schedules. If a confirmed plan already exists for
+    today, only update all_strategies + generated_at so the active plan is preserved."""
+    from datetime import datetime as _datetime
     try:
         top_name = schedule_dict.get("top_recommendation", "")
         strategies = schedule_dict.get("strategies", [])
@@ -480,8 +536,22 @@ async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict)
         )
         if not strategy:
             return
-        tasks = strategy.get("tasks", [])
         db = get_db()
+        now_iso = _datetime.utcnow().isoformat()
+
+        existing = await db[Collections.DAILY_SCHEDULES].find_one(
+            {"user_id": user_id, "date": target_date}, {"confirmed": 1}
+        )
+        if existing and existing.get("confirmed"):
+            # A plan is already confirmed — only refresh the proposal pool so the
+            # proposal bar can show updated strategies without clobbering active tasks.
+            await db[Collections.DAILY_SCHEDULES].update_one(
+                {"user_id": user_id, "date": target_date},
+                {"$set": {"all_strategies": strategies, "generated_at": now_iso}},
+            )
+            return
+
+        tasks = strategy.get("tasks", [])
         await db[Collections.DAILY_SCHEDULES].update_one(
             {"user_id": user_id, "date": target_date},
             {"$set": {
@@ -489,11 +559,50 @@ async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict)
                 "date": target_date,
                 "tasks": tasks,
                 "strategy_name": strategy.get("name", ""),
+                "all_strategies": strategies,
+                "confirmed": False,
+                "generated_at": now_iso,
             }},
             upsert=True,
         )
     except Exception:
         pass  # never block schedule generation
+
+
+@traced_tool("confirm_schedule")
+async def confirm_schedule(user_id: str, strategy_name: str, date: str = "") -> dict:
+    """
+    Save the user-confirmed schedule strategy as the active plan.
+    Call this when the user explicitly confirms which plan they want
+    (e.g., "yes confirm", "let's go with most relaxed", "I want the fastest plan").
+    strategy_name: exactly "Most Productive", "Most Relaxed", or "Fastest"
+    """
+    from datetime import date as _date
+    if not date:
+        date = _date.today().isoformat()
+
+    try:
+        db = get_db()
+        record = await db[Collections.DAILY_SCHEDULES].find_one(
+            {"user_id": user_id, "date": date}
+        )
+        if not record:
+            return {"success": False, "message": "No schedule found for today — call plan_schedule first."}
+
+        all_strategies = record.get("all_strategies", [])
+        strategy = next((s for s in all_strategies if s.get("name") == strategy_name), None)
+        if not strategy:
+            available = [s.get("name") for s in all_strategies]
+            return {"success": False, "message": f"Strategy '{strategy_name}' not found. Available: {available}"}
+
+        tasks = strategy.get("tasks", [])
+        await db[Collections.DAILY_SCHEDULES].update_one(
+            {"user_id": user_id, "date": date},
+            {"$set": {"tasks": tasks, "strategy_name": strategy_name, "confirmed": True}},
+        )
+        return {"success": True, "strategy_name": strategy_name, "task_count": len(tasks)}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
 @traced_tool("plan_schedule")

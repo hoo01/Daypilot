@@ -2,9 +2,9 @@ from .memory_tools import read_user_context, write_entity_to_memory, store_conve
 from .health_tools import analyze_health
 from .goal_tools import track_goals
 from .relationship_tools import get_relationship_context
-from .schedule_tools import plan_schedule
+from .schedule_tools import plan_schedule, confirm_schedule
 from .geo_tools import get_geo_info
-from .realtime_tools import adjust_schedule
+from .realtime_tools import adjust_schedule, get_today_schedule
 
 __all__ = [
     "read_user_context",
@@ -16,6 +16,8 @@ __all__ = [
     "track_goals",
     "get_relationship_context",
     "plan_schedule",
+    "confirm_schedule",
     "get_geo_info",
     "adjust_schedule",
+    "get_today_schedule",
 ]
