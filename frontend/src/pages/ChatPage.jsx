@@ -160,18 +160,6 @@ export default function ChatPage() {
       navigate('/chat', { replace: true });
       sendMessage(FEEDBACK_TRIGGER_MSG);
     }
-    if (trigger === 'proactive' && !triggeredRef.current) {
-      triggeredRef.current = true;
-      navigate('/chat', { replace: true });
-      setIsSending(true);
-      setTimeout(() => {
-        setIsSending(false);
-        addMessage({
-          role: 'agent',
-          text: "Looks like you're still home — did dinner with Mia get rescheduled? Want me to find another time this week?",
-        });
-      }, 2200);
-    }
   }, []);
 
   const AFFIRM_RE = /^(yes|yeah|yep|yup|ok|okay|sure|confirm|go ahead|do it|sounds good|great|perfect|let'?s do it|y)\s*[!.]?$/i;

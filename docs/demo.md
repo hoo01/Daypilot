@@ -29,11 +29,11 @@
 **Screen:** Browser opens DayPilot chat interface — Wednesday morning
 
 **Subtitle:**
-> It's Wednesday. Kai opens his laptop. He hasn't planned his day. DayPilot already knows about his class, his goal, and his anniversary next week. He didn't tell it any of this today.
+> It's Wednesday. Kai opens his laptop. He hasn't planned his day. DayPilot already knows about his class, his workout, and the commute he'll need to get there. He didn't tell it any of this today.
 
 ---
 
-### [0:50–1:40] Core Demo
+### [0:50–2:00] Core Demo
 
 **Screen:** Kai types:
 ```
@@ -43,16 +43,16 @@
 → 回复淡入：先几句 proactive insight，紧接展开完整当日 schedule
 
 **Response:**
-> "Here's what you should focus on today — you have 4 Leetcode problems left this week (on track!), your 3-month anniversary with Mia is in 8 days, your favorite artist's tickets go on sale in 3 days, and **your ML class is at the library from 2–4 PM** — I've already built today's plan around it."
+> "Here's what you should focus on today — you've got Leetcode practice this morning to keep your streak going, and **your ML class is at Leavey Library from 2–4 PM — I've already mapped your commute there and lined up the gym right after**. I've built today's plan around all of it."
 
-**Screen 配合：** 镜头聚焦 insight → 1-2s 后展开完整 schedule，定格在 "2:00 PM – 4:00 PM: ML class at library"
+**Screen 配合：** 镜头聚焦 insight → 1-2s 后展开完整 schedule，定格在 "2:00 PM – 4:00 PM: ML Class @ Leavey Library"，右侧 Map & Commute 卡片显示 "Leave by ... · 25 min · Leavey Library"
 
 **Final subtitle:**
-> He said nothing about his class today. DayPilot didn't just remember it — it already built his day around it.
+> He said nothing about his class today. DayPilot didn't just remember it — it already mapped his route and built his day around it.
 
 ---
 
-### [1:40–2:00] Feedback Loop
+### [2:00–2:20] Feedback Loop
 
 **Screen:** Kai marks Leetcode incomplete → types:
 ```
@@ -62,16 +62,6 @@
 
 **Subtitle:**
 > That evening, Kai didn't finish his Leetcode. He marked it incomplete. DayPilot moved it to tomorrow. Closed loop.
-
----
-
-### [2:00–2:20] Location Awareness
-
-**Screen:** 7PM — an unprompted message appears from DayPilot:
-> "Looks like you're still home — did dinner with Mia get rescheduled? Want me to find another time this week?"
-
-**Subtitle:**
-> DayPilot noticed Kai never left for dinner. It didn't wait to be asked. It doesn't just manage your schedule. It notices your life.
 
 ---
 
