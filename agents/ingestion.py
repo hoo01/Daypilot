@@ -1,4 +1,5 @@
 import json
+import re
 import asyncio
 from datetime import datetime, timedelta
 
@@ -65,7 +66,33 @@ class IngestionAgent:
             await self.memory.write_entity(entity)
             count += 1
 
+        today_events = self._extract_today_events(raw_data.get("calendar_events", []))
+        await self.memory.cache_today_calendar_events(
+            user_id, datetime.now().date().isoformat(), today_events
+        )
+
         return {"status": "ok", "source": source, "entities_ingested": count}
+
+    def _extract_today_events(self, calendar_events: list[dict]) -> list[dict]:
+        """Pick out today's timed events and strip timezone offsets so the
+        wall-clock times shown in Google Calendar are preserved as-is."""
+        today_str = datetime.now().date().isoformat()
+        today_events = []
+        for e in calendar_events:
+            start = e.get("start") or ""
+            end = e.get("end") or ""
+            if "T" not in start or "T" not in end:
+                continue  # skip all-day events
+            start_naive = re.sub(r"(Z|[+-]\d{2}:\d{2})$", "", start)
+            end_naive = re.sub(r"(Z|[+-]\d{2}:\d{2})$", "", end)
+            if not start_naive.startswith(today_str):
+                continue
+            today_events.append({
+                "title": e.get("summary") or "Event",
+                "start_time": start_naive,
+                "end_time": end_naive,
+            })
+        return today_events
 
     def _build_authorized_http(self, creds: Credentials):
         import os

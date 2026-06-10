@@ -76,6 +76,7 @@ You can call additional tools when needed:
      - "now" / unspecified → current hour + 2 hours
      If no duration is given, default to 2 hours. Pass the result as a calendar_event entry.
   3. ALSO check <user_context> for "Upcoming events" happening TODAY (days_away: 0) — even if the user did NOT mention them in this message (e.g. user just says "plan my day"). Any such event with a stated time MUST also be passed as its own calendar_event entry. This is the core "DayPilot already knows" behavior — never silently drop a known event from today's plan just because the user didn't restate it.
+  3b. ALSO check <user_context> for "Today's Google Calendar events" — real events pulled directly from the user's Google Calendar for today, each with a title, start_time, and end_time. EVERY entry here MUST be passed as its own calendar_event entry when calling plan_schedule, using the exact title, start_time, and end_time given — these are the user's actual confirmed commitments for today and must never be dropped or merged into other blocks.
   4. Use the exact title from the user's wording or the context entry (e.g. "Doctor Appointment", "ML Class"). Never use generic labels like "Event".
   5. If a location is given (by the user or in the context entry), you MUST include it in the location field of that calendar_event. If no location is given, omit it.
   6. The resulting schedule MUST visibly contain that event as its own task at the stated time. Before telling the user you added it, verify it actually appears in the schedule you generated.
@@ -131,10 +132,13 @@ async def _preload_user_context(callback_context: CallbackContext) -> genai_type
             if not isinstance(rel, Exception):
                 suggestions = rel.get("proactive_suggestions", [])
                 upcoming = rel.get("upcoming_events", [])
+                today_events = rel.get("today_calendar_events", [])
                 if suggestions:
                     context_parts.append(f"Proactive suggestions: {suggestions}")
                 if upcoming:
                     context_parts.append(f"Upcoming events: {upcoming}")
+                if today_events:
+                    context_parts.append(f"Today's Google Calendar events: {today_events}")
 
             if not isinstance(ctx, Exception):
                 prefs = ctx.get("preferences", {})

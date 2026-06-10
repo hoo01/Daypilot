@@ -51,6 +51,20 @@ class MemoryAgent:
                         upcoming.append(UpcomingEvent(**ud))
         return upcoming
 
+    async def cache_today_calendar_events(self, user_id: str, date_str: str, events: list[dict]) -> None:
+        """Cache today's real Google Calendar events (wall-clock times) for quick lookup."""
+        await self._db[Collections.CALENDAR_CACHE].update_one(
+            {"user_id": user_id, "date": date_str},
+            {"$set": {"events": events, "updated_at": datetime.utcnow()}},
+            upsert=True,
+        )
+
+    async def get_today_calendar_events(self, user_id: str) -> list[dict]:
+        """Return today's cached Google Calendar events, if any."""
+        today_str = datetime.now().date().isoformat()
+        doc = await self._db[Collections.CALENDAR_CACHE].find_one({"user_id": user_id, "date": today_str})
+        return doc.get("events", []) if doc else []
+
     async def update_preference(self, user_id: str, key: str, value: Any) -> None:
         await self._db[Collections.USER_PREFERENCES].update_one(
             {"user_id": user_id},
