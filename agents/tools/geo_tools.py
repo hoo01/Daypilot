@@ -44,6 +44,7 @@ def _build_maps_url(origin: str, destination: str) -> str:
         "https://www.google.com/maps/dir/?api=1"
         f"&origin={quote(origin)}"
         f"&destination={quote(destination)}"
+        "&travelmode=transit"
     )
 
 
