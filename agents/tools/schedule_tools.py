@@ -20,6 +20,12 @@ from schemas.health import HealthOutput
 
 def _naive_dt(ts: str) -> datetime:
     ts = ts.replace("_", "-").replace("Z", "+00:00").strip()
+    # ISO 8601 allows "24:00:00" to mean midnight at the start of the next day,
+    # but Python's fromisoformat rejects it — normalize before parsing.
+    m = re.match(r"^(\d{4}-\d{2}-\d{2})T24:00:00(\.\d+)?$", ts)
+    if m:
+        next_day = date.fromisoformat(m.group(1)) + timedelta(days=1)
+        return datetime(next_day.year, next_day.month, next_day.day)
     try:
         return datetime.fromisoformat(ts).replace(tzinfo=None)
     except ValueError:
@@ -59,6 +65,11 @@ def _normalize_timestamp(ts: str, target_date: str) -> str:
         date_part, time_part = ts.split("T", 1)
         # Only trust the date part if it's actually a valid YYYY-MM-DD value
         if re.match(r"^\d{4}-\d{2}-\d{2}$", date_part):
+            # ISO 8601 allows "24:00:00" for midnight at the start of the next
+            # day, but downstream parsers (Python, JS Date) reject it.
+            if re.match(r"^24:00:00(\.\d+)?$", time_part):
+                next_day = date.fromisoformat(date_part) + timedelta(days=1)
+                return f"{next_day.isoformat()}T00:00:00"
             return ts
         # LLM put natural language before the T (e.g. "this afternoon after 4 pmT18:00:00")
         return f"{target_date}T{time_part}"

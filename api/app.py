@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
 from contextlib import AsyncExitStack
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 
@@ -81,6 +84,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def strip_api_prefix(request: Request, call_next):
+    """Mirror the frontend dev-server's "/api" -> "" rewrite so the built
+    SPA can call /api/* against this same-origin server in production."""
+    if request.url.path.startswith("/api/"):
+        request.scope["path"] = request.url.path[len("/api"):]
+    return await call_next(request)
+
+
 app.include_router(chat.router)
 app.include_router(schedule.router)
 app.include_router(auth.router)
@@ -93,3 +106,17 @@ app.include_router(scheduled_router.router)
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+# Serve the built frontend SPA (if present) for any non-API route.
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
+if _FRONTEND_DIST.is_dir():
+    app.mount("/assets", StaticFiles(directory=_FRONTEND_DIST / "assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        candidate = _FRONTEND_DIST / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_FRONTEND_DIST / "index.html")

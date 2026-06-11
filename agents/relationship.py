@@ -9,7 +9,6 @@ from agents.memory import MemoryAgent
 from schemas import RelationshipInput, RelationshipOutput, UpcomingDate
 from config import settings
 
-
 class RelationshipAgent(BaseAgent):
     """Surfaces important people, upcoming dates, and proactive suggestions."""
 

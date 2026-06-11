@@ -43,7 +43,9 @@ async def get_today_schedule(user_id: str = Query(...)) -> dict:
         prefs = await mem.get_preferences(user_id)
         home = (prefs or {}).get("home_address") or "home"
 
-        # Build time-ordered event list from tasks that have a location
+        # Build time-ordered event list from destination tasks that have a location.
+        # Commute blocks (type=="commute" or title starts with "Commute") are excluded
+        # so geo_segment is only ever attached to the actual destination event.
         located = [
             {
                 "location": t.get("location"),
@@ -53,6 +55,8 @@ async def get_today_schedule(user_id: str = Query(...)) -> dict:
             }
             for t in tasks
             if t.get("location")
+            and t.get("type") != "commute"
+            and not (t.get("title") or "").lower().startswith("commute")
         ]
 
         if located:

@@ -24,9 +24,10 @@ function parseDurMin(text) {
 export default function MapCommute({ tasks = [], style }) {
   const [locState, setLocState] = useState('idle'); // 'idle' | 'requesting' | 'granted' | 'denied'
 
+  const now = Date.now();
   const geoTasks = tasks
-    .filter(t => t.geo_segment)
-    .sort((a, b) => (toMin(a.start_time) ?? 0) - (toMin(b.start_time) ?? 0));
+    .filter(t => t.geo_segment && t.end_time && new Date(t.end_time).getTime() > now)
+    .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
   const upcoming = geoTasks[0] ?? null;
 
   const leaveBy = upcoming

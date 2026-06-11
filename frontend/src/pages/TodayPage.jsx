@@ -69,7 +69,7 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 function fmtHour(h) {
-  return String(h).padStart(2, '0') + ':00';
+  return String(h % 24).padStart(2, '0') + ':00';
 }
 function toMinutes(isoString) {
   if (!isoString) return null;
