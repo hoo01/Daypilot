@@ -100,7 +100,19 @@ yes reschedule it
 
 ---
 
-## 1:10–2:00 — Google Cloud Architecture
+## 1:10–1:25 — Google Cloud Stack
+
+**Screen:** `google_cloud_stack.html` — three cards fade in one by one.
+
+**Voiceover:**
+> "We used Google ADK to wire together a team of AI agents that coordinate your entire day."
+> "Gemini is the brain — it reads your context and decides what actually matters."
+> "We shipped on Cloud Run — one container, zero ops, live on Google infrastructure."
+> "From agent logic to AI reasoning to live deployment — it's all Google Cloud."
+
+---
+
+## 1:25–2:00 — Google Cloud Architecture
 
 **Screen:** `arch.html` — agents light up one by one as each is named.
 

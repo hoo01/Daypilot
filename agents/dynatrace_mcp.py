@@ -14,14 +14,14 @@ Controlled by DT_MODE environment variable:
 
 import os
 
-from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioConnectionParams
+from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, StdioConnectionParams
 from mcp import StdioServerParameters
 from telemetry import get_logger
 
 _logger = get_logger("dynatrace_mcp")
 
 
-def get_dynatrace_mcp() -> MCPToolset | None:
+def get_dynatrace_mcp() -> McpToolset | None:
     """
     Create the Dynatrace MCP toolset if DT_MODE is not 'off'.
     Returns None if Dynatrace is disabled or credentials are missing.
@@ -51,12 +51,29 @@ def get_dynatrace_mcp() -> MCPToolset | None:
 
     _logger.info(f"Initializing Dynatrace MCP (mode={dt_mode}, env={dt_env})")
 
-    return MCPToolset(
+    # Only include tools that work with storage:* + environment-api:problems:read scopes.
+    # Davis Copilot tools (chat_with_davis_copilot, execute_davis_analyzer, etc.) require
+    # davis-copilot:conversations:execute which is not in our OAuth client.
+    allowed_tools = [
+        "get_environment_info",
+        "list_problems",
+        "find_entity_by_name",
+        "execute_dql",
+        "verify_dql",
+        "generate_dql_from_natural_language",
+        "list_exceptions",
+        "get_kubernetes_events",
+        "list_vulnerabilities",
+    ]
+
+    return McpToolset(
         connection_params=StdioConnectionParams(
             server_params=StdioServerParameters(
                 command="npx",
                 args=["-y", "@dynatrace-oss/dynatrace-mcp-server@latest"],
                 env=env,
             ),
-        )
+            timeout=30.0,
+        ),
+        tool_filter=allowed_tools,
     )

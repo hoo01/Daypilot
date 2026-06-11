@@ -2,10 +2,11 @@ import asyncio
 import os
 from google.adk.agents import Agent
 from google.adk.agents.callback_context import CallbackContext
-from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioConnectionParams
+from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, StdioConnectionParams
 from google.genai import types as genai_types
 from mcp import StdioServerParameters
 from config import settings
+from agents.tools.performance_tools import check_performance
 from opentelemetry import trace
 from telemetry import tracer, meter, get_logger
 
@@ -94,11 +95,7 @@ You can call additional tools when needed:
 - analyze_health: for energy/sleep analysis. Returns energy_level,
   focus_window, cognitive_load_score, and avoid_tasks.
 
-You also have access to Dynatrace observability tools for self-monitoring:
-- Use Dynatrace to check your own health when the user asks about performance
-- If you detect issues (slow responses, errors), proactively inform the user
-- When asked "how are you performing?", query Dynatrace for latency, error rates, and token usage
-- If health pipeline data seems stale or unavailable, check Dynatrace for recent errors
+- check_performance: call this when the user asks how you are performing, about response times, or errors. ALWAYS call it — never guess or summarize from memory. Present the returned numbers verbatim (e.g. "Average response time: 3.2s").
 
 Always be proactive — surface insights the user hasn't asked for yet.
 Keep responses concise and action-oriented.
@@ -206,9 +203,9 @@ async def _preload_user_context(callback_context: CallbackContext) -> genai_type
     return None
 
 
-def get_mongo_mcp() -> MCPToolset:
+def get_mongo_mcp() -> McpToolset:
     """Create a new MCPToolset for MongoDB. Used at startup via lifespan."""
-    return MCPToolset(
+    return McpToolset(
         connection_params=StdioConnectionParams(
             server_params=StdioServerParameters(
                 command="npx",
@@ -234,11 +231,10 @@ def build_coordinator(mcp_tools=None, dynatrace_mcp=None, goal_tracking_root=Non
         get_geo_info,
         adjust_schedule,
         get_today_schedule,
+        check_performance,
     ]
     if mcp_tools:
         tools.append(mcp_tools)
-    if dynatrace_mcp:
-        tools.append(dynatrace_mcp)
 
     sub_agents = []
     if goal_tracking_root is not None:

@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     gemini_api_key: str
     gemini_api_version: str = "v1"
 
-    coordinator_model: str = "gemini-2.5-flash"
+    coordinator_model: str = "gemini-2.5-flash-lite"
     planning_model: str = "gemini-2.5-flash-lite"
     relationship_model: str = "gemini-2.5-flash-lite"
 
@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     ingestion_model: str = "gemini-2.5-flash"
 
     # Health-agent (previously in agents/health_agent/config.py)
-    node4_model: str = "gemini-2.5-flash"
+    node4_model: str = "gemini-2.5-flash-lite"
     memory_backend: str = "jsonl"   # "jsonl" | "bigquery"
 
     mongodb_uri: str

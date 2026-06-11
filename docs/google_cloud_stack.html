@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DayPilot — Built on Google Cloud</title>
+<style>
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    width:100vw; height:100vh; overflow:hidden;
+    background:#0d0b1e;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* dot grid */
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events:none;
+  }
+
+  .slide {
+    display:flex; flex-direction:column; align-items:center;
+    gap:40px;
+    padding:40px;
+  }
+
+  /* header */
+  .eyebrow {
+    font-size:11px; font-weight:700; letter-spacing:0.22em;
+    text-transform:uppercase; color:rgba(110,231,183,0.65);
+  }
+  .title {
+    font-size:36px; font-weight:700; color:#fff;
+    letter-spacing:-0.01em; text-align:center;
+  }
+  .title span { color:#6ee7b7; }
+
+  /* cards row */
+  .cards {
+    display:flex; gap:32px; align-items:flex-start;
+    justify-content:center;
+  }
+
+  .card {
+    display:flex; flex-direction:column; align-items:center;
+    gap:16px;
+    width:240px;
+  }
+
+  /* image placeholder */
+  .img-box {
+    width:96px; height:96px;
+    border-radius:20px;
+    border:1.5px dashed rgba(110,231,183,0.35);
+    background:rgba(110,231,183,0.04);
+    display:flex; align-items:center; justify-content:center;
+    color:rgba(110,231,183,0.25);
+    font-size:11px; letter-spacing:0.08em;
+  }
+  .img-box img {
+    width:100%; height:100%;
+    object-fit:contain;
+    border-radius:18px;
+  }
+
+  /* name */
+  .name {
+    font-size:17px; font-weight:700;
+    color:#fff; text-align:center;
+    line-height:1.2;
+  }
+
+  /* keyword tags */
+  .tags {
+    display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
+  }
+  .tag {
+    font-size:10.5px; font-weight:600; letter-spacing:0.06em;
+    color:rgba(110,231,183,0.72);
+    background:rgba(110,231,183,0.08);
+    border:1px solid rgba(110,231,183,0.18);
+    border-radius:100px;
+    padding:3px 10px;
+  }
+
+  /* bottom logline */
+  .logline {
+    font-size:13px; color:rgba(255,255,255,0.35);
+    letter-spacing:0.04em;
+  }
+
+  /* hint */
+  #hint {
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    font-size:10.5px; color:rgba(255,255,255,0.16); letter-spacing:0.14em;
+    transition: opacity 400ms;
+  }
+
+  /* step visibility — everything hidden by default */
+  [data-step] { opacity:0; transform:translateY(16px); transition: opacity 0.45s cubic-bezier(.34,1.2,.64,1), transform 0.45s cubic-bezier(.34,1.2,.64,1); }
+  [data-step].visible { opacity:1; transform:translateY(0); }
+
+  /* card uses slightly bouncier curve */
+  .card[data-step] { transform:translateY(24px) scale(0.96); transition: opacity 0.45s cubic-bezier(.34,1.56,.64,1), transform 0.45s cubic-bezier(.34,1.56,.64,1); }
+  .card[data-step].visible { transform:translateY(0) scale(1); }
+</style>
+</head>
+<body>
+
+<div class="slide">
+
+  <div data-step="1" style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+    <div class="eyebrow">Google Cloud Rapid Agent Hackathon</div>
+    <div class="title">Built on <span>Google Cloud</span></div>
+  </div>
+
+  <div class="cards">
+
+    <!-- ADK -->
+    <div class="card" data-step="2">
+      <div class="img-box">
+        <img src="images/Google_ADK.png" alt="Google ADK"/>
+      </div>
+      <div class="name">Google ADK</div>
+      <div class="tags">
+        <span class="tag">Multi-Agent</span>
+        <span class="tag">Orchestration</span>
+        <span class="tag">Tool Use</span>
+      </div>
+    </div>
+
+    <!-- Gemini -->
+    <div class="card" data-step="3">
+      <div class="img-box">
+        <img src="images/gemini.jpeg" alt="Gemini API"/>
+      </div>
+      <div class="name">Gemini API</div>
+      <div class="tags">
+        <span class="tag">LLM Reasoning</span>
+        <span class="tag">Context</span>
+        <span class="tag">Streaming</span>
+      </div>
+    </div>
+
+    <!-- Cloud Run -->
+    <div class="card" data-step="4">
+      <div class="img-box">
+        <img src="images/cloud_run.png" alt="Cloud Run"/>
+      </div>
+      <div class="name">Cloud Run</div>
+      <div class="tags">
+        <span class="tag">Serverless</span>
+        <span class="tag">Auto-scale</span>
+        <span class="tag">Zero Ops</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="logline" data-step="5">From agent logic to AI reasoning to live deployment — it's all Google Cloud.</div>
+
+</div>
+
+<div id="hint">SPACE to advance</div>
+
+<script>
+  const steps = Array.from(document.querySelectorAll('[data-step]'))
+    .sort((a, b) => +a.dataset.step - +b.dataset.step);
+  const hint = document.getElementById('hint');
+  let current = 0;
+
+  function advance() {
+    if (current < steps.length) {
+      steps[current].classList.add('visible');
+      current++;
+    }
+    if (current >= steps.length) hint.style.opacity = '0';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); advance(); }
+  });
+  document.addEventListener('click', advance);
+</script>
+</body>
+</html>

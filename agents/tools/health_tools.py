@@ -22,10 +22,12 @@ from agents.health_agent.scenario_selector import (
 from agents.health_agent.schemas import HealthPipelineOutput
 from opentelemetry import trace
 from telemetry import tracer, meter, get_logger
+from agents.tools.performance_stats import record_health
 
 _logger = get_logger("health_tools")
 _cache: dict[str, tuple[float, dict]] = {}
-_CACHE_TTL = 600  # 10 minutes — pipeline result is static per scenario+date
+_CACHE_TTL = 14400  # 4 hours — scenario+date data is static during a demo session
+_bg_refresh: set[str] = set()  # keys currently being refreshed in background
 
 _health_duration = meter.create_histogram("health.analyze.duration", unit="ms", description="Health analysis total duration")
 _health_cache_hits = meter.create_counter("health.cache.hits", description="Health cache hit count")
@@ -50,7 +52,9 @@ async def analyze_health(user_id: str) -> dict:
     run_dir = get_run_dir()
     target_date = get_target_date()
 
-    cache_key = f"{user_id}:{target_date}:{scenario}"
+    # Cache key excludes user_id: pipeline result depends only on scenario + date
+    # (scenario data is static files; user_id only affects prefs and memory write)
+    cache_key = f"{target_date}:{scenario}"
     now = time.monotonic()
     if cache_key in _cache:
         ts, cached = _cache[cache_key]
@@ -58,6 +62,16 @@ async def analyze_health(user_id: str) -> dict:
             _health_cache_hits.add(1, {"user.id": user_id})
             _logger.debug(f"Cache hit for {user_id} ({scenario}/{target_date})")
             return cached
+        # Stale cache: return immediately, refresh in background
+        if cache_key not in _bg_refresh:
+            _bg_refresh.add(cache_key)
+            import asyncio
+            asyncio.ensure_future(_refresh_in_background(
+                cache_key, user_id, target_date, run_dir, preferred_focus_window, scenario
+            ))
+        _health_cache_hits.add(1, {"user.id": user_id})
+        _logger.debug(f"Stale cache hit (bg refresh started) for {user_id}")
+        return cached
 
     with tracer.start_as_current_span("health.run_pipeline") as span:
         span.set_attribute("user.id", user_id)
@@ -99,6 +113,37 @@ async def analyze_health(user_id: str) -> dict:
             duration_ms = (time.perf_counter() - start) * 1000
             _health_duration.record(duration_ms, {"scenario": scenario})
             span.set_attribute("health.duration_ms", duration_ms)
+            record_health(duration_ms)
+
+
+async def _refresh_in_background(
+    cache_key: str, user_id: str, target_date: str,
+    run_dir: str, preferred_focus_window: str, scenario: str
+) -> None:
+    """Run the pipeline silently and update the cache without blocking any request."""
+    try:
+        state = await run_pipeline(user_id, target_date, run_dir)
+        from agents.health_agent.schemas import HealthPipelineOutput
+        output = HealthPipelineOutput.from_state(
+            state, preferred_focus_window=preferred_focus_window, scenario=scenario
+        )
+        result = {
+            "energy_level":         output.energy_level,
+            "focus_window":         output.focus_window,
+            "cognitive_load_score": output.cognitive_load_score,
+            "avoid_tasks":          output.avoid_tasks,
+            "node3_verdict":        output.node3_verdict,
+            "node4_classification": output.node4_classification,
+            "final_insight":        output.final_insight,
+            "psi":                  output.psychological_strain_index,
+            "pli":                  output.physical_load_index,
+        }
+        _cache[cache_key] = (time.monotonic(), result)
+        _logger.info(f"[health.bg_refresh] OK for {user_id}")
+    except Exception as e:
+        _logger.warning(f"[health.bg_refresh] FAILED for {user_id}: {e}")
+    finally:
+        _bg_refresh.discard(cache_key)
 
 
 def _fallback(preferred_focus_window: str) -> dict:

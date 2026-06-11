@@ -13,6 +13,7 @@ from db.collections import Collections
 from config import settings
 import http_client
 from telemetry import tracer, meter, get_logger
+from agents.tools.performance_stats import record_chat
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -202,6 +203,7 @@ async def chat(
         span.add_event("agent.output", {"gen_ai.response.text": reply[:4096]})
         duration_ms = (time.perf_counter() - chat_start) * 1000
         _chat_duration.record(duration_ms, {"user.id": body.user_id})
+        record_chat(duration_ms, had_error="trouble connecting" in reply)
         if "trouble connecting" in reply:
             _logger.error(f"[chat] FAILED for {body.user_id} — {duration_ms:.0f}ms — returned error fallback")
         else:

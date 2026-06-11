@@ -35,28 +35,13 @@ async def lifespan(app: FastAPI):
     db = get_db()
     await ensure_indexes(db)
 
-    from agents.dynatrace_mcp import get_dynatrace_mcp
-
     try:
         mongo_mcp = get_mongo_mcp()
         await exit_stack.enter_async_context(mongo_mcp)
     except Exception:
         mongo_mcp = None
 
-    dt_mcp = None
-    try:
-        dt_mcp = get_dynatrace_mcp()
-        if dt_mcp:
-            try:
-                await exit_stack.enter_async_context(dt_mcp)
-            except TypeError:
-                pass  # MCPToolset may not need async context management
-            _logger.info("Dynatrace MCP initialized")
-    except Exception as e:
-        _logger.warning(f"Dynatrace MCP unavailable: {e}")
-        dt_mcp = None
-
-    coordinator = build_coordinator(mcp_tools=mongo_mcp, dynatrace_mcp=dt_mcp)
+    coordinator = build_coordinator(mcp_tools=mongo_mcp)
 
     session_service = InMemorySessionService()
     runner = Runner(
@@ -65,6 +50,12 @@ async def lifespan(app: FastAPI):
         session_service=session_service,
     )
     app.state.runner = runner
+
+    # Pre-warm health cache so the first user request doesn't pay the pipeline cost
+    import asyncio
+    from agents.tools.health_tools import analyze_health
+    asyncio.ensure_future(analyze_health("warmup"))
+    _logger.info("Health cache pre-warm started in background")
 
     yield
 

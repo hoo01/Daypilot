@@ -110,8 +110,9 @@ function Icon({ type, size = 14, color = 'currentColor' }) {
 export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { chatMessages, addMessage, refreshSchedule, isSending, setIsSending,
+  const { chatMessages, addMessage, setMessages, refreshSchedule, isSending, setIsSending,
           pendingProposal: storedProposal, setPendingProposal: clearStoredProposal } = useStore();
+  const isTomorrowMode = searchParams.get('mode') === 'tomorrow';
   const [loadingStep, setLoadingStep]       = useState(0);
   const [pendingProposal, setPendingProposal] = useState(storedProposal ?? null);
   const [selectedStrategy, setSelectedStrategy] = useState(storedProposal?.data?.top_recommendation ?? null);
@@ -150,6 +151,11 @@ export default function ChatPage() {
   useEffect(() => {
     if (storedProposal) clearStoredProposal(null);
   }, []);
+
+  // Clear stale messages when entering "plan tomorrow" mode
+  useEffect(() => {
+    if (isTomorrowMode) setMessages([]);
+  }, [isTomorrowMode]);
 
   function showToast(message) {
     setScheduleToast(message);
@@ -257,7 +263,7 @@ export default function ChatPage() {
 
   const dateLabel = new Intl.DateTimeFormat('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
-  }).format(new Date());
+  }).format(isTomorrowMode ? new Date(Date.now() + 86400000) : new Date());
 
   const strategies = pendingProposal?.data?.strategies;
   const isMultiStrategy = strategies?.length > 1;
@@ -313,7 +319,7 @@ export default function ChatPage() {
         }}
       >
         <div style={{ fontSize: '11px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted-2)', marginBottom: '4px' }}>
-          DayPilot Chat
+          {isTomorrowMode ? 'Plan Tomorrow' : 'DayPilot Chat'}
         </div>
         <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, letterSpacing: '0.04em', color: '#fff' }}>
           {dateLabel}
@@ -326,12 +332,27 @@ export default function ChatPage() {
         style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}
       >
         {chatMessages.length === 0 && !isSending && (
-          <div style={{ textAlign: 'center', marginTop: '60px' }}>
-            <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.35 }}>◆</div>
-            <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: 1.6 }}>
-              Ask DayPilot to plan, reschedule, or explain your day.
-            </p>
-          </div>
+          isTomorrowMode ? (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              flex: 1, textAlign: 'center', padding: '0 32px',
+            }}>
+              <div style={{ fontSize: '36px', marginBottom: '16px', opacity: 0.5 }}>◆</div>
+              <p style={{ fontSize: '18px', fontWeight: 700, color: '#fff', margin: '0 0 10px', letterSpacing: '-0.02em' }}>
+                Ready to plan tomorrow?
+              </p>
+              <p style={{ fontSize: '14px', color: 'var(--muted)', lineHeight: 1.65, maxWidth: '320px', margin: 0 }}>
+                Tell DayPilot what's on your plate — goals, events, energy level — and get a personalized schedule for the day ahead.
+              </p>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', marginTop: '60px' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.35 }}>◆</div>
+              <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: 1.6 }}>
+                Ask DayPilot to plan, reschedule, or explain your day.
+              </p>
+            </div>
+          )
         )}
 
         {chatMessages.map((msg, i) => (
@@ -720,7 +741,7 @@ export default function ChatPage() {
             ref={inputRef}
             defaultValue=""
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Ask DayPilot to replan, explain, or summarize..."
+            placeholder={isTomorrowMode ? "What's on your plate tomorrow?" : "Ask DayPilot to replan, explain, or summarize..."}
             style={{
               flex: 1,
               border: 0,

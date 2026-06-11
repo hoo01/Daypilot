@@ -377,7 +377,7 @@ function TimelineBlock({ task, done, onToggle, aiGenerated, expanded, onToggleEx
 export default function TodayPage() {
   const navigate      = useNavigate();
   const { openAgentDrawer } = useOutletContext();
-  const { tasks, noSchedule, refreshSchedule } = useStore();
+  const { tasks, noSchedule, refreshSchedule, setMessages } = useStore();
   const [doneMap, setDoneMap]         = useState({});
   const [submitting, setSubmitting]   = useState(false);
   const [toast, setToast]             = useState(null);
@@ -390,6 +390,12 @@ export default function TodayPage() {
 
   const timelineRef = useRef(null);
   const [quote]     = useState(getDailyQuote);
+
+  function planTomorrow() {
+    setMessages([]);
+    storage.setSessionId(null);
+    navigate('/chat?mode=tomorrow');
+  }
 
   const lastFeedbackDate = storage.getLastFeedbackDate();
   const feedbackDone     = lastFeedbackDate === todayISO();
@@ -532,7 +538,7 @@ export default function TodayPage() {
                   Great work today. Chat with DayPilot to plan tomorrow.
                 </p>
                 <button
-                  onClick={openAgentDrawer}
+                  onClick={planTomorrow}
                   style={{
                     padding: '10px 24px',
                     borderRadius: '14px',
