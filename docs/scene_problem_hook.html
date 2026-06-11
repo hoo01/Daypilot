@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DayPilot — Problem Hook</title>
+<style>
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100vw; height:100vh; overflow:hidden; background:#0d0b1e; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; cursor:pointer; user-select:none; }
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events:none;
+  }
+  #layout { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:20px; }
+  #top-label { font-size:12px; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.45); }
+  #caption {
+    font-size:24px; font-weight:600; color:rgba(255,255,255,0.88);
+    text-align:center; max-width:980px; min-height:64px;
+    line-height:1.4; letter-spacing:-0.01em;
+    transition: opacity 0.4s ease, color 0.4s ease, text-shadow 0.4s ease;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #caption.empty { opacity:0; }
+  #caption.tagline {
+    color:#6ee7b7; font-weight:800; font-size:30px;
+    text-shadow: 0 0 24px rgba(110,231,183,0.55);
+  }
+  #svg-wrap { width:min(96vw,1440px); aspect-ratio:1440/600; }
+  #diagram { width:100%; height:100%; }
+  #hint { font-size:10.5px; color:rgba(255,255,255,0.16); letter-spacing:0.14em; transition:opacity 300ms; }
+  #counter { position:absolute; top:16px; right:24px; font-size:11px; color:rgba(255,255,255,0.16); }
+
+  .node { opacity:0.10; transform-box: fill-box; transform-origin:center; transition: opacity 0.55s cubic-bezier(.34,1.2,.64,1), filter 0.55s ease; }
+  .node.visible { opacity:1; }
+
+  #ng-disconnects { opacity:0; transition: opacity 0.45s ease, filter 0.45s ease; }
+  #ng-disconnects.visible { opacity:1; }
+  #ng-disconnects.fade-out { opacity:0.06; }
+
+  #eg-connect path {
+    transition: stroke-dashoffset 0.9s cubic-bezier(.16,1,.3,1), stroke 0.4s ease, stroke-width 0.4s ease;
+  }
+  #eg-connect circle { transition: opacity 0.5s ease; opacity:0; }
+  #eg-connect.visible circle { opacity:1; }
+</style>
+</head>
+<body>
+<div id="counter"></div>
+<div id="layout">
+  <div id="top-label">DayPilot &nbsp;·&nbsp; Problem Hook &nbsp;·&nbsp; 0:00–0:20</div>
+  <div id="caption" class="empty"></div>
+
+  <div id="svg-wrap">
+  <svg id="diagram" viewBox="0 0 1440 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.055)"/>
+    </pattern>
+    <filter id="fg" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#6ee7b7" flood-opacity="0.65"/>
+    </filter>
+    <marker id="mg" markerWidth="6" markerHeight="4.5" refX="5.5" refY="2.25" orient="auto"><polygon points="0,0 6,2.25 0,4.5" fill="#6ee7b7"/></marker>
+    <clipPath id="cp-cal">    <rect x="80"   y="140" width="300" height="170" rx="14"/></clipPath>
+    <clipPath id="cp-health"> <rect x="570"  y="140" width="300" height="170" rx="14"/></clipPath>
+    <clipPath id="cp-maps">   <rect x="1060" y="140" width="300" height="170" rx="14"/></clipPath>
+    <clipPath id="cp-hub">    <rect x="550"  y="400" width="340" height="160" rx="16"/></clipPath>
+  </defs>
+
+  <rect width="1440" height="600" fill="url(#dots)"/>
+
+  <!-- ───────── Google Calendar ───────── -->
+  <g id="card-calendar" class="node">
+    <g clip-path="url(#cp-cal)">
+      <rect x="80" y="140" width="300" height="170" fill="#141228"/>
+      <rect x="80" y="140" width="70"  height="170" fill="rgba(110,231,183,0.10)"/>
+    </g>
+    <rect x="80" y="140" width="300" height="170" rx="14" stroke="#6ee7b7" stroke-width="1.5" stroke-opacity="0.45"/>
+    <line x1="150" y1="140" x2="150" y2="310" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+    <g transform="translate(93,203) scale(1.8)" stroke="#6ee7b7" stroke-opacity="0.85" fill="none" stroke-linecap="round" stroke-width="1.6">
+      <rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/>
+    </g>
+    <text x="170" y="210" fill="#fff" font-size="20" font-weight="700" font-family="-apple-system,sans-serif">Google Calendar</text>
+    <text x="170" y="238" fill="rgba(255,255,255,0.62)" font-size="14" font-family="-apple-system,sans-serif">Knows your meetings</text>
+  </g>
+
+  <!-- ───────── Health / Fitness ───────── -->
+  <g id="card-health" class="node">
+    <g clip-path="url(#cp-health)">
+      <rect x="570" y="140" width="300" height="170" fill="#141228"/>
+      <rect x="570" y="140" width="70"  height="170" fill="rgba(251,113,133,0.10)"/>
+    </g>
+    <rect x="570" y="140" width="300" height="170" rx="14" stroke="#fb7185" stroke-width="1.5" stroke-opacity="0.45"/>
+    <line x1="640" y1="140" x2="640" y2="310" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+    <g transform="translate(583,203) scale(1.8)" stroke="#fb7185" stroke-opacity="0.85" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
+      <path d="M12 20.5C12 20.5 4 15.5 4 9.5C4 6.5 6.2 4.5 8.5 4.5C10 4.5 11.2 5.3 12 6.5C12.8 5.3 14 4.5 15.5 4.5C17.8 4.5 20 6.5 20 9.5C20 15.5 12 20.5 12 20.5Z"/>
+      <path d="M5 11H8L9.5 8L12 14L13.5 10L15 11H19" stroke-width="1.4"/>
+    </g>
+    <text x="660" y="210" fill="#fff" font-size="20" font-weight="700" font-family="-apple-system,sans-serif">Fitness Tracker</text>
+    <text x="660" y="238" fill="rgba(255,255,255,0.62)" font-size="14" font-family="-apple-system,sans-serif">Knows you're exhausted</text>
+  </g>
+
+  <!-- ───────── Google Maps ───────── -->
+  <g id="card-maps" class="node">
+    <g clip-path="url(#cp-maps)">
+      <rect x="1060" y="140" width="300" height="170" fill="#141228"/>
+      <rect x="1060" y="140" width="70"  height="170" fill="rgba(96,165,250,0.10)"/>
+    </g>
+    <rect x="1060" y="140" width="300" height="170" rx="14" stroke="#60a5fa" stroke-width="1.5" stroke-opacity="0.45"/>
+    <line x1="1130" y1="140" x2="1130" y2="310" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+    <g transform="translate(1073,203) scale(1.8)" stroke="#60a5fa" stroke-opacity="0.85" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
+      <path d="M12 22s8-7.5 8-13a8 8 0 1 0-16 0c0 5.5 8 13 8 13z"/>
+      <circle cx="12" cy="9" r="2.8"/>
+    </g>
+    <text x="1150" y="210" fill="#fff" font-size="20" font-weight="700" font-family="-apple-system,sans-serif">Google Maps</text>
+    <text x="1150" y="238" fill="rgba(255,255,255,0.62)" font-size="14" font-family="-apple-system,sans-serif">Knows the traffic</text>
+  </g>
+
+  <!-- ───────── Disconnect marks ───────── -->
+  <g id="ng-disconnects">
+    <circle cx="475" cy="225" r="20" fill="rgba(248,113,113,0.08)" stroke="#f87171" stroke-width="1.5" stroke-opacity="0.65"/>
+    <line x1="466" y1="216" x2="484" y2="234" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="484" y1="216" x2="466" y2="234" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="965" cy="225" r="20" fill="rgba(248,113,113,0.08)" stroke="#f87171" stroke-width="1.5" stroke-opacity="0.65"/>
+    <line x1="956" y1="216" x2="974" y2="234" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="974" y1="216" x2="956" y2="234" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+  </g>
+
+  <!-- ───────── Connecting lines to DayPilot hub ───────── -->
+  <g id="eg-connect">
+    <path id="line-cal"    d="M230,310 C230,365 650,365 650,400" stroke="#6ee7b7" stroke-width="2.4" marker-end="url(#mg)"/>
+    <path id="line-health" d="M720,310 L720,400"                  stroke="#6ee7b7" stroke-width="2.4" marker-end="url(#mg)"/>
+    <path id="line-maps"   d="M1210,310 C1210,365 790,365 790,400" stroke="#6ee7b7" stroke-width="2.4" marker-end="url(#mg)"/>
+    <circle cx="230"  cy="310" r="4.5" fill="rgba(110,231,183,0.18)" stroke="#6ee7b7" stroke-width="1"/>
+    <circle cx="720"  cy="310" r="4.5" fill="rgba(110,231,183,0.18)" stroke="#6ee7b7" stroke-width="1"/>
+    <circle cx="1210" cy="310" r="4.5" fill="rgba(110,231,183,0.18)" stroke="#6ee7b7" stroke-width="1"/>
+  </g>
+
+  <!-- ───────── DayPilot hub ───────── -->
+  <g id="ng-hub" class="node">
+    <g clip-path="url(#cp-hub)">
+      <rect x="550" y="400" width="340" height="160" fill="#141228"/>
+      <rect x="550" y="400" width="90"  height="160" fill="rgba(110,231,183,0.14)"/>
+    </g>
+    <rect id="hub-border" x="550" y="400" width="340" height="160" rx="16" stroke="#6ee7b7" stroke-width="2" stroke-opacity="0.7"/>
+    <line x1="640" y1="400" x2="640" y2="560" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <g transform="translate(573,458) scale(1.8)" stroke="#6ee7b7" stroke-opacity="0.95" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6">
+      <circle cx="12" cy="12" r="3.2"/>
+      <circle cx="12" cy="3" r="2"/>
+      <circle cx="4" cy="19" r="2"/>
+      <circle cx="20" cy="19" r="2"/>
+      <line x1="12" y1="8.8" x2="12" y2="5"/>
+      <line x1="9.6" y1="13.8" x2="5.6" y2="17.4"/>
+      <line x1="14.4" y1="13.8" x2="18.4" y2="17.4"/>
+    </g>
+    <text x="660" y="468" fill="#fff" font-size="22" font-weight="800" font-family="-apple-system,sans-serif">DayPilot</text>
+    <text x="660" y="496" fill="rgba(255,255,255,0.68)" font-size="14" font-family="-apple-system,sans-serif">Knows what matters today</text>
+  </g>
+
+  </svg>
+  </div>
+  <div id="hint">Space / Click to advance &nbsp;→</div>
+</div>
+
+<script>
+const STEPS = [
+  '',
+  'Your calendar knows your meetings.',
+  "Your fitness app knows you're tired.",
+  'Google Maps knows the traffic.',
+  "But none of them talk to each other — and none of them know what matters to you today.",
+  'DayPilot connects all of it — and thinks for you.',
+];
+
+const SHOW_AT = [
+  [],
+  ['card-calendar'],
+  ['card-health'],
+  ['card-maps', 'ng-disconnects'],
+  [],
+  ['ng-hub', 'eg-connect'],
+];
+
+let step = 0;
+const lit = new Set();
+const caption = document.getElementById('caption');
+const hint = document.getElementById('hint');
+const counter = document.getElementById('counter');
+
+// pre-measure connector path lengths for draw-in animation
+const connectPaths = ['line-cal', 'line-health', 'line-maps'].map(id => {
+  const el = document.getElementById(id);
+  const len = el.getTotalLength();
+  el.style.strokeDasharray = len;
+  el.style.strokeDashoffset = len;
+  return el;
+});
+
+function go(dir) {
+  if (dir > 0 && step >= STEPS.length - 1) return;
+  if (dir < 0 && step <= 0) return;
+  step += dir;
+  if (dir < 0) {
+    lit.clear();
+    for (let i = 1; i <= step; i++) SHOW_AT[i].forEach(id => lit.add(id));
+    connectPaths.forEach(el => { el.style.strokeDashoffset = el.getTotalLength(); });
+  } else {
+    SHOW_AT[step].forEach(id => lit.add(id));
+  }
+  render();
+}
+
+function render() {
+  document.querySelectorAll('.node').forEach(el => {
+    el.classList.toggle('visible', lit.has(el.id));
+  });
+
+  const discEl = document.getElementById('ng-disconnects');
+  discEl.classList.toggle('visible', lit.has('ng-disconnects'));
+  discEl.classList.toggle('fade-out', lit.has('ng-hub'));
+
+  const connectEl = document.getElementById('eg-connect');
+  if (lit.has('eg-connect')) {
+    connectEl.classList.add('visible');
+    requestAnimationFrame(() => connectPaths.forEach(el => { el.style.strokeDashoffset = '0'; }));
+  } else {
+    connectEl.classList.remove('visible');
+  }
+
+  const hubBorder = document.getElementById('hub-border');
+  document.getElementById('ng-hub').setAttribute('filter', lit.has('ng-hub') ? 'url(#fg)' : '');
+
+  caption.textContent = STEPS[step];
+  caption.classList.toggle('empty', step === 0);
+  caption.classList.toggle('tagline', step === STEPS.length - 1);
+
+  counter.textContent = `${step} / ${STEPS.length - 1}`;
+  hint.style.opacity = step === 0 ? '1' : '0';
+}
+
+document.addEventListener('click', () => go(1));
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowRight') { e.preventDefault(); go(1); }
+  if (e.code === 'ArrowLeft') { e.preventDefault(); go(-1); }
+});
+
+render();
+</script>
+</body>
+</html>
