@@ -110,10 +110,11 @@ function Icon({ type, size = 14, color = 'currentColor' }) {
 export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { chatMessages, addMessage, refreshSchedule, isSending, setIsSending } = useStore();
+  const { chatMessages, addMessage, refreshSchedule, isSending, setIsSending,
+          pendingProposal: storedProposal, setPendingProposal: clearStoredProposal } = useStore();
   const [loadingStep, setLoadingStep]       = useState(0);
-  const [pendingProposal, setPendingProposal] = useState(null);
-  const [selectedStrategy, setSelectedStrategy] = useState(null);
+  const [pendingProposal, setPendingProposal] = useState(storedProposal ?? null);
+  const [selectedStrategy, setSelectedStrategy] = useState(storedProposal?.data?.top_recommendation ?? null);
   const [proposalInput, setProposalInput]   = useState('');
   const [confirming, setConfirming]         = useState(false);
   const [scheduleToast, setScheduleToast]   = useState(null);
@@ -144,6 +145,11 @@ export default function ChatPage() {
   }, [chatMessages, isSending]);
 
   useEffect(() => { return () => clearTimeout(toastTimerRef.current); }, []);
+
+  // Consume any proposal handed off from AgentDrawer via store
+  useEffect(() => {
+    if (storedProposal) clearStoredProposal(null);
+  }, []);
 
   function showToast(message) {
     setScheduleToast(message);

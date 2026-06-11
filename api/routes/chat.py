@@ -157,11 +157,13 @@ async def chat(
                     today = datetime.utcnow().date().isoformat()
                     cutoff = (datetime.utcnow() - timedelta(seconds=45)).isoformat()
                     db = get_db()
+                    # Check both confirmed and unconfirmed — when a plan is already confirmed,
+                    # _persist_schedule updates all_strategies but keeps confirmed=True,
+                    # so the old confirmed=False filter missed these refreshed proposals.
                     record = await db[Collections.DAILY_SCHEDULES].find_one(
                         {
                             "user_id": body.user_id,
                             "date": today,
-                            "confirmed": False,
                             "generated_at": {"$gt": cutoff},
                         }
                     )
@@ -177,7 +179,7 @@ async def chat(
                         }
                         _logger.info(
                             f"[chat] DB fallback: recovered pending_proposal for {body.user_id} "
-                            f"(generated_at={record.get('generated_at')})"
+                            f"(confirmed={record.get('confirmed')}, generated_at={record.get('generated_at')})"
                         )
                 except Exception as _fb_err:
                     _logger.warning(f"[chat] DB fallback check failed: {_fb_err}")

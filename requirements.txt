@@ -15,10 +15,10 @@ httpx
 mcp
 
 # OpenTelemetry
-opentelemetry-api>=1.25.0
-opentelemetry-sdk>=1.25.0
-opentelemetry-exporter-otlp-proto-http>=1.25.0
-opentelemetry-semantic-conventions>=0.46b0
+opentelemetry-api>=1.36.0,<=1.41.1
+opentelemetry-sdk>=1.36.0,<=1.41.1
+opentelemetry-exporter-otlp-proto-http>=1.36.0,<=1.41.1
+opentelemetry-semantic-conventions==0.62b1
 
 # Dev / test dependencies
 pytest>=8.0

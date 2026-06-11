@@ -100,7 +100,7 @@ function Panel({ style, children }) {
   );
 }
 
-function Card({ style, className, children }) {
+function Card({ style, className = 'sidebar-card', children }) {
   return (
     <div
       className={className}
@@ -779,7 +779,7 @@ export default function TodayPage() {
             </Card>
 
             {/* at a glance */}
-            <Card className="sidebar-card-in" style={{ flexShrink: 0, animationDelay: '0.05s' }}>
+            <Card className="sidebar-card sidebar-card-in" style={{ flexShrink: 0, animationDelay: '0.05s' }}>
               <div style={{ padding: '11px 13px 12px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
                   Today at a glance
@@ -801,7 +801,7 @@ export default function TodayPage() {
             </Card>
 
             {/* health */}
-            <Card className="sidebar-card-in" style={{ flexShrink: 0, animationDelay: '0.18s' }}>
+            <Card className="sidebar-card sidebar-card-in" style={{ flexShrink: 0, animationDelay: '0.18s' }}>
               <div style={{ padding: '11px 11px 10px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--muted-2)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '9px' }}>
                   Health
@@ -887,7 +887,7 @@ export default function TodayPage() {
             </Card>
 
             {/* map & commute */}
-            <div className="sidebar-card-in" style={{ flex: 1, minHeight: 0, animationDelay: '0.31s' }}>
+            <div className="sidebar-card-in" style={{ flex: 1, minHeight: 0, animationDelay: '0.31s', overflow: 'hidden' }}>
               <MapCommute tasks={displayTasks} style={{ height: '100%' }} />
             </div>
 

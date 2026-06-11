@@ -8,11 +8,13 @@ export const useStore = create((set, get) => ({
   chatMessages: [],
   isBackendDown: false,
   isSending: false,
+  pendingProposal: null,
 
   setTasks: (tasks) => set({ tasks }),
   setNoSchedule: (v) => set({ noSchedule: v }),
   setIsBackendDown: (v) => set({ isBackendDown: v }),
   setIsSending: (v) => set({ isSending: v }),
+  setPendingProposal: (p) => set({ pendingProposal: p }),
 
   addMessage: (msg) =>
     set((state) => ({ chatMessages: [...state.chatMessages, msg] })),
