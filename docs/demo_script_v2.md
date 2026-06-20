@@ -102,13 +102,14 @@ yes reschedule it
 
 ## 1:10–1:25 — Google Cloud Stack
 
-**Screen:** `google_cloud_stack.html` — three cards fade in one by one.
+**Screen:** `google_cloud_stack.html` — press Space 5×: title → ADK → Gemini → Cloud Run → logline.
 
-**Voiceover:**
-> "We used Google ADK to wire together a team of AI agents that coordinate your entire day."
-> "Gemini is the brain — it reads your context and decides what actually matters."
-> "We shipped on Cloud Run — one container, zero ops, live on Google infrastructure."
-> "From agent logic to AI reasoning to live deployment — it's all Google Cloud."
+**Voiceover (one line per Space press):**
+> *(title appears — no line)*
+> "Google ADK runs the multi-agent system."
+> "Gemini is the reasoning engine."
+> "Cloud Run. One container, live on Google."
+> "From agent logic to deployment — it's all Google Cloud."
 
 ---
 

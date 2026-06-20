@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DayPilot — Closing</title>
+<style>
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100vw; height:100vh; overflow:hidden;
+    background: #0d0b1e;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  /* dot grid — same as arch.html */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* brand glow behind logo — activates when logo reveals */
+  #glow {
+    position: fixed;
+    top: 38%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 900px; height: 750px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse,
+      rgba(88,42,210,0.28) 0%,
+      rgba(28,55,200,0.12) 45%,
+      transparent 70%
+    );
+    pointer-events: none; z-index: 0;
+    opacity: 0;
+    transition: opacity 1.4s ease;
+  }
+  #glow.on { opacity: 1; }
+
+  /* ── stage ── */
+  .stage {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* ── logo ── */
+  /* Don't fight the logo's built-in gradient with blend modes.
+     Embrace it: rounded card + shadow turns "thumbnail" into product shot. */
+  #logo {
+    width: min(560px, 72vw);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow:
+      0 40px 110px rgba(60,20,180,0.55),
+      0 0 0 1px rgba(255,255,255,0.07);
+    opacity: 0;
+    transform: scale(0.91) translateY(20px);
+    transition:
+      opacity  1.0s cubic-bezier(.22,1,.36,1),
+      transform 1.0s cubic-bezier(.22,1,.36,1);
+  }
+  #logo img { width: 100%; height: auto; display: block; }
+  #logo.visible { opacity: 1; transform: scale(1) translateY(0); }
+
+  /* ── tech stack ── */
+  #stack {
+    margin-top: 38px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.28);
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity  0.6s cubic-bezier(.22,1,.36,1),
+      transform 0.6s cubic-bezier(.22,1,.36,1);
+  }
+  #stack.visible { opacity: 1; transform: translateY(0); }
+  #stack .sep { margin: 0 10px; color: rgba(255,255,255,0.12); }
+
+  /* ── tagline ── */
+  #tagline {
+    margin-top: 46px;
+    max-width: 660px;
+    padding: 0 24px;
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity  0.8s cubic-bezier(.22,1,.36,1),
+      transform 0.8s cubic-bezier(.22,1,.36,1);
+  }
+  #tagline.visible { opacity: 1; transform: translateY(0); }
+
+  /* First clause: recessed, sets up the contrast */
+  .t1 {
+    display: block;
+    font-size: 19px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.40);
+    line-height: 1.45;
+    margin-bottom: 8px;
+  }
+
+  /* Second clause: the payoff — enters with a beat of delay */
+  .t2 {
+    display: block;
+    font-size: clamp(26px, 2.8vw, 32px);
+    font-weight: 700;
+    color: #ede9ff;
+    line-height: 1.2;
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity  0.65s ease 0.42s,
+      transform 0.65s cubic-bezier(.22,1,.36,1) 0.42s;
+  }
+  #tagline.visible .t2 { opacity: 1; transform: translateY(0); }
+
+  /* ── hint ── */
+  #hint {
+    position: fixed; bottom: 22px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: rgba(255,255,255,0.13);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    transition: opacity 0.4s;
+    z-index: 2;
+  }
+</style>
+</head>
+<body>
+
+<div id="glow"></div>
+
+<div class="stage">
+
+  <div id="logo">
+    <img src="images/daypilot_logo.png" alt="DayPilot"/>
+  </div>
+
+  <div id="stack">
+    Google ADK
+    <span class="sep">·</span>
+    Gemini 2.5 Flash
+    <span class="sep">·</span>
+    Cloud Run
+    <span class="sep">·</span>
+    Dynatrace MCP
+  </div>
+
+  <div id="tagline">
+    <span class="t1">"DayPilot doesn't manage your calendar.</span>
+    <span class="t2">It manages your day."</span>
+  </div>
+
+</div>
+
+<div id="hint">Space to advance</div>
+
+<script>
+  const glow  = document.getElementById('glow');
+  const steps = ['logo','stack','tagline'].map(id => document.getElementById(id));
+  const hint  = document.getElementById('hint');
+  let cur = 0;
+
+  function advance() {
+    if (cur < steps.length) {
+      if (cur === 0) glow.classList.add('on');
+      steps[cur].classList.add('visible');
+      cur++;
+    }
+    if (cur >= steps.length) hint.style.opacity = '0';
+  }
+
+  document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); advance(); } });
+  document.addEventListener('click', advance);
+</script>
+</body>
+</html>
