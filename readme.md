@@ -2,6 +2,10 @@
 
 > "Your calendar knows your meetings. DayPilot knows your life."
 
+**Demo Video:** https://youtu.be/NF6q8QUmsBw?si=tSWPXdPFkXY8iYmR
+
+![Daypilot screenshot](docs/images/Daypilot_Home_Page.png)
+
 ---
 
 ## Quick Start
