@@ -534,50 +534,19 @@ _genai_client = genai.Client(
 )
 
 
-async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict) -> None:
-    """Save all strategies to daily_schedules. If a confirmed plan already exists for
-    today, only update all_strategies + generated_at so the active plan is preserved."""
-    from datetime import datetime as _datetime
-    try:
-        top_name = schedule_dict.get("top_recommendation", "")
-        strategies = schedule_dict.get("strategies", [])
-        strategy = next(
-            (s for s in strategies if s.get("name") == top_name),
-            strategies[0] if strategies else None,
-        )
-        if not strategy:
-            return
-        db = get_db()
-        now_iso = _datetime.utcnow().isoformat()
+async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict,
+                            inp: ScheduleInput | None = None) -> None:
+    """Record generated strategies as the day's proposal via DayPlanService.
 
-        existing = await db[Collections.DAILY_SCHEDULES].find_one(
-            {"user_id": user_id, "date": target_date}, {"confirmed": 1}
-        )
-        if existing and existing.get("confirmed"):
-            # A plan is already confirmed — only refresh the proposal pool so the
-            # proposal bar can show updated strategies without clobbering active tasks.
-            await db[Collections.DAILY_SCHEDULES].update_one(
-                {"user_id": user_id, "date": target_date},
-                {"$set": {"all_strategies": strategies, "generated_at": now_iso}},
-            )
-            return
+    The active (confirmed) plan is never touched. Raises DayPlanError if the
+    output violates an invariant — the caller must not present an unsaved plan.
+    """
+    from services.day_plan_invariants import fixed_blocks_for
+    from services.day_plan_service import DayPlanService
 
-        tasks = strategy.get("tasks", [])
-        await db[Collections.DAILY_SCHEDULES].update_one(
-            {"user_id": user_id, "date": target_date},
-            {"$set": {
-                "user_id": user_id,
-                "date": target_date,
-                "tasks": tasks,
-                "strategy_name": strategy.get("name", ""),
-                "all_strategies": strategies,
-                "confirmed": False,
-                "generated_at": now_iso,
-            }},
-            upsert=True,
-        )
-    except Exception:
-        pass  # never block schedule generation
+    output = ScheduleOutput(**{k: v for k, v in schedule_dict.items() if k in ScheduleOutput.model_fields})
+    fixed = fixed_blocks_for(inp, datetime.now()) if inp is not None else []
+    await DayPlanService().propose_plan(user_id, target_date, output, fixed_blocks=fixed)
 
 
 @traced_tool("confirm_schedule")
@@ -588,30 +557,17 @@ async def confirm_schedule(user_id: str, strategy_name: str, date: str = "") -> 
     (e.g., "yes confirm", "let's go with most relaxed", "I want the fastest plan").
     strategy_name: exactly "Most Productive", "Most Relaxed", or "Fastest"
     """
-    from datetime import date as _date
+    from schemas.day_plan import ConfirmProposal, DayPlanError
+    from services.day_plan_service import DayPlanService, today_for
+
     if not date:
-        date = _date.today().isoformat()
-
+        date = today_for(user_id)
     try:
-        db = get_db()
-        record = await db[Collections.DAILY_SCHEDULES].find_one(
-            {"user_id": user_id, "date": date}
-        )
-        if not record:
-            return {"success": False, "message": "No schedule found for today — call plan_schedule first."}
-
-        all_strategies = record.get("all_strategies", [])
-        strategy = next((s for s in all_strategies if s.get("name") == strategy_name), None)
-        if not strategy:
-            available = [s.get("name") for s in all_strategies]
-            return {"success": False, "message": f"Strategy '{strategy_name}' not found. Available: {available}"}
-
-        tasks = strategy.get("tasks", [])
-        await db[Collections.DAILY_SCHEDULES].update_one(
-            {"user_id": user_id, "date": date},
-            {"$set": {"tasks": tasks, "strategy_name": strategy_name, "confirmed": True}},
-        )
-        return {"success": True, "strategy_name": strategy_name, "task_count": len(tasks)}
+        plan = await DayPlanService().handle(
+            ConfirmProposal(user_id=user_id, date=date, strategy_name=strategy_name))
+        return {"success": True, "strategy_name": plan.active.strategy_name, "task_count": len(plan.active.tasks)}
+    except DayPlanError as e:
+        return {"success": False, "message": e.message}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
@@ -638,7 +594,8 @@ async def plan_schedule(
     generic placeholder, so get the keys right.
     """
     if not target_date or target_date.strip().lower() == "today":
-        target_date = date.today().isoformat()
+        from services.day_plan_service import today_for
+        target_date = today_for(user_id)
 
     # LLM may serialize dict args as JSON strings
     if isinstance(goal_context, str):
@@ -713,7 +670,7 @@ async def plan_schedule(
         output = _enforce_constraints(output, inp)
         output = _validate_and_fix(output, inp)
         result = output.model_dump()
-        await _persist_schedule(user_id, target_date, result)
+        await _persist_schedule(user_id, target_date, result, inp)
         return result
     except Exception as _e:
         _log.error("[plan_schedule] failed: %s", _e, exc_info=True)

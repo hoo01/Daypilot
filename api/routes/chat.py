@@ -9,7 +9,6 @@ from google import genai
 from api.dependencies import get_runner
 from agents.memory import MemoryAgent
 from db import get_db
-from db.collections import Collections
 from config import settings
 import http_client
 from telemetry import tracer, meter, get_logger
@@ -155,32 +154,23 @@ async def chat(
             # check the DB for a record generated within the last 45 seconds.
             if not pending_proposal:
                 try:
-                    today = datetime.utcnow().date().isoformat()
-                    cutoff = (datetime.utcnow() - timedelta(seconds=45)).isoformat()
-                    db = get_db()
-                    # Check both confirmed and unconfirmed — when a plan is already confirmed,
-                    # _persist_schedule updates all_strategies but keeps confirmed=True,
-                    # so the old confirmed=False filter missed these refreshed proposals.
-                    record = await db[Collections.DAILY_SCHEDULES].find_one(
-                        {
-                            "user_id": body.user_id,
-                            "date": today,
-                            "generated_at": {"$gt": cutoff},
-                        }
-                    )
-                    if record and record.get("all_strategies"):
+                    from services.day_plan_repository import DayPlanRepository
+                    from services.day_plan_service import today_for
+                    cutoff = (datetime.now() - timedelta(seconds=45)).isoformat(timespec="seconds")
+                    plan = await DayPlanRepository().get(body.user_id, today_for(body.user_id))
+                    if plan.proposal and plan.proposal.created_at > cutoff:
                         pending_proposal = {
-                            "type": "plan",
-                            "date": record["date"],
+                            "type": plan.proposal.kind,
+                            "date": plan.date,
                             "data": {
-                                "strategies": record["all_strategies"],
-                                "top_recommendation": record.get("strategy_name", ""),
-                                "date": record["date"],
+                                "strategies": [s.model_dump() for s in plan.proposal.strategies],
+                                "top_recommendation": plan.proposal.top_recommendation,
+                                "date": plan.date,
                             },
                         }
                         _logger.info(
                             f"[chat] DB fallback: recovered pending_proposal for {body.user_id} "
-                            f"(confirmed={record.get('confirmed')}, generated_at={record.get('generated_at')})"
+                            f"(status={plan.status.value}, created_at={plan.proposal.created_at})"
                         )
                 except Exception as _fb_err:
                     _logger.warning(f"[chat] DB fallback check failed: {_fb_err}")

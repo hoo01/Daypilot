@@ -1,10 +1,7 @@
 import json
-from datetime import date as _date
 from google import genai
 from config import settings
 import http_client as _http_client
-from db import get_db
-from db.collections import Collections
 from telemetry.instrument import traced_tool
 
 _client = genai.Client(
@@ -20,26 +17,24 @@ async def get_today_schedule(user_id: str, date: str = "") -> dict:
     Returns the task list and strategy name. Call this BEFORE adjust_schedule
     to get the current_schedule argument.
     """
-    if not date:
-        date = _date.today().isoformat()
+    from services.day_plan_repository import DayPlanRepository
+    from services.day_plan_service import today_for
 
+    if not date:
+        date = today_for(user_id)
     try:
-        db = get_db()
-        record = await db[Collections.DAILY_SCHEDULES].find_one(
-            {"user_id": user_id, "date": date}
-        )
-        if not record:
+        plan = await DayPlanRepository().get(user_id, date)
+        if plan.active is None:
             return {"found": False, "tasks": [], "strategy_name": None, "date": date}
         return {
             "found": True,
-            "tasks": record.get("tasks", []),
-            "strategy_name": record.get("strategy_name"),
-            "confirmed": record.get("confirmed", False),
+            "tasks": [t.model_dump() for t in plan.active.tasks],
+            "strategy_name": plan.active.strategy_name,
+            "confirmed": True,
             "date": date,
         }
     except Exception as e:
         return {"found": False, "tasks": [], "strategy_name": None, "date": date, "error": str(e)}
-
 
 
 @traced_tool("adjust_schedule")
@@ -54,6 +49,31 @@ async def adjust_schedule(
     trigger: "new_event" | "location_change" | "task_overrun" | "energy_update"
     Returns updated schedule and a plain-language explanation of what changed.
     """
+    from schemas.day_plan import DayPlanError
+    from schemas.realtime import RealtimeOutput
+    from services.day_plan_service import DayPlanService, today_for
+
+    service = DayPlanService()
+    date = today_for(user_id)
+    plan = await service.get(user_id, date)
+    if plan.active is not None:
+        # The DB active plan is the source of truth, not whatever the LLM passed in.
+        current_schedule = [t.model_dump() for t in plan.active.tasks]
+    result = await _run_adjust_llm(current_schedule, trigger, trigger_detail)
+    if plan.active is not None and result.get("updated_schedule"):
+        try:
+            await service.propose_adjustment(user_id, date, RealtimeOutput(**result))
+        except DayPlanError as e:
+            result["error"] = True
+            result["message"] = f"I couldn't produce a valid adjustment ({e.message}). Please try again."
+        except Exception as e:  # malformed LLM output that doesn't fit RealtimeOutput
+            result["error"] = True
+            result["message"] = f"I couldn't produce a valid adjustment ({e}). Please try again."
+    return result
+
+
+async def _run_adjust_llm(current_schedule: list, trigger: str, trigger_detail: str) -> dict:
+    """The raw LLM adjustment call (no persistence)."""
     if not current_schedule:
         return {
             "what_changed": [trigger_detail],
