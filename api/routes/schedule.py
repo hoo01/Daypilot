@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from schemas import RealtimeInput, RealtimeOutput
 from schemas.day_plan import ADJUSTED_STRATEGY, ConfirmProposal, DayPlanError
-from agents.tools.realtime_tools import _run_adjust_llm
+from agents.tools.realtime_tools import generate_adjustment
 from agents.memory import MemoryAgent
 from db import get_db
 from services.day_plan_service import DayPlanService, today_for
@@ -90,16 +90,17 @@ async def get_today_schedule(user_id: str = Query(...)) -> dict:
 
 @router.post("/adjust", response_model=RealtimeOutput)
 async def adjust_schedule_endpoint(body: RealtimeInput) -> RealtimeOutput:
-    """Trigger a real-time schedule adjustment when something changes."""
+    """Stateless adjustment preview: runs LLM② on the given schedule, persists nothing.
+
+    Adjustments that should become the user's plan go through the chat orchestrator
+    (AdjustPlan → DayPlanService), which uses the stored active plan instead.
+    """
+    if not body.current_schedule:
+        return RealtimeOutput(what_changed=[body.trigger_detail], message="No active schedule to adjust.")
     try:
-        # Stateless preview: nothing is persisted here. Adjustments that should become the
-        # user's plan go through the chat orchestrator → DayPlanService.
-        result = await _run_adjust_llm(
-            [t.model_dump() for t in body.current_schedule], body.trigger, body.trigger_detail,
-        )
-        return RealtimeOutput(**result)
+        return await generate_adjustment(body.current_schedule, body.trigger, body.trigger_detail)
     except Exception as e:
-        print(f"[schedule/adjust] Error for {body.user_id}: {e}")
+        _logger.error(f"[schedule/adjust] Error for {body.user_id}: {e}")
         return RealtimeOutput(
             updated_schedule=[],
             message="I'm having trouble adjusting the schedule right now. Please try again in a moment.",

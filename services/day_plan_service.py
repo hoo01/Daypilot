@@ -74,12 +74,14 @@ class PreferencesPendingStore:
         await self._mem().update_preference(user_id, "pending_reschedule", None)
 
 
-async def _no_plan_generator(req: PlanRequest) -> GeneratedPlan:  # pragma: no cover - wiring guard
-    raise RuntimeError("DayPlanService was built without a plan generator")
+async def _default_plan_generator(req: PlanRequest) -> GeneratedPlan:
+    from agents.tools.schedule_tools import build_plan  # lazy: avoids an import cycle
+    return await build_plan(req)
 
 
-async def _no_adjust_generator(req: AdjustRequest) -> RealtimeOutput:  # pragma: no cover - wiring guard
-    raise RuntimeError("DayPlanService was built without an adjust generator")
+async def _default_adjust_generator(req: AdjustRequest) -> RealtimeOutput:
+    from agents.tools.realtime_tools import build_adjustment  # lazy: avoids an import cycle
+    return await build_adjustment(req)
 
 
 class DayPlanService:
@@ -93,8 +95,8 @@ class DayPlanService:
         now: Callable[[], datetime] = datetime.now,
     ):
         self.repo = repository or DayPlanRepository()
-        self._plan_generator = plan_generator or _no_plan_generator
-        self._adjust_generator = adjust_generator or _no_adjust_generator
+        self._plan_generator = plan_generator or _default_plan_generator
+        self._adjust_generator = adjust_generator or _default_adjust_generator
         self._pending = pending_store or PreferencesPendingStore()
         self._now = now
 

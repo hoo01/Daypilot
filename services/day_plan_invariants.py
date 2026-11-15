@@ -56,8 +56,14 @@ def validate_tasks(tasks: Iterable[ScheduleTask], target_date: str) -> list[str]
         timed.append((start, end, t))
 
     timed.sort(key=lambda x: x[0])
-    for (s1, e1, a), (s2, e2, b) in zip(timed, timed[1:]):
-        if s2 < e1:
+    for i, (s1, e1, a) in enumerate(timed):
+        for s2, e2, b in timed[i + 1:]:
+            if s2 >= e1:
+                break
+            if a.type == "calendar_event" and b.type == "calendar_event":
+                # Both are the user's real commitments (their own calendar double-books);
+                # dropping either would lose user data, so this pair is tolerated.
+                continue
             violations.append(f'"{a.title}" overlaps "{b.title}"')
     return violations
 

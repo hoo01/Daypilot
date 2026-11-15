@@ -123,6 +123,14 @@ def test_overlap_is_a_violation():
     assert any("overlap" in m for m in v)
 
 
+def test_two_overlapping_calendar_events_are_allowed_but_not_generated_tasks():
+    """The user's own calendar may double-book; generated tasks may never overlap anything."""
+    a = task("Standup", "09:00", "09:30", type="calendar_event")
+    b = task("1:1", "09:15", "09:45", type="calendar_event")
+    assert validate_tasks([a, b], DAY) == []
+    assert validate_tasks([a, task("Focus", "09:20", "10:00")], DAY)
+
+
 @pytest.mark.parametrize("bad", ["2026_11_20T09:00:00", "9:00 AM", "2026-11-20 09:00", "2026-11-20T09:00"])
 def test_non_iso_timestamp_is_a_violation(bad):
     t = task("A", "09:00", "10:00").model_copy(update={"start_time": bad})
