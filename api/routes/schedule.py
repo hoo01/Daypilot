@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from schemas import RealtimeInput, RealtimeOutput
-from schemas.day_plan import ADJUSTED_STRATEGY, ConfirmProposal, DayPlanError
+from schemas.day_plan import ConfirmProposal, DayPlanError
 from agents.tools.realtime_tools import generate_adjustment
 from agents.memory import MemoryAgent
 from db import get_db
@@ -108,29 +108,21 @@ async def adjust_schedule_endpoint(body: RealtimeInput) -> RealtimeOutput:
 
 
 class ScheduleConfirmRequest(BaseModel):
+    """Identifies a stored proposal and the chosen strategy. Any other fields a client
+    sends (e.g. tasks) are ignored — the tasks always come from the DB (§5.3 invariant 4)."""
     user_id: str
-    date: str | None = None
-    proposal_id: str | None = None
-    strategy_name: str | None = None
-    # Legacy payload (pre-orchestrator frontend). Only used to infer which strategy the
-    # user picked — any tasks sent by the client are ignored (§5.3 invariant 4).
-    target_date: str | None = None
-    proposal: dict | None = None
-    proposal_type: str | None = None
+    date: str
+    proposal_id: str
+    strategy_name: str | None = None      # None → the proposal's top recommendation
 
 
 @router.post("/confirm")
 async def confirm_schedule(body: ScheduleConfirmRequest) -> dict:
-    """Confirm one strategy of the stored proposal. The tasks always come from the DB."""
-    day = body.date or body.target_date or today_for(body.user_id)
-    strategy_name = body.strategy_name
-    if strategy_name is None and body.proposal_type == "adjust":
-        strategy_name = ADJUSTED_STRATEGY
-    if strategy_name is None and body.proposal:
-        strategy_name = body.proposal.get("top_recommendation") or None
+    """Confirm one strategy of the stored proposal via DayPlanService."""
     try:
         plan = await DayPlanService().handle(ConfirmProposal(
-            user_id=body.user_id, date=day, proposal_id=body.proposal_id, strategy_name=strategy_name,
+            user_id=body.user_id, date=body.date, proposal_id=body.proposal_id,
+            strategy_name=body.strategy_name,
         ))
     except DayPlanError as e:
         raise _day_plan_error(e)

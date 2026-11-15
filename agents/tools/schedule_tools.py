@@ -1,16 +1,13 @@
-import json
 import re
 from datetime import datetime, date, timedelta
 from google import genai
 from config import settings
 from db import get_db
-from db.collections import Collections
 from agents.memory import MemoryAgent
 from schemas.schedule import (
     ScheduleInput, ScheduleOutput, ScheduleTask, ScheduleStrategy,
     CalendarEvent, UserPreferences,
 )
-from telemetry.instrument import traced_tool
 from schemas.health import HealthOutput
 
 
@@ -792,136 +789,3 @@ async def build_plan(req, *, llm: LLMJsonCall | None = None):
     output = await generate_schedule(inp, goal_context=goal_context, focus_tasks=req.focus_tasks,
                                      notes=notes, llm=llm)
     return GeneratedPlan(output=output, input=inp)
-
-
-# ─────────────────────────────────────────────────────────
-# Coordinator tools (thin wrappers: generator + DayPlanService)
-# ─────────────────────────────────────────────────────────
-
-async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict,
-                            inp: ScheduleInput | None = None) -> None:
-    """Record generated strategies as the day's proposal via DayPlanService.
-
-    The active (confirmed) plan is never touched. Raises DayPlanError if the
-    output violates an invariant — the caller must not present an unsaved plan.
-    """
-    from services.day_plan_invariants import fixed_blocks_for
-    from services.day_plan_service import DayPlanService
-
-    output = ScheduleOutput(**{k: v for k, v in schedule_dict.items() if k in ScheduleOutput.model_fields})
-    fixed = fixed_blocks_for(inp, datetime.now()) if inp is not None else []
-    await DayPlanService().propose_plan(user_id, target_date, output, fixed_blocks=fixed)
-
-
-@traced_tool("confirm_schedule")
-async def confirm_schedule(user_id: str, strategy_name: str, date: str = "") -> dict:
-    """
-    Save the user-confirmed schedule strategy as the active plan.
-    Call this when the user explicitly confirms which plan they want
-    (e.g., "yes confirm", "let's go with most relaxed", "I want the fastest plan").
-    strategy_name: exactly "Most Productive", "Most Relaxed", or "Fastest"
-    """
-    from schemas.day_plan import ConfirmProposal, DayPlanError
-    from services.day_plan_service import DayPlanService, today_for
-
-    if not date:
-        date = today_for(user_id)
-    try:
-        plan = await DayPlanService().handle(
-            ConfirmProposal(user_id=user_id, date=date, strategy_name=strategy_name))
-        return {"success": True, "strategy_name": plan.active.strategy_name, "task_count": len(plan.active.tasks)}
-    except DayPlanError as e:
-        return {"success": False, "message": e.message}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-
-@traced_tool("plan_schedule")
-async def plan_schedule(
-    user_id: str,
-    target_date: str = "",
-    health_context: dict | None = None,
-    goal_context: dict | None = None,
-    relationship_context: dict | None = None,
-    geo_context: dict | None = None,
-    calendar_events: list | None = None,
-) -> dict:
-    """
-    Generate 3 optimized daily schedule strategies.
-    Respects fixed calendar events, energy windows, goal urgency, and commute constraints.
-
-    calendar_events: list of dicts, one per user-mentioned event, each shaped EXACTLY like:
-        {"title": "ML Class", "start_time": "2026-06-08T14:00:00", "end_time": "2026-06-08T16:00:00", "location": "library"}
-    Use the user's exact wording for "title", full ISO 8601 timestamps ("YYYY-MM-DDTHH:MM:SS")
-    for "start_time"/"end_time" (resolve "2PM-4PM" to today's date + 14:00/16:00), and omit
-    "location" entirely if the user didn't give one. Missing or misnamed keys fall back to a
-    generic placeholder, so get the keys right.
-    """
-    if not target_date or target_date.strip().lower() == "today":
-        from services.day_plan_service import today_for
-        target_date = today_for(user_id)
-
-    # LLM may serialize dict args as JSON strings
-    if isinstance(goal_context, str):
-        try:
-            goal_context = json.loads(goal_context)
-        except Exception:
-            goal_context = None
-    if isinstance(health_context, str):
-        try:
-            health_context = json.loads(health_context)
-        except Exception:
-            health_context = None
-
-    mem = MemoryAgent(get_db())
-    prefs = await mem.get_preferences(user_id)
-
-    health = None
-    if health_context:
-        try:
-            health = HealthOutput(**health_context)
-        except Exception:
-            pass
-
-    inp = ScheduleInput(
-        user_id=user_id,
-        date=target_date,
-        health=health,
-        user_preferences=UserPreferences(
-            preferred_work_hours=prefs.get("focus_window", "9PM-1AM"),
-            commute_minutes=prefs.get("commute", {}).get("library_from_home_min", 30),
-            break_frequency=90,
-        ),
-        calendar_events=[
-            CalendarEvent(
-                id=str(i),
-                title=e.get("title", e.get("name", e.get("summary", "Event"))),
-                start_time=_normalize_timestamp(
-                    e.get("start_time", e.get("start", target_date + "T00:00:00")),
-                    target_date,
-                ),
-                end_time=_normalize_timestamp(
-                    e.get("end_time", e.get("end", target_date + "T01:00:00")),
-                    target_date,
-                ),
-                location=e.get("location"),
-            )
-            for i, e in enumerate(calendar_events or [])
-            if isinstance(e, dict)
-        ],
-    )
-
-    try:
-        output = await generate_schedule(inp, goal_context=goal_context)
-        result = output.model_dump()
-        await _persist_schedule(user_id, target_date, result, inp)
-        return result
-    except Exception as _e:
-        _log.error("[plan_schedule] failed: %s", _e)
-        return {
-            "date": target_date,
-            "strategies": [],
-            "top_recommendation": None,
-            "warnings": [getattr(_e, "message", None) or "Schedule generation failed — please try again."],
-            "error": True,
-        }

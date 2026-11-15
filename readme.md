@@ -45,35 +45,45 @@ DayPilot flips this. It surfaces what you haven't thought of yet and weaves it p
 
 ## Architecture
 
-Single FastAPI server with a Google ADK coordinator agent. Context is pre-loaded in parallel before each turn via ADK's `before_agent_callback`, so Gemini always has fresh user data without needing to decide which tools to call.
+Single FastAPI server. Schedule state is **code-owned**: LLMs only *propose* (classify the
+user's intent, generate candidate schedules); only code (`DayPlanService`) *commits*. See
+[docs/refactor/schedule_orchestrator.md](docs/refactor/schedule_orchestrator.md).
 
 ```
 User
   ↓
-POST /chat/
+POST /chat/  →  TurnOrchestrator.run_turn                       (services/turn_orchestrator.py)
+  ├── load_turn_context: DayPlan (today/tomorrow) + pending_reschedule + today's calendar
+  ├── LLM① parse_intent → plan_day | adjust | confirm | discard | reschedule_missed | chat
+  │      (agents/intent.py — response_schema, no tools, failures degrade to chat)
+  │
+  ├── chat ─────────► read-only Coordinator Agent (Google ADK + Gemini)
+  │                    before_agent_callback preloads, in parallel:
+  │                    read_user_context · track_goals · get_relationship_context ·
+  │                    analyze_health · DayPlan summary
+  │                    tools: memory tools, analyze_health, track_goals, get_geo_info,
+  │                    get_relationship_context, check_performance — none write schedules
+  │
+  └── schedule ─────► DayPlanService.handle(command)            (services/day_plan_service.py)
+                       1. precondition check on the stored DayPlan (InvalidTransition)
+                       2. LLM② generate_schedule / generate_adjustment — pure functions:
+                          response_schema → code repairs → §5.3 invariants → 1 retry →
+                          GenerationFailed (never a fallback schedule)
+                       3. DayPlanRepository.save(plan, expected_version)  ← only writer of
+                          daily_schedules (optimistic locking)
   ↓
-before_agent_callback (parallel, every turn)
-  ├── read_user_context          ─┐
-  ├── track_goals                 │  asyncio.gather → inject into session state
-  ├── get_relationship_context    │
-  └── analyze_health             ─┘  (full PsychoBio pipeline — PSI, PLI, energy, focus window)
-  ↓
-Coordinator Agent (Google ADK + Gemini 2.5 Flash)
-  ├── Reads pre-loaded context from session state
-  ├── Proactively surfaces goals, upcoming dates, schedule
-  └── Calls additional tools on demand:
-      ├── plan_schedule           → 3 optimized daily strategies
-      ├── adjust_schedule         → real-time replanning
-      ├── get_geo_info            → commute segments via Google Routes API
-      ├── write_entity_to_memory  → persist facts from conversation
-      ├── store_conversation_memory → vector embedding → MongoDB
-      ├── clear_pending_reschedule → after task rescheduling confirmed
-      └── MongoDB MCP             → direct Knowledge Graph queries
+ChatResponse { reply, session_id, day_plan, error }   ← the UI renders day_plan only
 
+POST /schedule/confirm { user_id, date, proposal_id, strategy_name } → ConfirmProposal
+GET  /schedule/day     full DayPlan · GET /schedule/today  active tasks + geo segments
 POST /schedule/feedback (end-of-day checkbox)
   ├── Stores pending_reschedule in user_preferences (progress is cumulative — skipping a task never decrements it)
-  └── Next /chat/ turn: coordinator detects pending tasks and reschedules
+  └── "move them to tomorrow" → RescheduleMissed → proposal; confirming it clears pending_reschedule
 ```
+
+A DayPlan (one per `user_id + date`) holds `active` (the confirmed plan), `proposal` (options
+waiting for a decision) and `version`; its status (`EMPTY`, `PROPOSED`, `CONFIRMED`,
+`CONFIRMED_WITH_PROPOSAL`) is derived from the first two.
 
 ---
 
@@ -90,7 +100,7 @@ POST /schedule/feedback (end-of-day checkbox)
 - Per turn: `before_agent_callback` preloads context in parallel (no per-request tool call latency); relationship context and health analysis are cached (30 min / 10 min TTL) — first call is cold, subsequent calls are instant
 - After each turn: background consolidation → Gemini compresses insight → `store_conversation_memory`
 - Next session: `retrieve_relevant_memories` semantically retrieves relevant past context
-- End of day: `/schedule/feedback` stores uncompleted tasks → coordinator reschedules on next turn
+- End of day: `/schedule/feedback` stores uncompleted tasks → the user can ask to move them to the next day
 
 ---
 
@@ -102,14 +112,15 @@ POST /schedule/feedback (end-of-day checkbox)
 | `track_goals` | Reads goal state, uses Gemini to assess urgency and suggest blocks | Ready |
 | `get_relationship_context` | Surfaces upcoming important dates with Gemini suggestions | Ready |
 | `retrieve_relevant_memories` | Semantic search over past conversation memories | Ready |
-| `plan_schedule` | Generates 3 daily schedule strategies with constraint enforcement | Ready |
-| `adjust_schedule` | Real-time replanning when disruptions occur | Ready |
 | `get_geo_info` | Multi-segment commute calculation via Google Routes API | Ready |
 | `write_entity_to_memory` | Persists entities extracted from conversation | Ready |
 | `store_conversation_memory` | Embeds and stores conversation insights | Ready |
-| `clear_pending_reschedule` | Clears pending task reschedule after confirmation | Ready |
 | `analyze_health` | PsychoBio pipeline — energy_level, focus_window, cognitive_load_score, avoid_tasks | Ready |
-| `MongoDB MCP` | Direct Knowledge Graph queries via MCP protocol | Ready |
+| `check_performance` | Response-time / error stats for "how are you performing?" | Ready |
+
+Schedule generation and adjustment are not agent tools: `generate_schedule` and
+`generate_adjustment` (LLM②) are called by `DayPlanService`. The MongoDB MCP toolset is no
+longer attached to the chat agent, because it could write `daily_schedules`.
 
 ---
 
@@ -162,9 +173,11 @@ That evening, Kai didn't finish his Leetcode session. He checks the box in the U
 See [docs/api.md](docs/api.md) for full endpoint documentation.
 
 Key endpoints:
-- `POST /chat/` — main conversation interface
+- `POST /chat/` — main conversation interface (returns the resulting `day_plan`)
+- `GET /schedule/day` — the full DayPlan for a date
+- `POST /schedule/confirm` — confirm a stored proposal by `proposal_id` + `strategy_name`
 - `POST /schedule/feedback` — end-of-day task completion feedback
-- `POST /schedule/adjust` — real-time schedule adjustment
+- `POST /schedule/adjust` — stateless adjustment preview (persists nothing)
 - `GET /auth/google` — Google OAuth login
 
 ---

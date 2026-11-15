@@ -32,10 +32,6 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/auth/callback"
 
-    # Schedule control inversion (docs/refactor/schedule_orchestrator.md). True: /chat goes
-    # through services.turn_orchestrator; False: legacy coordinator-with-tools path (rollback).
-    use_schedule_orchestrator: bool = True
-
     app_env: str = "development"
     app_secret_key: str = "change_me_in_production"
 

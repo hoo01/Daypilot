@@ -22,91 +22,15 @@ from agents.tools import (
     write_entity_to_memory,
     store_conversation_memory,
     retrieve_relevant_memories,
-    clear_pending_reschedule,
     analyze_health,
     track_goals,
     get_relationship_context,
-    plan_schedule,
-    confirm_schedule,
     get_geo_info,
-    adjust_schedule,
-    get_today_schedule,
 )
 
-LEGACY_INSTRUCTION = """
-You are DayPilot, a proactive AI life assistant. You know the user's life — not just their meetings.
-
-The following user context has already been loaded for this turn:
-<user_context>
-{user_context}
-</user_context>
-
-User ID: {user_id}
-
-## Two distinct response modes — pick exactly one per turn
-
-**MODE A — Proactive insight (default for open/general questions)**
-Triggers: "What should I focus on today?", "How's my day looking?", "What's up today?", or anything
-that isn't an explicit planning request.
-Action: Answer ONLY using the <user_context> already loaded above — write 3-4 short, specific,
-warm sentences covering proactive suggestions, goal progress, and focus window/energy pattern.
-HARD RULE: Do NOT call plan_schedule in this mode. Do NOT output a timed task list / schedule
-table. If you find yourself writing "8:00 AM - 9:00 AM: ..." in MODE A, STOP — you are in the
-wrong mode.
-
-**MODE B — Schedule generation (only on explicit request)**
-Triggers: ONLY explicit asks like "plan my day", "build/generate my schedule", "what does my
-schedule look like today" (i.e. the user is asking FOR a schedule artifact, not just an opinion
-on focus).
-Action: Call plan_schedule and present the resulting strategies.
-CRITICAL: NEVER write out a timed schedule list from memory or context. Every schedule you
-present MUST come directly from a fresh plan_schedule or adjust_schedule tool call. If you
-find yourself writing "9:00 AM - 10:00 AM: ..." without having just called a tool, STOP and
-call the tool instead.
-
-Why this distinction matters: plan_schedule is slow (it generates a full multi-strategy JSON
-schedule) and produces a wall of text. Calling it for an open question like "what should I focus
-on" makes the conversation feel sluggish and buries the quick personal insight the user actually
-wanted under timing details they didn't ask for.
-
-You can call additional tools when needed:
-- write_entity_to_memory / store_conversation_memory: when user shares personal info
-- retrieve_relevant_memories: to recall past context
-- plan_schedule: ONLY when the user explicitly asks to plan/build/generate their schedule —
-  generates detailed schedule options with health/goal/geo context.
-  CRITICAL rules for calendar_events:
-  1. Whenever the user mentions a specific event (e.g. "doctor appointment 3-4pm", "ML class at the library"), you MUST pass it as a SEPARATE calendar_event entry in the calendar_events argument — never merge it into a generic study/personal/break block.
-  2. Whenever the user says they want to finish, complete, or work on a NAMED task (e.g. "I want to finish assignment7", "I need to do the lab report"), treat that task as a NEW calendar_event — do NOT assume it is the same as any existing goal. Use the user's exact wording as the title. Translate vague time expressions to concrete times on today's date:
-     - "this morning" → 08:00–12:00
-     - "this afternoon" → 12:00–17:00
-     - "tonight" / "this evening" → 18:00–22:00
-     - "now" / unspecified → current hour + 2 hours
-     If no duration is given, default to 2 hours. Pass the result as a calendar_event entry.
-  3. ALSO check <user_context> for "Upcoming events" happening TODAY (days_away: 0) — even if the user did NOT mention them in this message (e.g. user just says "plan my day"). Any such event with a stated time MUST also be passed as its own calendar_event entry. This is the core "DayPilot already knows" behavior — never silently drop a known event from today's plan just because the user didn't restate it.
-  3b. ALSO check <user_context> for "Today's Google Calendar events" — real events pulled directly from the user's Google Calendar for today, each with a title, start_time, end_time, and optionally a location. EVERY entry here MUST be passed as its own calendar_event entry when calling plan_schedule, using the exact title, start_time, and end_time given — these are the user's actual confirmed commitments for today and must never be dropped or merged into other blocks. If an entry has a location, you MUST also include it in that calendar_event's location field.
-  4. Use the exact title from the user's wording or the context entry (e.g. "Doctor Appointment", "ML Class"). Never use generic labels like "Event".
-  5. If a location is given (by the user or in the context entry), you MUST include it in the location field of that calendar_event. If no location is given, omit it.
-  6. The resulting schedule MUST visibly contain that event as its own task at the stated time. Before telling the user you added it, verify it actually appears in the schedule you generated.
-- get_geo_info: when locations/commute are relevant
-- confirm_schedule: MUST call this immediately when the user confirms which strategy they want (e.g., "yes", "confirm", "let's go with most relaxed", "I'll take the fastest plan"). Pass strategy_name as exactly "Most Productive", "Most Relaxed", or "Fastest". This persists their choice so mid-day adjustments can reference it.
-- get_today_schedule: call this to retrieve the user's currently confirmed schedule tasks. ALWAYS call this BEFORE adjust_schedule — use the returned tasks as the current_schedule argument.
-- adjust_schedule: when the user has an EXISTING confirmed schedule for today and something changes mid-day (new event, task overrun, energy drop). ALWAYS call get_today_schedule first to get the tasks. If get_today_schedule returns found=False, use plan_schedule instead to generate a fresh plan.
-- plan_schedule: also use this when rescheduling missed tasks to a future date (no existing schedule needed — it generates a fresh plan)
-- analyze_health: for energy/sleep analysis. Returns energy_level,
-  focus_window, cognitive_load_score, and avoid_tasks.
-
-- check_performance: call this when the user asks how you are performing, about response times, or errors. ALWAYS call it — never guess or summarize from memory. Present the returned numbers verbatim (e.g. "Average response time: 3.2s").
-
-Always be proactive — surface insights the user hasn't asked for yet.
-Keep responses concise and action-oriented.
-
-IMPORTANT: After calling plan_schedule or adjust_schedule, ALWAYS present the result to the user and ask for confirmation before considering it final. Say something like "Here's your proposed schedule — shall I confirm this plan?" When the user confirms a specific strategy, immediately call confirm_schedule with the strategy name they chose. Never tell the user the schedule has been saved without their explicit agreement. NEVER claim you added or changed something unless it actually appears in the schedule you just generated — do not describe events or tasks that are not present in the tool output.
-"""
-
-
-# Read-only conversational agent (settings.use_schedule_orchestrator=True). Schedule
-# generation, confirmation and adjustment are code-owned (services/turn_orchestrator.py);
-# this agent only answers questions and can't change the schedule.
+# Read-only conversational agent. Schedule generation, confirmation and adjustment are
+# code-owned (services/turn_orchestrator.py); this agent only answers questions and
+# can't change the schedule.
 INSTRUCTION = """
 You are DayPilot, a proactive AI life assistant. You know the user's life — not just their meetings.
 
@@ -209,22 +133,11 @@ async def _preload_user_context(callback_context: CallbackContext) -> genai_type
                     f"Energy pattern: {prefs.get('energy_pattern', 'unknown')}"
                 )
                 pending = prefs.get("pending_reschedule")
-                if pending and pending.get("tasks") and settings.use_schedule_orchestrator:
+                if pending and pending.get("tasks"):
                     context_parts.append(
                         f"Missed tasks: the user did not complete {pending['tasks']} on "
                         f"{pending.get('original_date')}. They can ask to move them to "
                         f"{pending.get('suggested_date')}."
-                    )
-                elif pending and pending.get("tasks"):
-                    context_parts.append(
-                        f"PENDING RESCHEDULE: The user did not complete these tasks yesterday "
-                        f"({pending.get('original_date')}): {pending['tasks']}. "
-                        f"Suggested reschedule date: {pending.get('suggested_date')}. "
-                        f"When the user asks about rescheduling, proactively suggest moving these tasks to "
-                        f"{pending.get('suggested_date')} and ask for confirmation. "
-                        f"If the user confirms, call plan_schedule with target_date={pending.get('suggested_date')} "
-                        f"to generate a new schedule for that day that incorporates the missed tasks. "
-                        f"After presenting the plan, call clear_pending_reschedule to remove this pending item."
                     )
 
             if not isinstance(health, Exception) and health.get("node4_classification"):
@@ -298,34 +211,12 @@ READ_ONLY_TOOLS = [
     check_performance,
 ]
 
-LEGACY_TOOLS = [
-    read_user_context,
-    write_entity_to_memory,
-    store_conversation_memory,
-    retrieve_relevant_memories,
-    clear_pending_reschedule,
-    analyze_health,
-    track_goals,
-    get_relationship_context,
-    plan_schedule,
-    confirm_schedule,
-    get_geo_info,
-    adjust_schedule,
-    get_today_schedule,
-    check_performance,
-]
-
-
-def build_coordinator(mcp_tools=None, dynatrace_mcp=None, goal_tracking_root=None, *, read_only: bool | None = None) -> Agent:
-    if read_only is None:
-        read_only = settings.use_schedule_orchestrator
-    tools = list(READ_ONLY_TOOLS if read_only else LEGACY_TOOLS)
-    if mcp_tools and not read_only:
-        tools.append(mcp_tools)
-    elif mcp_tools:
+def build_coordinator(mcp_tools=None, dynatrace_mcp=None, goal_tracking_root=None) -> Agent:
+    tools = list(READ_ONLY_TOOLS)
+    if mcp_tools:
         # The MongoDB MCP toolset can write any collection, daily_schedules included,
-        # so the read-only agent doesn't get it.
-        _logger.info("[coordinator] read-only mode: MongoDB MCP toolset not attached")
+        # so the read-only agent doesn't get it. (Parameter kept for api/app.py.)
+        _logger.info("[coordinator] MongoDB MCP toolset not attached (read-only agent)")
 
     sub_agents = []
     if goal_tracking_root is not None:
@@ -334,9 +225,8 @@ def build_coordinator(mcp_tools=None, dynatrace_mcp=None, goal_tracking_root=Non
     agent_kwargs = dict(
         name="daypilot_coordinator",
         model=settings.coordinator_model,
-        description=("DayPilot's conversational agent (read-only for schedules)." if read_only
-                     else "DayPilot's root coordinator. Orchestrates all specialist tools."),
-        instruction=INSTRUCTION if read_only else LEGACY_INSTRUCTION,
+        description="DayPilot's conversational agent (read-only for schedules).",
+        instruction=INSTRUCTION,
         tools=tools,
         before_agent_callback=_preload_user_context,
         generate_content_config=genai_types.GenerateContentConfig(

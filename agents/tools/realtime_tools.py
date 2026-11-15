@@ -7,7 +7,6 @@ from google import genai
 from pydantic import BaseModel
 from config import settings
 import http_client as _http_client
-from telemetry.instrument import traced_tool
 from schemas.realtime import RealtimeOutput
 from schemas.schedule import CalendarEvent, ScheduleTask
 
@@ -17,33 +16,6 @@ _client = genai.Client(
     api_key=settings.gemini_api_key,
     http_options=genai.types.HttpOptions(httpx_async_client=_http_client.shared_async_client()),
 )
-
-
-@traced_tool("get_today_schedule")
-async def get_today_schedule(user_id: str, date: str = "") -> dict:
-    """
-    Retrieve the user's currently active/confirmed schedule for today.
-    Returns the task list and strategy name. Call this BEFORE adjust_schedule
-    to get the current_schedule argument.
-    """
-    from services.day_plan_repository import DayPlanRepository
-    from services.day_plan_service import today_for
-
-    if not date:
-        date = today_for(user_id)
-    try:
-        plan = await DayPlanRepository().get(user_id, date)
-        if plan.active is None:
-            return {"found": False, "tasks": [], "strategy_name": None, "date": date}
-        return {
-            "found": True,
-            "tasks": [t.model_dump() for t in plan.active.tasks],
-            "strategy_name": plan.active.strategy_name,
-            "confirmed": True,
-            "date": date,
-        }
-    except Exception as e:
-        return {"found": False, "tasks": [], "strategy_name": None, "date": date, "error": str(e)}
 
 
 # ─────────────────────────────────────────────────────────
@@ -193,38 +165,3 @@ async def build_adjustment(req, *, llm: LLMJsonCall | None = None) -> RealtimeOu
     """Production AdjustGenerator for DayPlanService."""
     return await generate_adjustment(req.active_tasks, req.trigger, req.detail, date=req.date,
                                      new_events=req.new_events, llm=llm)
-
-
-# ─────────────────────────────────────────────────────────
-# Coordinator tool (thin wrapper: generator + DayPlanService)
-# ─────────────────────────────────────────────────────────
-
-@traced_tool("adjust_schedule")
-async def adjust_schedule(
-    user_id: str,
-    current_schedule: list,
-    trigger: str,
-    trigger_detail: str,
-) -> dict:
-    """
-    Dynamically replan the schedule when a disruption occurs.
-    trigger: "new_event" | "location_change" | "task_overrun" | "energy_update"
-    Returns updated schedule and a plain-language explanation of what changed.
-    """
-    from services.day_plan_service import DayPlanService, today_for
-
-    service = DayPlanService()
-    date = today_for(user_id)
-    failure = {"what_changed": [trigger_detail], "dropped_tasks": [], "added_tasks": [],
-               "updated_schedule": [], "error": True}
-    plan = await service.get(user_id, date)
-    if plan.active is None:
-        # The DB active plan is the only thing that can be adjusted (current_schedule is ignored).
-        return {**failure, "message": "No confirmed schedule for today yet — plan the day first."}
-    try:
-        out = await generate_adjustment(plan.active.tasks, trigger, trigger_detail, date=date)
-        await service.propose_adjustment(user_id, date, out)
-        return out.model_dump()
-    except Exception as e:
-        _log.error("[adjust_schedule] failed: %s", e)
-        return {**failure, "message": getattr(e, "message", None) or "I couldn't adjust the schedule. Please try again."}

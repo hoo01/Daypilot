@@ -18,20 +18,27 @@ def _tool_names(agent):
     return {getattr(t, "__name__", type(t).__name__) for t in agent.tools}
 
 
-def test_read_only_coordinator_has_no_schedule_write_tools():
-    names = _tool_names(build_coordinator(read_only=True))
+def test_coordinator_has_no_schedule_write_tools():
+    names = _tool_names(build_coordinator())
     assert names.isdisjoint(SCHEDULE_WRITERS)
     assert KEEP <= names
 
 
-def test_read_only_coordinator_does_not_mount_mongo_mcp():
+def test_coordinator_does_not_mount_mongo_mcp():
     sentinel = object()
-    agent = build_coordinator(mcp_tools=sentinel, read_only=True)
+    agent = build_coordinator(mcp_tools=sentinel)
     assert sentinel not in agent.tools
 
 
-def test_default_coordinator_follows_the_feature_flag():
-    assert _tool_names(build_coordinator()).isdisjoint(SCHEDULE_WRITERS)
+def test_removed_schedule_tools_are_gone():
+    import agents.tools as tools
+    import agents.tools.realtime_tools as rt
+    import agents.tools.schedule_tools as st
+    for name in ("plan_schedule", "confirm_schedule", "_persist_schedule"):
+        assert not hasattr(st, name)
+    for name in ("adjust_schedule", "get_today_schedule"):
+        assert not hasattr(rt, name)
+    assert SCHEDULE_WRITERS.isdisjoint(tools.__all__)
 
 
 def test_instruction_has_no_shouted_schedule_rules():

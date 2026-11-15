@@ -209,9 +209,6 @@ async def test_R4_new_event_on_confirmed_day_proposes_adjust_then_confirm_applie
     adjusted = proposal["strategies"][0]["tasks"]
     meeting = [t for t in adjusted if t["title"] == "Meeting"]
     assert meeting and meeting[0]["start_time"] == f"{TODAY}T15:00:00" and meeting[0]["end_time"] == f"{TODAY}T17:00:00"
-    # legacy compat field is derived from state
-    assert body["pending_proposal"]["type"] == "adjust"
-    assert body["pending_proposal"]["proposal_id"] == proposal["proposal_id"]
 
     resp = await client.post("/schedule/confirm", json={
         "user_id": USER, "date": TODAY, "proposal_id": proposal["proposal_id"], "strategy_name": "Adjusted"})
@@ -339,7 +336,6 @@ async def test_R8_generation_failure_returns_error_and_writes_nothing(world, cli
     assert len(calls) == 2, "exactly one retry"
     assert body["error"]["code"] == "generation_failed"
     assert body["day_plan"]["status"] == "EMPTY"
-    assert body["pending_proposal"] is None
     assert await world.db[Collections.DAILY_SCHEDULES].count_documents({}) == 0
     assert "9pm" not in body["reply"].lower()
 
@@ -354,7 +350,7 @@ async def test_R9_open_question_goes_to_read_only_agent_without_db_writes(world,
     assert world.chat_agent.calls == ["what should I focus on today?"]
     assert body["reply"].startswith("Focus on Leetcode")
     assert body["day_plan"]["status"] == "CONFIRMED"
-    assert body["error"] is None and body["schedule_updated"] is False
+    assert body["error"] is None
     assert await _snapshot(world.db) == before
 
 
@@ -407,10 +403,9 @@ async def test_discard_drops_proposal_keeps_active(world, client):
 async def test_schedule_turn_reply_is_rendered_by_code_from_state(world, client):
     world.intent.script["plan my day"] = flat(type="plan_day")
     body = await say(client, "plan my day")
-    assert body["schedule_updated"] is True
     assert "Most Productive" in body["reply"]          # top recommendation named from state
     assert world.chat_agent.calls == []                  # no LLM text for schedule turns
-    assert body["pending_proposal"]["data"]["top_recommendation"] == "Most Productive"
+    assert set(body) == {"reply", "session_id", "day_plan", "error"}   # transitional fields are gone
 
 
 async def test_plan_day_resolves_events_in_code(world, client):
@@ -433,35 +428,3 @@ async def test_plan_for_past_date_is_rejected(world, client):
     body = await say(client, "plan last monday")
     assert body["error"]["code"] == "invalid_transition"
     assert world.plan_gen.calls == []
-
-
-# ── feature flag: legacy path still reachable for rollback ───────────────────
-
-async def test_flag_off_uses_legacy_coordinator_path(world, client, monkeypatch):
-    import config
-
-    class Part:
-        text = "legacy reply"
-        function_response = None
-
-    class Event:
-        content = type("C", (), {"parts": [Part()]})()
-
-        def is_final_response(self):
-            return True
-
-    class Sessions:
-        async def get_session(self, **kw):
-            return object()
-
-    class Runner:
-        session_service = Sessions()
-
-        async def run_async(self, **kw):
-            yield Event()
-
-    world.app.state.runner = Runner()
-    monkeypatch.setattr(config.settings, "use_schedule_orchestrator", False)
-    body = await say(client, "plan my day")
-    assert body["reply"] == "legacy reply"
-    assert world.intent.calls == 0

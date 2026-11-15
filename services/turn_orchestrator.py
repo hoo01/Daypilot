@@ -263,22 +263,3 @@ class TurnOrchestrator:
         if day < _date.fromisoformat(today):
             raise InvalidTransition("past_date", "Can't plan a day in the past.")
         return day.isoformat()
-
-
-# ── transitional: legacy response field (Phase 5 removes) ────────────────────
-
-def legacy_pending_proposal(plan: DayPlan | None) -> dict | None:
-    """Map day_plan.proposal onto the pre-refactor `pending_proposal` shape for old clients."""
-    if plan is None or plan.proposal is None:
-        return None
-    p = plan.proposal
-    data = {
-        "proposal_id": p.proposal_id,
-        "date": plan.date,
-        "strategies": [s.model_dump() for s in p.strategies],
-        "top_recommendation": p.top_recommendation,
-    }
-    if p.kind == "adjust":
-        data["updated_schedule"] = [t.model_dump() for t in p.strategies[0].tasks] if p.strategies else []
-        data["message"] = p.explanation
-    return {"type": p.kind, "date": plan.date, "proposal_id": p.proposal_id, "data": data}
