@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     gemini_api_version: str = "v1"
 
     coordinator_model: str = "gemini-2.5-flash-lite"
+    intent_model: str = "gemini-2.5-flash"   # LLM① intent parsing (thinking_budget=0)
     planning_model: str = "gemini-2.5-flash-lite"
     relationship_model: str = "gemini-2.5-flash-lite"
 
@@ -30,6 +31,10 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/auth/callback"
+
+    # Schedule control inversion (docs/refactor/schedule_orchestrator.md). True: /chat goes
+    # through services.turn_orchestrator; False: legacy coordinator-with-tools path (rollback).
+    use_schedule_orchestrator: bool = True
 
     app_env: str = "development"
     app_secret_key: str = "change_me_in_production"

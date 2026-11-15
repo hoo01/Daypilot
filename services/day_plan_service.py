@@ -97,7 +97,7 @@ class DayPlanService:
         self.repo = repository or DayPlanRepository()
         self._plan_generator = plan_generator or _default_plan_generator
         self._adjust_generator = adjust_generator or _default_adjust_generator
-        self._pending = pending_store or PreferencesPendingStore()
+        self.pending_store = pending_store or PreferencesPendingStore()
         self._now = now
 
     # ── public API ───────────────────────────────────────────────────────────
@@ -198,7 +198,7 @@ class DayPlanService:
         saved = await self.repo.save(updated, plan.version)
         if proposal.consumes_pending_reschedule:
             # Cleared only once the rescheduled day is actually confirmed (§5.2).
-            await self._pending.clear(cmd.user_id)
+            await self.pending_store.clear(cmd.user_id)
         return saved
 
     async def _discard(self, cmd: DiscardProposal) -> DayPlan:
@@ -208,7 +208,7 @@ class DayPlanService:
         return await self.repo.save(plan.model_copy(update={"proposal": None}), plan.version)
 
     async def _reschedule(self, cmd: RescheduleMissed) -> DayPlan:
-        pending = await self._pending.get(cmd.user_id)
+        pending = await self.pending_store.get(cmd.user_id)
         if not pending or not pending.get("tasks"):
             raise InvalidTransition("no_pending_reschedule", "There are no missed tasks waiting to be rescheduled.")
         target = cmd.target_date or pending.get("suggested_date") or (
