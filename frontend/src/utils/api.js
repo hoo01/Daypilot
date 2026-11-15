@@ -9,8 +9,12 @@ async function request(method, path, body) {
   const res = await fetch(`${BASE}${path}`, opts);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    const error = new Error(err.detail || res.statusText);
+    // Domain errors arrive as detail: { code, message } (e.g. 409 invalid_transition)
+    const detail = err.detail;
+    const isObj = detail && typeof detail === 'object';
+    const error = new Error((isObj ? detail.message : detail) || res.statusText);
     error.status = res.status;
+    if (isObj) error.code = detail.code;
     throw error;
   }
   return res.json();
@@ -21,6 +25,10 @@ export const api = {
 
   getScheduleToday: (userId) =>
     request('GET', `/schedule/today?user_id=${encodeURIComponent(userId)}`),
+
+  // Full DayPlan { date, active, proposal, version, status }; date defaults to server "today"
+  getDayPlan: (userId, date) =>
+    request('GET', `/schedule/day?user_id=${encodeURIComponent(userId)}${date ? `&date=${encodeURIComponent(date)}` : ''}`),
 
   submitFeedback: (userId, date, uncompletedTasks) =>
     request('POST', '/schedule/feedback', {
@@ -36,12 +44,13 @@ export const api = {
       session_id: sessionId || undefined,
     }),
 
-  confirmSchedule: (userId, targetDate, proposal, proposalType) =>
+  // Only identifies the stored proposal + chosen strategy; tasks always come from the server.
+  confirmSchedule: (userId, date, proposalId, strategyName) =>
     request('POST', '/schedule/confirm', {
       user_id: userId,
-      target_date: targetDate,
-      proposal,
-      proposal_type: proposalType,
+      date,
+      proposal_id: proposalId,
+      strategy_name: strategyName,
     }),
 
   getAuthUrl: (userId) =>
