@@ -53,3 +53,4 @@ agents/health_agent/memory/
 # Claude Code / MCP (contains credentials)
 .claude/
 .mcp.json
+.codex/config.toml
