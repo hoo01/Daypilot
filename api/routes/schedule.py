@@ -1,17 +1,18 @@
 from datetime import date, timedelta
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from schemas import RealtimeInput, RealtimeOutput
 from schemas.day_plan import ConfirmProposal, DayPlanError
 from agents.tools.realtime_tools import generate_adjustment
 from agents.memory import MemoryAgent
 from db import get_db
+from services.clock import capture_timezone
 from services.day_plan_service import DayPlanService, today_for
 from telemetry import tracer, get_logger
 
 _logger = get_logger("routes.schedule")
 
-router = APIRouter(prefix="/schedule", tags=["schedule"])
+router = APIRouter(prefix="/schedule", tags=["schedule"], dependencies=[Depends(capture_timezone)])
 
 
 def _day_plan_error(e: DayPlanError) -> HTTPException:

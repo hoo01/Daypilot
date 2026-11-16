@@ -28,3 +28,4 @@ anyio>=4.0
 testcontainers[mongodb]>=4.0
 respx>=0.21
 freezegun>=1.4
+tzdata>=2024.1   # zoneinfo data for per-user timezones (slim images may lack /usr/share/zoneinfo)

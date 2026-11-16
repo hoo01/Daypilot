@@ -8,6 +8,9 @@ class Settings(BaseSettings):
 
     coordinator_model: str = "gemini-2.5-flash-lite"
     intent_model: str = "gemini-2.5-flash"   # LLM① intent parsing (thinking_budget=0)
+    # IANA zone used for "today"/"now" when a request carries no X-Timezone header
+    # (e.g. curl, scripts). Empty → server local time.
+    default_timezone: str = ""
     planning_model: str = "gemini-2.5-flash-lite"
     relationship_model: str = "gemini-2.5-flash-lite"
 

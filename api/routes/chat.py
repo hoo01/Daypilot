@@ -1,6 +1,6 @@
 import time
 from uuid import uuid4
-from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
 from google.adk.runners import Runner
 from google.genai import types
@@ -12,10 +12,11 @@ from config import settings
 import http_client
 from telemetry import tracer, meter, get_logger
 from agents.tools.performance_stats import record_chat
+from services.clock import capture_timezone
 from services.day_plan_service import DayPlanService
 from services.turn_orchestrator import TurnOrchestrator
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(capture_timezone)])
 
 _logger = get_logger("chat")
 _genai_client = genai.Client(

@@ -35,6 +35,7 @@ from services.day_plan_invariants import (
     missing_fixed_blocks,
     validate_tasks,
 )
+from services.clock import now_local, today_local
 from services.day_plan_repository import DayPlanRepository
 
 PlanGenerator = Callable[[PlanRequest], Awaitable[GeneratedPlan]]
@@ -44,10 +45,9 @@ AdjustGenerator = Callable[[AdjustRequest], Awaitable[RealtimeOutput]]
 def today_for(user_id: str) -> str:
     """The user's current date. Single helper so every caller agrees on "today".
 
-    Uses server-local time (what the calendar cache and the planner prompt use). A
-    per-user timezone can be plugged in here later without touching callers.
+    Follows the timezone of the current request (X-Timezone header), see services/clock.py.
     """
-    return _date.today().isoformat()
+    return today_local()
 
 
 class PendingRescheduleStore(Protocol):
@@ -92,7 +92,7 @@ class DayPlanService:
         plan_generator: PlanGenerator | None = None,
         adjust_generator: AdjustGenerator | None = None,
         pending_store: PendingRescheduleStore | None = None,
-        now: Callable[[], datetime] = datetime.now,
+        now: Callable[[], datetime] = now_local,
     ):
         self.repo = repository or DayPlanRepository()
         self._plan_generator = plan_generator or _default_plan_generator

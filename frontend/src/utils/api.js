@@ -1,10 +1,19 @@
 const BASE = '/api';
 
+// The user's IANA timezone: the backend uses it to decide what "today" and "now" mean.
+function userTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  } catch {
+    return '';
+  }
+}
+
 async function request(method, path, body) {
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-  };
+  const headers = { 'Content-Type': 'application/json' };
+  const tz = userTimezone();
+  if (tz) headers['X-Timezone'] = tz;
+  const opts = { method, headers };
   if (body !== undefined) opts.body = JSON.stringify(body);
   const res = await fetch(`${BASE}${path}`, opts);
   if (!res.ok) {

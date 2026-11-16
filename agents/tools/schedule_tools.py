@@ -35,7 +35,8 @@ def _naive_dt(ts: str) -> datetime:
             hour += 12
         elif ampm == "am" and hour == 12:
             hour = 0
-        today = datetime.utcnow().date()
+        from services.clock import now_local
+        today = now_local().date()
         return datetime(today.year, today.month, today.day, hour, minute)
     raise ValueError(f"Cannot parse timestamp: {ts!r}")
 
@@ -193,8 +194,9 @@ def _build_prompt(inp: ScheduleInput, goal_context: dict | None = None,
     )
     notes_section = "\n".join(f"- {n}" for n in notes) if notes else "(none)"
 
-    now_dt = datetime.now()
-    is_today = inp.date == date.today().isoformat()
+    from services.clock import now_local
+    now_dt = now_local()
+    is_today = inp.date == now_dt.date().isoformat()
     tomorrow_date = (date.fromisoformat(inp.date) + timedelta(days=1)).isoformat()
     current_time_section = (
         f"Current local time: {now_dt.strftime('%H:%M')} (the schedule is being generated RIGHT NOW). "
@@ -204,7 +206,7 @@ def _build_prompt(inp: ScheduleInput, goal_context: dict | None = None,
         f"after midnight tonight is \"{tomorrow_date}T00:00:00\"-\"{tomorrow_date}T02:00:00\", NOT "
         f"\"{inp.date}T00:00:00\", because {inp.date}'s midnight-to-morning window is already in the past."
         if is_today
-        else f"Current local time: {now_dt.strftime('%H:%M')} on {date.today().isoformat()} "
+        else f"Current local time: {now_dt.strftime('%H:%M')} on {now_dt.date().isoformat()} "
              f"(this schedule is for a FUTURE date, {inp.date}, so plan the full day normally)"
     )
 
@@ -680,8 +682,9 @@ async def generate_schedule(
     from schemas.day_plan import GenerationFailed
     from services.day_plan_invariants import fixed_blocks_for, missing_fixed_blocks, validate_tasks
 
+    from services.clock import now_local
     call = llm or _llm_json
-    clock = now or datetime.now
+    clock = now or now_local
     fixed = fixed_blocks_for(inp, clock())
     base_prompt = _build_prompt(inp, goal_context=goal_context, focus_tasks=focus_tasks, notes=notes)
     prompt = base_prompt

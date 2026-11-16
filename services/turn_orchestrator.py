@@ -40,6 +40,7 @@ from schemas.day_plan import (
     InvariantViolation,
     RescheduleMissed,
 )
+from services.clock import now_local
 from services.day_plan_service import DayPlanService, today_for
 
 _log = logging.getLogger(__name__)
@@ -160,7 +161,7 @@ class TurnOrchestrator:
         intent_parser: IntentParser | None = None,
         chat_responder: ChatResponder | None = None,
         calendar_loader: CalendarLoader | None = None,
-        now: Callable[[], datetime] = datetime.now,
+        now: Callable[[], datetime] = now_local,
     ):
         self.service = service or DayPlanService()
         self._parse = intent_parser or (lambda message, ctx: parse_intent(message, ctx))

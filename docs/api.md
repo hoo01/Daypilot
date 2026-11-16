@@ -2,6 +2,11 @@
 
 Base URL: `http://localhost:8000`
 
+**Timezone:** send the user's IANA timezone in an `X-Timezone` header (e.g. `X-Timezone: America/Los_Angeles`)
+on `/chat/` and `/schedule/*` requests. It decides what "today" and "now" mean (which DayPlan a turn acts on,
+"3pm" / "now" in messages). The web app sends it automatically. Without it the server falls back to
+`DEFAULT_TIMEZONE` (env), then to the server's local time. Invalid names are ignored.
+
 ---
 
 ## Chat

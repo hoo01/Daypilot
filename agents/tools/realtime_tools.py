@@ -117,8 +117,9 @@ async def generate_adjustment(
     from services.day_plan_invariants import fixed_blocks_for_adjustment, missing_fixed_blocks, validate_tasks
     from services.day_plan_service import today_for
 
+    from services.clock import now_local
     call = llm or _llm_json
-    clock = now or datetime.now
+    clock = now or now_local
     active_tasks = [t if isinstance(t, ScheduleTask) else ScheduleTask(**t) for t in active_tasks]
     new_events = list(new_events or [])
     date = date or (active_tasks[0].start_time[:10] if active_tasks else today_for(""))
