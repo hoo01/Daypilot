@@ -13,9 +13,11 @@ from schemas.schedule import CalendarEvent, ScheduleInput, ScheduleTask
 
 ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
 
-# A day's plan may run past midnight (late focus windows). Tasks may *start* on the
-# next calendar day only before this hour, and must *end* no later than this hour.
+# A day's plan may run past midnight (late focus windows, an overnight sleep block).
+# Tasks may *start* on the next calendar day only before NIGHT_SPILLOVER_END_HOUR, and
+# must *end* no later than SPILLOVER_END_LIMIT_HOUR on the next day.
 NIGHT_SPILLOVER_END_HOUR = 6
+SPILLOVER_END_LIMIT_HOUR = 12
 
 
 def _parse(ts: str) -> datetime | None:
@@ -33,6 +35,7 @@ def validate_tasks(tasks: Iterable[ScheduleTask], target_date: str) -> list[str]
     day = _date.fromisoformat(target_date)
     next_day = day + timedelta(days=1)
     spill_limit = datetime(next_day.year, next_day.month, next_day.day, NIGHT_SPILLOVER_END_HOUR)
+    end_limit = datetime(next_day.year, next_day.month, next_day.day, SPILLOVER_END_LIMIT_HOUR)
     day_start = datetime(day.year, day.month, day.day)
 
     timed: list[tuple[datetime, datetime, ScheduleTask]] = []
@@ -47,7 +50,7 @@ def validate_tasks(tasks: Iterable[ScheduleTask], target_date: str) -> list[str]
         if end <= start:
             violations.append(f"{label} ends before it starts")
             continue
-        if not (day_start <= start < spill_limit) or end > spill_limit:
+        if not (day_start <= start < spill_limit) or end > end_limit:
             violations.append(f"{label} is outside the target date {target_date}")
             continue
         if start.date() == next_day and start.hour >= NIGHT_SPILLOVER_END_HOUR:

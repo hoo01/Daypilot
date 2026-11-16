@@ -111,16 +111,17 @@ def _render_success(intent, plan: DayPlan, today: str) -> str:
     if isinstance(intent, (PlanDay, Reschedule)) and plan.proposal:
         p = plan.proposal
         top = p.find_strategy(None)
-        why = f" — {top.reasoning.strip()}" if top and top.reasoning.strip() else ""
+        reason = top.reasoning.strip().rstrip(".") if top else ""
+        why = f" — {reason}" if reason else ""
         names = ", ".join(s.name for s in p.strategies)
         lead = (f"Here's a plan for {label} that makes room for the tasks you missed."
                 if isinstance(intent, Reschedule) else f"Here are {len(p.strategies)} options for {label}: {names}.")
-        return f"{lead} I'd go with **{p.top_recommendation}**{why}. Pick one to lock it in, or tell me what to change.{keep_note}"
+        return f"{lead} I'd go with {p.top_recommendation}{why}. Pick one to lock it in, or tell me what to change.{keep_note}"
     if isinstance(intent, Adjust) and plan.proposal:
         expl = plan.proposal.explanation.strip() or "Here's an adjusted version of today's schedule."
         return f"{expl} Want me to apply this change?{keep_note}"
     if isinstance(intent, Confirm) and plan.active:
-        return f"Done — the **{plan.active.strategy_name}** plan is locked in for {label}."
+        return f"Done — the {plan.active.strategy_name} plan is locked in for {label}."
     if isinstance(intent, Discard):
         return "OK, I dropped that proposal." + (" Your confirmed schedule is unchanged." if plan.active else "")
     return "Done."

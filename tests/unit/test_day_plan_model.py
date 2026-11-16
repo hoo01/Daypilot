@@ -153,6 +153,19 @@ def test_cross_midnight_tasks_are_allowed():
     assert validate_tasks([late, early], DAY) == []
 
 
+def test_overnight_sleep_block_is_allowed():
+    """Seen with the real model: "Sleep" 23:00 → 07:00 next morning must not fail the plan."""
+    sleep = ScheduleTask(task_id="s", title="Sleep", type="sleep",
+                         start_time=f"{DAY}T23:00:00", end_time=f"{NEXT_DAY}T07:30:00")
+    assert validate_tasks([sleep], DAY) == []
+
+
+def test_task_ending_after_next_day_noon_is_a_violation():
+    long = ScheduleTask(task_id="s", title="Sleep", type="sleep",
+                        start_time=f"{DAY}T23:00:00", end_time=f"{NEXT_DAY}T13:00:00")
+    assert validate_tasks([long], DAY)
+
+
 def test_next_day_daytime_task_is_a_violation():
     assert validate_tasks([task("A", "14:00", "15:00", day=NEXT_DAY)], DAY)
 

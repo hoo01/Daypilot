@@ -167,7 +167,10 @@ Today's calendar events:
 Pending reschedule: {pending}
 
 ## Intent types
-- plan_day: the user asks to plan / build / generate a schedule (optionally for another date).
+- plan_day: the user explicitly asks for a schedule to be planned / built / generated, e.g. "plan my
+  day", "make me a schedule for tomorrow" (optionally for another date). Asking for advice or an
+  opinion about the day — "what should I focus on today?", "how's my day looking?", "what's up
+  today?" — is chat, not plan_day.
   target_date = YYYY-MM-DD if they name a date (e.g. tomorrow = {tomorrow}), else null.
   new_events = events or tasks with a time they mention in this message. focus_tasks = named things
   they want to get done without a time.
