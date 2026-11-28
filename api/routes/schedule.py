@@ -1,35 +1,40 @@
 from datetime import date, timedelta
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from schemas import RealtimeInput, RealtimeOutput
-from agents.tools.realtime_tools import adjust_schedule
+from schemas.day_plan import ConfirmProposal, DayPlanError
+from agents.tools.realtime_tools import generate_adjustment
 from agents.memory import MemoryAgent
 from db import get_db
-from db.collections import Collections
+from services.clock import capture_timezone
+from services.day_plan_service import DayPlanService, today_for
 from telemetry import tracer, get_logger
 
 _logger = get_logger("routes.schedule")
 
-router = APIRouter(prefix="/schedule", tags=["schedule"])
+router = APIRouter(prefix="/schedule", tags=["schedule"], dependencies=[Depends(capture_timezone)])
+
+
+def _day_plan_error(e: DayPlanError) -> HTTPException:
+    return HTTPException(status_code=409, detail={"code": e.code, "reason": e.reason, "message": e.message})
+
+
+@router.get("/day")
+async def get_day_plan(user_id: str = Query(...), date: str | None = Query(None)) -> dict:
+    """Return the full DayPlan (active + proposal + version + status) for a date."""
+    plan = await DayPlanService().get(user_id, date or today_for(user_id))
+    return plan.model_dump(mode="json")
 
 
 @router.get("/today")
 async def get_today_schedule(user_id: str = Query(...)) -> dict:
-    """Return today's persisted schedule tasks, enriched with geo_segment per task."""
-    today = date.today().isoformat()
+    """Return today's confirmed (active) schedule tasks, enriched with geo_segment per task."""
     db = get_db()
-    doc = await db[Collections.DAILY_SCHEDULES].find_one(
-        {"user_id": user_id, "date": today},
-        {"_id": 0, "tasks": 1},
-    )
-    if not doc:
-        from fastapi import HTTPException
+    plan = await DayPlanService().get(user_id, today_for(user_id))
+    if plan.active is None:
         raise HTTPException(status_code=404, detail="No schedule for today")
 
-    
-    
-
-    tasks = doc.get("tasks", [])
+    tasks = [t.model_dump() for t in plan.active.tasks]
 
     # Default: every task has no geo_segment (guaranteed even if geo enrichment fails)
     for t in tasks:
@@ -86,17 +91,17 @@ async def get_today_schedule(user_id: str = Query(...)) -> dict:
 
 @router.post("/adjust", response_model=RealtimeOutput)
 async def adjust_schedule_endpoint(body: RealtimeInput) -> RealtimeOutput:
-    """Trigger a real-time schedule adjustment when something changes."""
+    """Stateless adjustment preview: runs LLM② on the given schedule, persists nothing.
+
+    Adjustments that should become the user's plan go through the chat orchestrator
+    (AdjustPlan → DayPlanService), which uses the stored active plan instead.
+    """
+    if not body.current_schedule:
+        return RealtimeOutput(what_changed=[body.trigger_detail], message="No active schedule to adjust.")
     try:
-        result = await adjust_schedule(
-            user_id=body.user_id,
-            current_schedule=[t.model_dump() for t in body.current_schedule],
-            trigger=body.trigger,
-            trigger_detail=body.trigger_detail,
-        )
-        return RealtimeOutput(**result)
+        return await generate_adjustment(body.current_schedule, body.trigger, body.trigger_detail)
     except Exception as e:
-        print(f"[schedule/adjust] Error for {body.user_id}: {e}")
+        _logger.error(f"[schedule/adjust] Error for {body.user_id}: {e}")
         return RealtimeOutput(
             updated_schedule=[],
             message="I'm having trouble adjusting the schedule right now. Please try again in a moment.",
@@ -104,53 +109,25 @@ async def adjust_schedule_endpoint(body: RealtimeInput) -> RealtimeOutput:
 
 
 class ScheduleConfirmRequest(BaseModel):
+    """Identifies a stored proposal and the chosen strategy. Any other fields a client
+    sends (e.g. tasks) are ignored — the tasks always come from the DB (§5.3 invariant 4)."""
     user_id: str
-    target_date: str
-    proposal: dict
-    proposal_type: str  # "plan" | "adjust"
+    date: str
+    proposal_id: str
+    strategy_name: str | None = None      # None → the proposal's top recommendation
 
 
 @router.post("/confirm")
 async def confirm_schedule(body: ScheduleConfirmRequest) -> dict:
-    """Persist a pending schedule proposal after user confirmation."""
-    today = body.target_date or date.today().isoformat()
-    db = get_db()
-    if body.proposal_type == "plan":
-        strategies = body.proposal.get("strategies", [])
-        top_name = body.proposal.get("top_recommendation", "")
-        strategy = next(
-            (s for s in strategies if s.get("name") == top_name),
-            strategies[0] if strategies else None,
-        )
-        if not strategy:
-            return {"status": "error", "detail": "strategy not found"}
-        tasks = strategy.get("tasks", [])
-        await db[Collections.DAILY_SCHEDULES].update_one(
-            {"user_id": body.user_id, "date": today},
-            {"$set": {
-                "user_id": body.user_id,
-                "date": today,
-                "tasks": tasks,
-                "strategy_name": top_name,
-                "all_strategies": strategies,
-                "confirmed": True,
-            }},
-            upsert=True,
-        )
-    else:
-        tasks = body.proposal.get("updated_schedule", [])
-        await db[Collections.DAILY_SCHEDULES].update_one(
-            {"user_id": body.user_id, "date": today},
-            {"$set": {
-                "user_id": body.user_id,
-                "date": today,
-                "tasks": tasks,
-                "strategy_name": "Adjusted",
-                "confirmed": True,
-            }},
-            upsert=True,
-        )
-    return {"status": "confirmed"}
+    """Confirm one strategy of the stored proposal via DayPlanService."""
+    try:
+        plan = await DayPlanService().handle(ConfirmProposal(
+            user_id=body.user_id, date=body.date, proposal_id=body.proposal_id,
+            strategy_name=body.strategy_name,
+        ))
+    except DayPlanError as e:
+        raise _day_plan_error(e)
+    return {"status": "confirmed", "day_plan": plan.model_dump(mode="json")}
 
 
 class UncompletedTask(BaseModel):

@@ -1,0 +1,51 @@
+target,round,step,ms,status,ok,error,reply_chars,reply
+before,1,chat,2922,200,1,,319,"Today, focus on your ML class this afternoon from 2-4 PM at the library. You're on track with your goal to complete 10 Leetcode problems this week, having alrea"
+before,1,plan,11743,200,1,,597,"Here are three schedule options for today:  **1. Most Productive:** This plan prioritizes deep work during your peak focus hours (9 PM - 1 AM), includes prepara"
+before,1,confirm_plan,2192,200,1,,66,"Okay, I've set your schedule to the ""Most Relaxed"" plan for today."
+before,1,adjust,5609,200,1,,55,I wasn't able to generate a response. Please try again.
+before,1,confirm_adjust,2852,200,0,,55,I wasn't able to generate a response. Please try again.
+after,1,chat,2224,200,1,,329,"You're doing great with your Leetcode goal, with 6 out of 10 problems solved! To keep up the momentum, consider the suggested 2-hour Leetcode session tonight fr"
+after,1,plan,5777,200,1,,422,"Here are 3 options for today: Most Productive, Most Relaxed, Fastest. I'd go with **Most Productive** — This strategy maximizes productivity by scheduling the L"
+after,1,confirm_plan,717,200,1,,56,Done — the **Most Relaxed** plan is locked in for today.
+after,1,adjust,4840,200,1,,215,"I've added the team meeting to your schedule. I've adjusted your later tasks to accommodate this new event, ensuring no overlaps. Want me to apply this change? "
+after,1,confirm_adjust,632,200,1,,52,Done — the **Adjusted** plan is locked in for today.
+after,2,chat,1747,200,1,,239,"Your ML class is today from 2PM-4PM at the library. Remember to bring your notes and study materials. You're on track to complete your Leetcode goal, with 6 out"
+after,2,plan,6376,200,1,,441,"Here are 3 options for today: Most Productive, Most Relaxed, Fastest. I'd go with **Most Productive** — This strategy prioritizes your Leetcode goal during your"
+after,2,confirm_plan,558,200,1,,56,Done — the **Most Relaxed** plan is locked in for today.
+after,2,adjust,4188,200,1,,240,"I've added the team meeting to your schedule. This required dropping your earlier break and personal time, but your other tasks have been adjusted to fit. Want "
+after,2,confirm_adjust,675,200,1,,52,Done — the **Adjusted** plan is locked in for today.
+before,2,chat,2760,200,1,,403,"It looks like you're on track to complete your Leetcode goal, with 6 out of 10 problems solved! Your energy levels are high today, and your focus window is from"
+before,2,plan,9547,200,1,,820,"Here are three schedule options for today, November 15th:  **1. Most Productive:** This plan prioritizes your Leetcode practice during your peak focus hours (9 "
+before,2,confirm_plan,1698,200,1,,73,"Confirmed! I've set your schedule for today with the ""Most Relaxed"" plan."
+before,2,adjust,3525,200,1,,73,I need your user ID to adjust your schedule. Could you please provide it?
+before,2,confirm_adjust,1168,200,0,,73,I still need your user ID to make that change. Can you please provide it?
+before,3,chat,2962,200,1,,382,"You're doing great on your Leetcode goal, with 6 out of 10 problems solved! To keep the momentum going, consider that 2-hour Leetcode session tonight between 9 "
+before,3,plan,3830,200,0,,55,I wasn't able to generate a response. Please try again.
+before,3,confirm_plan,1827,200,0,,195,"It looks like there wasn't a schedule generated for today yet. What would you like your schedule to look like? I can generate a plan based on your goals, energy"
+before,3,adjust,10454,200,1,,716,"Here are three schedule options for today, including your 4 PM team meeting:  **1. Most Productive:** This plan maximizes your goal progress by scheduling deep "
+before,3,confirm_adjust,1359,200,1,,102,"Please confirm which plan you would like me to apply: ""Most Productive"", ""Most Relaxed"", or ""Fastest""."
+after,3,chat,2304,200,1,,457,"You're doing great on your goal of completing 10 Leetcode problems this week, with 60% progress! To keep momentum, consider that 2-hour Leetcode session tonight"
+after,3,plan,6646,200,1,,347,"Here are 3 options for today: Most Productive, Most Relaxed, Fastest. I'd go with **Most Productive** — This strategy focuses on your Leetcode goal during your "
+after,3,confirm_plan,713,200,1,,56,Done — the **Most Relaxed** plan is locked in for today.
+after,3,adjust,4568,200,1,,241,I've added the team meeting to your schedule and adjusted your break and personal time to accommodate it. Your evening meal has also been shifted slightly. Want
+after,3,confirm_adjust,692,200,1,,52,Done — the **Adjusted** plan is locked in for today.
+after,4,chat,1948,200,1,,342,"It looks like you're on track with your goal of completing 10 Leetcode problems this week, with 6 problems already solved! Your focus window is from 9 PM to 1 A"
+after,4,plan,7287,200,1,,408,"Here are 3 options for today: Most Productive, Most Relaxed, Fastest. I'd go with **Most Productive** — This strategy prioritizes your Leetcode goal by scheduli"
+after,4,confirm_plan,705,200,1,,56,Done — the **Most Relaxed** plan is locked in for today.
+after,4,adjust,5012,200,1,,272,"I've added the team meeting to your schedule from 4 PM to 6 PM. To accommodate this, some of your afternoon tasks have been removed and your evening routine has"
+after,4,confirm_adjust,817,200,1,,52,Done — the **Adjusted** plan is locked in for today.
+before,4,chat,3563,200,1,,309,"Today, you're on track with your goal to complete 10 Leetcode problems this week, having already solved 6. Your ML class is scheduled from 2 PM to 4 PM at the l"
+before,4,plan,8589,200,1,,806,Here are three schedule options for today:  **1. Most Productive:** This plan maximizes your Leetcode goal progress by utilizing your prime focus window tonight
+before,4,confirm_plan,1982,200,1,,235,"Great! I've confirmed the ""Most Relaxed"" plan for today. Your schedule includes your ML class from 2 PM to 4 PM, followed by personal time, a focused Leetcode s"
+before,4,adjust,4395,200,1,,55,I wasn't able to generate a response. Please try again.
+before,4,confirm_adjust,2488,200,0,,55,I wasn't able to generate a response. Please try again.
+before,5,chat,2631,200,1,,323,"Your Leetcode goal is on track, with 6 out of 10 problems solved. You have an ML class from 2PM-4PM at the library today. Your focus window is from 9PM to 1AM, "
+before,5,plan,10956,200,1,,861,"Here are three schedule options for today:  **Most Productive:** This plan maximizes your Leetcode goal progress with dedicated work sessions, especially during"
+before,5,confirm_plan,1978,200,1,,169,"Great! Your schedule for today is now set to the ""Most Relaxed"" plan. I've blocked out time for your ML class, Leetcode practice, and important breaks and perso"
+before,5,adjust,9548,200,1,,55,I wasn't able to generate a response. Please try again.
+before,5,confirm_adjust,4844,200,0,,55,I wasn't able to generate a response. Please try again.
+after,5,chat,2275,200,1,,341,"You have an ML class today from 2PM-4PM at the library. Your focus window is from 9PM-1AM, aligning with your peak evening energy. Remember, your 3-month annive"
+after,5,plan,6560,200,1,,364,"Here are 3 options for today: Most Productive, Most Relaxed, Fastest. I'd go with **Most Productive** — This strategy prioritizes the Leetcode goal by allocatin"
+after,5,confirm_plan,794,200,1,,56,Done — the **Most Relaxed** plan is locked in for today.
+after,5,adjust,5030,200,1,,244,I've added the team meeting to your schedule today. This required dropping some personal time and adjusting your evening routine to accommodate the new event. W
+after,5,confirm_adjust,668,200,1,,52,Done — the **Adjusted** plan is locked in for today.

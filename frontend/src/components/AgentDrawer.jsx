@@ -6,7 +6,7 @@ import { api } from '../utils/api';
 
 export default function AgentDrawer({ open, onClose }) {
   const navigate = useNavigate();
-  const { chatMessages, addMessage, isSending, setIsSending, refreshSchedule, setPendingProposal } = useStore();
+  const { chatMessages, addMessage, isSending, setIsSending, refreshSchedule, setPendingProposal, noteDayPlan } = useStore();
   const [drawerHeight, setDrawerHeight] = useState(null); // px; null = use default 44%
   const [loadingStep, setLoadingStep]   = useState(0);
   const scrollRef             = useRef(null);
@@ -71,9 +71,12 @@ export default function AgentDrawer({ open, onClose }) {
       const res = await api.chat(userId, text, sessionId);
       if (!sessionId && res.session_id) storage.setSessionId(res.session_id);
       addMessage({ role: 'agent', text: res.reply });
-      if (res.schedule_updated) refreshSchedule(userId);
-      if (res.pending_proposal) {
-        setPendingProposal(res.pending_proposal);
+      const dayPlan = res.day_plan;
+      const changed = noteDayPlan(dayPlan);
+      if (changed && dayPlan.date === new Date().toLocaleDateString('en-CA')) refreshSchedule(userId);
+      // A new proposal from this turn → hand it to the full chat page, which renders it
+      if (changed && dayPlan?.proposal) {
+        setPendingProposal({ date: dayPlan.date, proposal: dayPlan.proposal });
         onClose();
         navigate('/chat');
       }

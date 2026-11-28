@@ -8,13 +8,24 @@ export const useStore = create((set, get) => ({
   chatMessages: [],
   isBackendDown: false,
   isSending: false,
+  // Hand-off from AgentDrawer to ChatPage: { date, proposal } taken from a DayPlan.
   pendingProposal: null,
+  // Last DayPlan version seen per date — lets components tell when state changed.
+  planVersions: {},
 
   setTasks: (tasks) => set({ tasks }),
   setNoSchedule: (v) => set({ noSchedule: v }),
   setIsBackendDown: (v) => set({ isBackendDown: v }),
   setIsSending: (v) => set({ isSending: v }),
   setPendingProposal: (p) => set({ pendingProposal: p }),
+
+  // Record a DayPlan from the server; returns true if its version differs from the last one seen.
+  noteDayPlan: (dayPlan) => {
+    if (!dayPlan?.date) return false;
+    const prev = get().planVersions[dayPlan.date];
+    set({ planVersions: { ...get().planVersions, [dayPlan.date]: dayPlan.version } });
+    return prev !== dayPlan.version;
+  },
 
   addMessage: (msg) =>
     set((state) => ({ chatMessages: [...state.chatMessages, msg] })),

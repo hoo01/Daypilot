@@ -1,16 +1,13 @@
-import json
 import re
 from datetime import datetime, date, timedelta
 from google import genai
 from config import settings
 from db import get_db
-from db.collections import Collections
 from agents.memory import MemoryAgent
 from schemas.schedule import (
     ScheduleInput, ScheduleOutput, ScheduleTask, ScheduleStrategy,
     CalendarEvent, UserPreferences,
 )
-from telemetry.instrument import traced_tool
 from schemas.health import HealthOutput
 
 
@@ -38,7 +35,8 @@ def _naive_dt(ts: str) -> datetime:
             hour += 12
         elif ampm == "am" and hour == 12:
             hour = 0
-        today = datetime.utcnow().date()
+        from services.clock import now_local
+        today = now_local().date()
         return datetime(today.year, today.month, today.day, hour, minute)
     raise ValueError(f"Cannot parse timestamp: {ts!r}")
 
@@ -129,7 +127,8 @@ def _merge_short_deep_work(tasks: list[ScheduleTask]) -> list[ScheduleTask]:
 # Prompt builder (adapted from Jingyuan's _build_prompt)
 # ─────────────────────────────────────────────────────────
 
-def _build_prompt(inp: ScheduleInput, goal_context: dict | None = None) -> str:
+def _build_prompt(inp: ScheduleInput, goal_context: dict | None = None,
+                  focus_tasks: list[str] | None = None, notes: list[str] | None = None) -> str:
     prefs = inp.user_preferences
     health = inp.health
     goals = inp.goals
@@ -189,9 +188,15 @@ def _build_prompt(inp: ScheduleInput, goal_context: dict | None = None) -> str:
         ) or "(none)"
     )
 
-    now_dt = datetime.now()
-    now_iso = now_dt.strftime("%Y-%m-%dT%H:%M:%S")
-    is_today = inp.date == date.today().isoformat()
+    focus_section = (
+        "\n".join(f'- "{t}"' for t in focus_tasks)
+        if focus_tasks else "(none)"
+    )
+    notes_section = "\n".join(f"- {n}" for n in notes) if notes else "(none)"
+
+    from services.clock import now_local
+    now_dt = now_local()
+    is_today = inp.date == now_dt.date().isoformat()
     tomorrow_date = (date.fromisoformat(inp.date) + timedelta(days=1)).isoformat()
     current_time_section = (
         f"Current local time: {now_dt.strftime('%H:%M')} (the schedule is being generated RIGHT NOW). "
@@ -201,7 +206,7 @@ def _build_prompt(inp: ScheduleInput, goal_context: dict | None = None) -> str:
         f"after midnight tonight is \"{tomorrow_date}T00:00:00\"-\"{tomorrow_date}T02:00:00\", NOT "
         f"\"{inp.date}T00:00:00\", because {inp.date}'s midnight-to-morning window is already in the past."
         if is_today
-        else f"Current local time: {now_dt.strftime('%H:%M')} on {date.today().isoformat()} "
+        else f"Current local time: {now_dt.strftime('%H:%M')} on {now_dt.date().isoformat()} "
              f"(this schedule is for a FUTURE date, {inp.date}, so plan the full day normally)"
     )
 
@@ -238,6 +243,12 @@ Feasibility: {goal_feasibility:.2f}{f" — {goal_feasibility_note}" if goal_feas
 ## Fixed Calendar Events (IMMUTABLE — never shift times even by minutes)
 {calendar_section}
 
+## Tasks that must be scheduled today (use these exact titles, one task each)
+{focus_section}
+
+## Other things happening on this date (no fixed time — mention in reasoning if relevant)
+{notes_section}
+
 ## Rules
 1. Calendar events are IMMUTABLE — never move, shift, or rename them
 2. Schedule deep work during the user's focus window
@@ -256,14 +267,12 @@ Feasibility: {goal_feasibility:.2f}{f" — {goal_feasibility_note}" if goal_feas
 
 ## Output Format (valid JSON only)
 {{
-  "date": "{inp.date}",
   "strategies": [
     {{
       "name": "Most Productive",
       "description": "...",
       "tasks": [
         {{
-          "task_id": "unique-string",
           "title": "...",
           "start_time": "{inp.date}T09:00:00",
           "end_time": "{inp.date}T10:30:00",
@@ -277,8 +286,7 @@ Feasibility: {goal_feasibility:.2f}{f" — {goal_feasibility_note}" if goal_feas
     }}
   ],
   "top_recommendation": "Most Productive",
-  "warnings": [],
-  "generated_at": "{now_iso}"
+  "warnings": []
 }}
 
 Generate all 3 strategies now."""
@@ -521,10 +529,61 @@ def _validate_and_fix(output: ScheduleOutput, inp: ScheduleInput) -> ScheduleOut
 
 
 # ─────────────────────────────────────────────────────────
-# Tool function
+# Fixed-block placement (shared with realtime_tools)
 # ─────────────────────────────────────────────────────────
 
+def _key(t) -> tuple:
+    return (t.title, t.start_time, t.end_time)
+
+
+def _overlaps(a: ScheduleTask, b: ScheduleTask) -> bool:
+    try:
+        return _times_overlap(a.start_time, a.end_time, b.start_time, b.end_time)
+    except Exception:
+        return False  # unparsable — left for validation to reject
+
+
+def _place_fixed_blocks(tasks: list[ScheduleTask], fixed: list[ScheduleTask]) -> list[ScheduleTask]:
+    """Deterministically guarantee invariant 2: every fixed block appears verbatim.
+
+    Generated tasks colliding with a fixed block (including renamed/moved copies of it)
+    are dropped; remaining generated tasks are de-overlapped; then the canonical fixed
+    blocks are inserted (keeping the LLM's task_id when it reproduced one exactly).
+    """
+    if not fixed:
+        return sorted(_resolve_overlaps(tasks), key=lambda t: t.start_time)
+    fixed_keys = {_key(b) for b in fixed}
+    matched_ids = {_key(t): t.task_id for t in tasks if _key(t) in fixed_keys}
+    generated = [t for t in tasks if _key(t) not in fixed_keys and not any(_overlaps(t, b) for b in fixed)]
+    generated = _resolve_overlaps(generated)
+    canon = [b.model_copy(update={"task_id": matched_ids.get(_key(b), b.task_id)}) for b in fixed]
+    return sorted(generated + canon, key=lambda t: t.start_time)
+
+
+def _unique_task_ids(tasks: list[ScheduleTask]) -> list[ScheduleTask]:
+    seen: set[str] = set()
+    out = []
+    for i, t in enumerate(tasks):
+        tid = t.task_id or f"task-{i + 1}"
+        while tid in seen:
+            tid = f"{tid}-{i + 1}"
+        seen.add(tid)
+        out.append(t if tid == t.task_id else t.model_copy(update={"task_id": tid}))
+    return out
+
+
+# ─────────────────────────────────────────────────────────
+# LLM② boundary — flat schema handed to Gemini as response_schema
+# ─────────────────────────────────────────────────────────
+# The domain models (ScheduleOutput etc.) carry defaults, which end up as "default"
+# keywords in the generated schema; these LLM-facing models avoid that and constrain
+# enums, then get mapped onto the domain models by code.
+
 import logging as _logging
+from typing import Awaitable, Callable, Literal
+
+from pydantic import BaseModel
+
 _log = _logging.getLogger(__name__)
 
 import http_client as _http_client
@@ -533,195 +592,203 @@ _genai_client = genai.Client(
     http_options=genai.types.HttpOptions(httpx_async_client=_http_client.shared_async_client()),
 )
 
-
-async def _persist_schedule(user_id: str, target_date: str, schedule_dict: dict) -> None:
-    """Save all strategies to daily_schedules. If a confirmed plan already exists for
-    today, only update all_strategies + generated_at so the active plan is preserved."""
-    from datetime import datetime as _datetime
-    try:
-        top_name = schedule_dict.get("top_recommendation", "")
-        strategies = schedule_dict.get("strategies", [])
-        strategy = next(
-            (s for s in strategies if s.get("name") == top_name),
-            strategies[0] if strategies else None,
-        )
-        if not strategy:
-            return
-        db = get_db()
-        now_iso = _datetime.utcnow().isoformat()
-
-        existing = await db[Collections.DAILY_SCHEDULES].find_one(
-            {"user_id": user_id, "date": target_date}, {"confirmed": 1}
-        )
-        if existing and existing.get("confirmed"):
-            # A plan is already confirmed — only refresh the proposal pool so the
-            # proposal bar can show updated strategies without clobbering active tasks.
-            await db[Collections.DAILY_SCHEDULES].update_one(
-                {"user_id": user_id, "date": target_date},
-                {"$set": {"all_strategies": strategies, "generated_at": now_iso}},
-            )
-            return
-
-        tasks = strategy.get("tasks", [])
-        await db[Collections.DAILY_SCHEDULES].update_one(
-            {"user_id": user_id, "date": target_date},
-            {"$set": {
-                "user_id": user_id,
-                "date": target_date,
-                "tasks": tasks,
-                "strategy_name": strategy.get("name", ""),
-                "all_strategies": strategies,
-                "confirmed": False,
-                "generated_at": now_iso,
-            }},
-            upsert=True,
-        )
-    except Exception:
-        pass  # never block schedule generation
+TaskType = Literal["deep_work", "routine", "break", "commute", "exercise", "study", "meal",
+                   "personal", "preparation", "sleep", "calendar_event"]
+StrategyName = Literal["Most Productive", "Most Relaxed", "Fastest"]
 
 
-@traced_tool("confirm_schedule")
-async def confirm_schedule(user_id: str, strategy_name: str, date: str = "") -> dict:
-    """
-    Save the user-confirmed schedule strategy as the active plan.
-    Call this when the user explicitly confirms which plan they want
-    (e.g., "yes confirm", "let's go with most relaxed", "I want the fastest plan").
-    strategy_name: exactly "Most Productive", "Most Relaxed", or "Fastest"
-    """
-    from datetime import date as _date
-    if not date:
-        date = _date.today().isoformat()
-
-    try:
-        db = get_db()
-        record = await db[Collections.DAILY_SCHEDULES].find_one(
-            {"user_id": user_id, "date": date}
-        )
-        if not record:
-            return {"success": False, "message": "No schedule found for today — call plan_schedule first."}
-
-        all_strategies = record.get("all_strategies", [])
-        strategy = next((s for s in all_strategies if s.get("name") == strategy_name), None)
-        if not strategy:
-            available = [s.get("name") for s in all_strategies]
-            return {"success": False, "message": f"Strategy '{strategy_name}' not found. Available: {available}"}
-
-        tasks = strategy.get("tasks", [])
-        await db[Collections.DAILY_SCHEDULES].update_one(
-            {"user_id": user_id, "date": date},
-            {"$set": {"tasks": tasks, "strategy_name": strategy_name, "confirmed": True}},
-        )
-        return {"success": True, "strategy_name": strategy_name, "task_count": len(tasks)}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
+class LLMTask(BaseModel):
+    title: str
+    start_time: str
+    end_time: str
+    type: TaskType
+    location: str | None
+    notes: str | None
 
 
-@traced_tool("plan_schedule")
-async def plan_schedule(
-    user_id: str,
-    target_date: str = "",
-    health_context: dict | None = None,
+class LLMStrategy(BaseModel):
+    name: StrategyName
+    description: str
+    tasks: list[LLMTask]
+    total_focus_hours: float
+    reasoning: str
+
+
+class ScheduleLLMSchema(BaseModel):
+    strategies: list[LLMStrategy]
+    top_recommendation: StrategyName
+    warnings: list[str]
+
+
+LLMJsonCall = Callable[[str, str, type], Awaitable[str]]
+MAX_ATTEMPTS = 2   # first try + one retry (§6.2)
+
+
+async def _llm_json(model: str, prompt: str, schema: type) -> str:
+    """Default LLM transport: Gemini with a response_schema. Tests inject a stub instead."""
+    response = await _genai_client.aio.models.generate_content(
+        model=model,
+        contents=prompt,
+        config=genai.types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=schema,
+            thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
+        ),
+    )
+    return response.text or ""
+
+
+def _retry_prompt(base: str, problems: list[str]) -> str:
+    listed = "\n".join(f"- {p}" for p in problems[:12])
+    return (f"{base}\n\n## Your previous output was rejected\n{listed}\n"
+            f"Fix every problem above and return the complete corrected JSON object.")
+
+
+def _llm_to_output(parsed: ScheduleLLMSchema, target_date: str, now: datetime) -> ScheduleOutput:
+    strategies: list[ScheduleStrategy] = []
+    for s in parsed.strategies:
+        if any(x.name == s.name for x in strategies):
+            continue  # keep the first strategy of each name
+        slug = s.name.lower().replace(" ", "-")
+        tasks = [
+            ScheduleTask(task_id=f"{slug}-{i + 1}", title=t.title.strip(), start_time=t.start_time,
+                         end_time=t.end_time, type=t.type, location=t.location, notes=t.notes)
+            for i, t in enumerate(s.tasks)
+        ]
+        strategies.append(ScheduleStrategy(name=s.name, description=s.description, tasks=tasks,
+                                           total_focus_hours=s.total_focus_hours, reasoning=s.reasoning))
+    names = [x.name for x in strategies]
+    top = parsed.top_recommendation if parsed.top_recommendation in names else (names[0] if names else "")
+    return ScheduleOutput(date=target_date, strategies=strategies, top_recommendation=top,
+                          warnings=list(parsed.warnings), generated_at=now.isoformat(timespec="seconds"))
+
+
+async def generate_schedule(
+    inp: ScheduleInput,
+    *,
     goal_context: dict | None = None,
-    relationship_context: dict | None = None,
-    geo_context: dict | None = None,
-    calendar_events: list | None = None,
-) -> dict:
-    """
-    Generate 3 optimized daily schedule strategies.
-    Respects fixed calendar events, energy windows, goal urgency, and commute constraints.
+    focus_tasks: list[str] | None = None,
+    notes: list[str] | None = None,
+    llm: LLMJsonCall | None = None,
+    now: Callable[[], datetime] | None = None,
+) -> ScheduleOutput:
+    """LLM② for plans — a pure function: no DB writes.
 
-    calendar_events: list of dicts, one per user-mentioned event, each shaped EXACTLY like:
-        {"title": "ML Class", "start_time": "2026-06-08T14:00:00", "end_time": "2026-06-08T16:00:00", "location": "library"}
-    Use the user's exact wording for "title", full ISO 8601 timestamps ("YYYY-MM-DDTHH:MM:SS")
-    for "start_time"/"end_time" (resolve "2PM-4PM" to today's date + 14:00/16:00), and omit
-    "location" entirely if the user didn't give one. Missing or misnamed keys fall back to a
-    generic placeholder, so get the keys right.
+    Calls the LLM with ScheduleLLMSchema, repairs what code can repair (timestamps,
+    overlaps, fixed blocks), validates the §5.3 invariants, retries once with the
+    problems fed back, and raises GenerationFailed if it still isn't valid. It never
+    returns a fallback schedule.
     """
-    if not target_date or target_date.strip().lower() == "today":
-        target_date = date.today().isoformat()
+    from schemas.day_plan import GenerationFailed
+    from services.day_plan_invariants import fixed_blocks_for, missing_fixed_blocks, validate_tasks
 
-    # LLM may serialize dict args as JSON strings
-    if isinstance(goal_context, str):
+    from services.clock import now_local
+    call = llm or _llm_json
+    clock = now or now_local
+    fixed = fixed_blocks_for(inp, clock())
+    base_prompt = _build_prompt(inp, goal_context=goal_context, focus_tasks=focus_tasks, notes=notes)
+    prompt = base_prompt
+    problems: list[str] = []
+
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        raw = None
         try:
-            goal_context = json.loads(goal_context)
-        except Exception:
-            goal_context = None
-    if isinstance(health_context, str):
-        try:
-            health_context = json.loads(health_context)
-        except Exception:
-            health_context = None
-    if isinstance(relationship_context, str):
-        try:
-            relationship_context = json.loads(relationship_context)
-        except Exception:
-            relationship_context = None
+            raw = await call(settings.planning_model, prompt, ScheduleLLMSchema)
+            parsed = ScheduleLLMSchema.model_validate_json(_extract_json(raw))
+            output = _llm_to_output(parsed, inp.date, clock())
+            output = _enforce_constraints(output, inp)
+            output = _validate_and_fix(output, inp)
+            output = output.model_copy(update={"strategies": [
+                s.model_copy(update={"tasks": _unique_task_ids(_place_fixed_blocks(s.tasks, fixed))})
+                for s in output.strategies
+            ]})
+            problems = [] if output.strategies else ["no strategies were returned"]
+            for s in output.strategies:
+                problems += [f"[{s.name}] {v}" for v in
+                             validate_tasks(s.tasks, inp.date) + missing_fixed_blocks(s.tasks, fixed)]
+            if not problems:
+                missing_focus = [f for f in (focus_tasks or [])
+                                 if not any(f.casefold() in t.title.casefold()
+                                            for s in output.strategies for t in s.tasks)]
+                if missing_focus:
+                    output = output.model_copy(update={"warnings": output.warnings + [
+                        f"Not every plan includes: {', '.join(missing_focus)}"]})
+                return output
+        except Exception as e:  # transport error, invalid JSON, schema mismatch, unparsable times
+            problems = [f"{type(e).__name__}: {str(e)[:400]}"]
+        _log.warning("[generate_schedule] attempt %d/%d rejected: %s | raw=%r",
+                     attempt, MAX_ATTEMPTS, problems[:5], (raw or "")[:500])
+        prompt = _retry_prompt(base_prompt, problems)
+
+    raise GenerationFailed(
+        "generation_failed",
+        "I couldn't put together a valid schedule this time, so nothing was changed. Please try again.",
+    )
+
+
+async def build_schedule_input(req) -> tuple[ScheduleInput, dict | None, list[str]]:
+    """Assemble the generator input from code-owned sources (§6.2): preferences, health,
+    goals, today's Google Calendar events and the events the user mentioned this turn.
+    Context sources are best-effort; a failing one is skipped, never invented."""
+    import asyncio
+    from agents.tools.goal_tools import track_goals
+    from agents.tools.health_tools import analyze_health
+    from agents.tools.relationship_tools import get_relationship_context
+    from services.day_plan_service import today_for
 
     mem = MemoryAgent(get_db())
-    prefs = await mem.get_preferences(user_id)
-
-    # Build typed health object
+    prefs, health_raw, goals_raw, rel_raw = await asyncio.gather(
+        mem.get_preferences(req.user_id),
+        analyze_health(req.user_id),
+        track_goals(req.user_id),
+        get_relationship_context(req.user_id),
+        return_exceptions=True,
+    )
+    prefs = prefs if isinstance(prefs, dict) else {}
     health = None
-    if health_context:
+    if isinstance(health_raw, dict):
         try:
-            health = HealthOutput(**health_context)
+            health = HealthOutput(**health_raw)
         except Exception:
-            pass
+            health = None
+    goal_context = goals_raw if isinstance(goals_raw, dict) else None
+    rel = rel_raw if isinstance(rel_raw, dict) else {}
 
-    # Build schedule input
+    events: list[CalendarEvent] = []
+    if req.date == today_for(req.user_id):
+        for i, e in enumerate(rel.get("today_calendar_events") or []):
+            if e.get("title") and e.get("start_time") and e.get("end_time"):
+                events.append(CalendarEvent(
+                    id=f"gcal-{i}", title=e["title"],
+                    start_time=_normalize_timestamp(e["start_time"], req.date),
+                    end_time=_normalize_timestamp(e["end_time"], req.date),
+                    location=e.get("location") or None,
+                ))
+    known = {(e.title, e.start_time) for e in events}
+    events += [e for e in req.new_events if (e.title, e.start_time) not in known]
+
+    notes = [u.get("event", "") for u in rel.get("upcoming_events") or []
+             if u.get("date") == req.date and u.get("event")]
+
+    commute = prefs.get("commute") if isinstance(prefs.get("commute"), dict) else {}
     inp = ScheduleInput(
-        user_id=user_id,
-        date=target_date,
+        user_id=req.user_id,
+        date=req.date,
         health=health,
         user_preferences=UserPreferences(
             preferred_work_hours=prefs.get("focus_window", "9PM-1AM"),
-            commute_minutes=prefs.get("commute", {}).get("library_from_home_min", 30),
+            commute_minutes=commute.get("library_from_home_min", 30),
             break_frequency=90,
         ),
-        calendar_events=[
-            CalendarEvent(
-                id=str(i),
-                title=e.get("title", e.get("name", e.get("summary", "Event"))),
-                start_time=_normalize_timestamp(
-                    e.get("start_time", e.get("start", target_date + "T00:00:00")),
-                    target_date,
-                ),
-                end_time=_normalize_timestamp(
-                    e.get("end_time", e.get("end", target_date + "T01:00:00")),
-                    target_date,
-                ),
-                location=e.get("location"),
-            )
-            for i, e in enumerate(calendar_events or [])
-        ],
+        calendar_events=events,
     )
+    return inp, goal_context, notes
 
-    prompt = _build_prompt(inp, goal_context=goal_context)
-    response = None
 
-    try:
-        response = await _genai_client.aio.models.generate_content(
-            model=settings.planning_model,
-            contents=prompt,
-            config=genai.types.GenerateContentConfig(
-                response_mime_type="application/json",
-                thinking_config=genai.types.ThinkingConfig(thinking_budget=0),
-            ),
-        )
-        cleaned = _extract_json(response.text)
-        output = ScheduleOutput(**json.loads(cleaned))
-        output = _enforce_constraints(output, inp)
-        output = _validate_and_fix(output, inp)
-        result = output.model_dump()
-        await _persist_schedule(user_id, target_date, result)
-        return result
-    except Exception as _e:
-        _log.error("[plan_schedule] failed: %s", _e, exc_info=True)
-        _log.error("[plan_schedule] raw response: %r", response.text if response else "<api call never returned>")
-        return {
-            "date": target_date,
-            "strategies": [],
-            "top_recommendation": None,
-            "warnings": ["Schedule generation failed — please try again."],
-            "error": True,
-        }
+async def build_plan(req, *, llm: LLMJsonCall | None = None):
+    """Production PlanGenerator for DayPlanService: code-built input → generate_schedule."""
+    from schemas.day_plan import GeneratedPlan
+    inp, goal_context, notes = await build_schedule_input(req)
+    output = await generate_schedule(inp, goal_context=goal_context, focus_tasks=req.focus_tasks,
+                                     notes=notes, llm=llm)
+    return GeneratedPlan(output=output, input=inp)

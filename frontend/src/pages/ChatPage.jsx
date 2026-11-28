@@ -44,6 +44,11 @@ const STRATEGY_CONFIG = {
   },
 };
 
+// Local calendar date (YYYY-MM-DD), offset in days.
+function localDate(offsetDays = 0) {
+  return new Date(Date.now() + offsetDays * 86400000).toLocaleDateString('en-CA');
+}
+
 function getStratCfg(name) {
   return STRATEGY_CONFIG[name] || STRATEGY_CONFIG['Most Productive'];
 }
@@ -110,12 +115,13 @@ function Icon({ type, size = 14, color = 'currentColor' }) {
 export default function ChatPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { chatMessages, addMessage, setMessages, refreshSchedule, isSending, setIsSending,
+  const { chatMessages, addMessage, setMessages, refreshSchedule, isSending, setIsSending, noteDayPlan,
           pendingProposal: storedProposal, setPendingProposal: clearStoredProposal } = useStore();
   const isTomorrowMode = searchParams.get('mode') === 'tomorrow';
   const [loadingStep, setLoadingStep]       = useState(0);
+  // { date, proposal } — always taken from a server DayPlan, never assembled locally
   const [pendingProposal, setPendingProposal] = useState(storedProposal ?? null);
-  const [selectedStrategy, setSelectedStrategy] = useState(storedProposal?.data?.top_recommendation ?? null);
+  const [selectedStrategy, setSelectedStrategy] = useState(storedProposal?.proposal?.top_recommendation ?? null);
   const [proposalInput, setProposalInput]   = useState('');
   const [confirming, setConfirming]         = useState(false);
   const [scheduleToast, setScheduleToast]   = useState(null);
@@ -124,6 +130,7 @@ export default function ChatPage() {
   const triggeredRef = useRef(false);
   const toastTimerRef = useRef(null);
   const inputRef     = useRef(null);
+  const dismissedRef = useRef(null);   // proposal_id the user hid with Cancel (local only)
 
   const LOADING_STEPS = [
     'Loading your context…',
@@ -157,6 +164,31 @@ export default function ChatPage() {
     if (isTomorrowMode) setMessages([]);
   }, [isTomorrowMode]);
 
+  // Show whatever proposal is stored server-side for the day on screen
+  useEffect(() => {
+    const userId = storage.getUserId();
+    if (!userId) return;
+    api.getDayPlan(userId, isTomorrowMode ? localDate(1) : undefined)
+      .then((dp) => syncFromDayPlan(dp))
+      .catch(() => {});
+  }, [isTomorrowMode]);
+
+  // The proposal panel mirrors dayPlan.proposal. A DayPlan for another date leaves the panel alone.
+  function syncFromDayPlan(dayPlan, { refresh = true } = {}) {
+    if (!dayPlan) return;
+    const changed = noteDayPlan(dayPlan);
+    if (refresh && changed && dayPlan.date === localDate(0)) refreshSchedule(storage.getUserId());
+    const p = dayPlan.proposal;
+    if (p && p.proposal_id !== dismissedRef.current) {
+      if (pendingProposal?.proposal?.proposal_id !== p.proposal_id) {
+        setSelectedStrategy(p.top_recommendation || null);
+      }
+      setPendingProposal({ date: dayPlan.date, proposal: p });
+    } else {
+      setPendingProposal((cur) => (cur && cur.date !== dayPlan.date ? cur : null));
+    }
+  }
+
   function showToast(message) {
     setScheduleToast(message);
     setToastKey((k) => k + 1);
@@ -188,16 +220,15 @@ export default function ChatPage() {
     const sessionId = storage.getSessionId();
     addMessage({ role: 'user', text });
     setIsSending(true);
-    setPendingProposal(null);
     try {
       const res = await api.chat(userId, text, sessionId);
       if (!sessionId && res.session_id) storage.setSessionId(res.session_id);
       addMessage({ role: 'agent', text: res.reply });
-      if (res.pending_proposal) {
-        setPendingProposal(res.pending_proposal);
-        setSelectedStrategy(res.pending_proposal.data?.top_recommendation || null);
+      syncFromDayPlan(res.day_plan);
+      if (res.error?.code === 'concurrent_modification' && pendingProposal) {
+        // the proposal on screen may be stale — reload that day's state
+        api.getDayPlan(userId, pendingProposal.date).then((dp) => syncFromDayPlan(dp)).catch(() => {});
       }
-      if (res.schedule_updated) refreshSchedule(userId);
     } catch {
       addMessage({ role: 'agent', text: 'Sorry, something went wrong. Please try again.' });
     } finally {
@@ -216,39 +247,44 @@ export default function ChatPage() {
   async function handleConfirm(strategyName) {
     if (!pendingProposal || confirming) return;
     const userId = storage.getUserId();
-    const effectiveStrategy = strategyName || selectedStrategy || pendingProposal.data?.top_recommendation;
+    const { date, proposal } = pendingProposal;
+    const effectiveStrategy = strategyName || selectedStrategy || proposal.top_recommendation;
     if (strategyName) setSelectedStrategy(strategyName);
     setConfirming(true);
-    const proposalData = effectiveStrategy && pendingProposal.data?.strategies
-      ? { ...pendingProposal.data, top_recommendation: effectiveStrategy }
-      : pendingProposal.data;
     try {
-      await api.confirmSchedule(
-        userId,
-        pendingProposal.date || new Date().toISOString().slice(0, 10),
-        proposalData,
-        pendingProposal.type,
-      );
-      await refreshSchedule(userId);
+      // Only the proposal id + chosen strategy are sent; the server takes the tasks from its own copy.
+      const res = await api.confirmSchedule(userId, date, proposal.proposal_id, effectiveStrategy);
+      syncFromDayPlan(res.day_plan, { refresh: false });
+      const isToday = date === localDate(0);
+      if (isToday) await refreshSchedule(userId);
       storage.setLastFeedbackDate(null);
-      showToast('Schedule updated for today');
+      showToast(isToday ? 'Schedule updated for today' : 'Schedule saved');
       // Fixed confirmation message — no LLM call needed
-      const label = effectiveStrategy || 'your new';
+      const label = res.day_plan?.active?.strategy_name || effectiveStrategy || 'your new';
       addMessage({
         role: 'agent',
-        text: `Done — the **${label}** plan is locked in for today. Head to **Today** to see your updated schedule.`,
+        text: isToday
+          ? `Done — the **${label}** plan is locked in for today. Head to **Today** to see your updated schedule.`
+          : `Done — the **${label}** plan is locked in for ${date}.`,
       });
-    } catch {
-      showToast('Could not save schedule — please try again.');
+      setProposalInput('');
+    } catch (err) {
+      if (err?.code) {
+        // invalid_transition / concurrent_modification: tell the user and resync with the server
+        addMessage({ role: 'agent', text: err.message });
+        api.getDayPlan(userId, date).then((dp) => syncFromDayPlan(dp)).catch(() => {});
+      } else {
+        showToast('Could not save schedule — please try again.');
+      }
     } finally {
       setConfirming(false);
-      setPendingProposal(null);
-      setSelectedStrategy(null);
-      setProposalInput('');
     }
   }
 
   function handleCancel() {
+    // Local hide only — the server keeps the proposal (there is no discard endpoint);
+    // saying "never mind" in chat discards it for real.
+    dismissedRef.current = pendingProposal?.proposal?.proposal_id ?? null;
     setPendingProposal(null);
     setSelectedStrategy(null);
     setProposalInput('');
@@ -265,7 +301,8 @@ export default function ChatPage() {
     weekday: 'long', month: 'long', day: 'numeric',
   }).format(isTomorrowMode ? new Date(Date.now() + 86400000) : new Date());
 
-  const strategies = pendingProposal?.data?.strategies;
+  const proposal = pendingProposal?.proposal;
+  const strategies = proposal?.strategies;
   const isMultiStrategy = strategies?.length > 1;
 
   return (
@@ -468,8 +505,8 @@ export default function ChatPage() {
             }}>
               {strategies.map((s) => {
                 const cfg = getStratCfg(s.name);
-                const isSelected = (selectedStrategy || pendingProposal.data?.top_recommendation) === s.name;
-                const isRecommended = pendingProposal.data?.top_recommendation === s.name;
+                const isSelected = (selectedStrategy || proposal?.top_recommendation) === s.name;
+                const isRecommended = proposal?.top_recommendation === s.name;
                 const isConfirmingThis = confirming && (selectedStrategy === s.name || (!selectedStrategy && isRecommended));
 
                 return (
@@ -612,9 +649,9 @@ export default function ChatPage() {
           ) : (
             /* Single-strategy fallback: original pill buttons */
             <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-              {(pendingProposal.data?.strategies || []).map((s) => {
-                const isSelected = (selectedStrategy || pendingProposal.data?.top_recommendation) === s.name;
-                const isRecommended = pendingProposal.data?.top_recommendation === s.name;
+              {(proposal?.strategies || []).map((s) => {
+                const isSelected = (selectedStrategy || proposal?.top_recommendation) === s.name;
+                const isRecommended = proposal?.top_recommendation === s.name;
                 return (
                   <button
                     key={s.name}
