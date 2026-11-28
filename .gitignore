@@ -54,3 +54,7 @@ agents/health_agent/memory/
 .claude/
 .mcp.json
 .codex/config.toml
+
+# Local AI agent skills (installed per developer, not project source)
+.agents/
+skills-lock.json
